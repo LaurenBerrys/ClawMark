@@ -1,0 +1,10 @@
+{
+  "name": "@openclaw/openviking-context-bridge",
+  "version": "2026.1.29",
+  "description": "OpenViking-backed layered retrieval bridge plugin for OpenClaw",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "openclaw-codex-control",
+  "name": "OpenClaw Codex Control",
+  "description": "Injects a Codex account/profile switcher into the built-in OpenClaw Control UI and exposes HTTP APIs for profile rotation.",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "routeBase": {
+        "type": "string",
+        "default": "/plugins/openclaw-codex-control",
+        "description": "Base route used to serve the Control UI injection script and Codex profile APIs."
+      }
+    }
+  },
+  "uiHints": {
+    "routeBase": {
+      "label": "Route Base",
+      "placeholder": "/plugins/openclaw-codex-control"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@openclaw/safe-config-generator",
+  "version": "2026.1.29",
+  "description": "Local-only OpenClaw config generator plugin",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

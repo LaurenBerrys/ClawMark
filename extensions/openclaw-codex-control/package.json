@@ -1,0 +1,10 @@
+{
+  "name": "@openclaw/openclaw-codex-control",
+  "version": "2026.1.29",
+  "description": "Codex profile control and managed runtime prototype plugin for OpenClaw",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

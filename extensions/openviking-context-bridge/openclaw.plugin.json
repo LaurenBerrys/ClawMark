@@ -1,0 +1,47 @@
+{
+  "id": "openviking-context-bridge",
+  "name": "OpenViking Context Bridge",
+  "version": "0.1.0",
+  "description": "OpenViking-backed layered retrieval with keyword fallback for OpenClaw",
+  "main": "index.js",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "serverUrl": {
+        "type": "string"
+      },
+      "targetUri": {
+        "type": "string"
+      },
+      "semanticTopK": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "keywordTopK": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "detailTopK": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "syncIntervalMs": {
+        "type": "integer",
+        "minimum": 1000
+      },
+      "requestTimeoutMs": {
+        "type": "integer",
+        "minimum": 500
+      },
+      "maxBlockChars": {
+        "type": "integer",
+        "minimum": 512
+      },
+      "excerptChars": {
+        "type": "integer",
+        "minimum": 64
+      }
+    },
+    "additionalProperties": false
+  }
+}
