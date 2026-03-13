@@ -25,6 +25,7 @@ export type FormalMemoryType = (typeof FORMAL_MEMORY_TYPES)[number];
 export type TaskPriority = "low" | "normal" | "high";
 export type BudgetMode = "strict" | "balanced" | "deep";
 export type RetrievalMode = "off" | "light" | "deep";
+export type TaskReportPolicy = "silent" | "reply" | "proactive" | "reply_and_proactive";
 
 export const TASK_STATUSES = [
   "queued",
@@ -46,6 +47,10 @@ export type GovernanceState = "blocked" | "shadow" | "candidate" | "adopted" | "
 export type GovernanceRegistryType = "skill" | "agent" | "mcp";
 
 export type EvolutionCandidateType =
+  | "route_default_lane"
+  | "route_skill_bundle"
+  | "retry_policy_review"
+  | "intel_source_reweight"
   | "model_route"
   | "skill_bundle"
   | "retry_policy"
@@ -78,7 +83,11 @@ export type MemoryRecord = SourceLineage &
     summary: string;
     detail?: string;
     scope?: string;
+    appliesWhen?: string;
+    avoidWhen?: string;
     tags: string[];
+    lastReinforcedAt?: number;
+    decayScore?: number;
     createdAt: number;
     updatedAt: number;
     metadata?: RuntimeMetadata;
@@ -93,7 +102,11 @@ export type StrategyRecord = SourceLineage &
     skillIds: string[];
     summary: string;
     fallback?: string;
+    triggerConditions?: string;
+    recommendedPath?: string;
+    fallbackPath?: string;
     thinkingLane: ThinkingLane;
+    measuredEffect?: RuntimeMetadata;
     createdAt: number;
     updatedAt: number;
     metadata?: RuntimeMetadata;
@@ -138,12 +151,21 @@ export type TaskRecord = {
   priority: TaskPriority;
   budgetMode: BudgetMode;
   retrievalMode: RetrievalMode;
+  goal?: string;
+  successCriteria?: string;
+  tags?: string[];
   worker?: string;
   skillIds: string[];
   memoryRefs: string[];
   intelRefs: string[];
   recurring: boolean;
   maintenance: boolean;
+  planSummary?: string;
+  nextAction?: string;
+  blockedReason?: string;
+  lastError?: string;
+  reportPolicy?: TaskReportPolicy;
+  nextRunAt?: number;
   leaseOwner?: string;
   leaseExpiresAt?: number;
   activeRunId?: string;
@@ -475,4 +497,66 @@ export type CapabilityGovernanceSnapshot = {
   entries: GovernanceRegistryEntry[];
   generatedAt: number;
   metadata?: RuntimeMetadata;
+};
+
+export type RuntimeTaskDefaults = {
+  defaultBudgetMode: BudgetMode;
+  defaultRetrievalMode: RetrievalMode;
+  maxInputTokensPerTurn: number;
+  maxContextChars: number;
+  maxRemoteCallsPerTask: number;
+};
+
+export type RuntimeTaskStore = {
+  version: "v1";
+  defaults: RuntimeTaskDefaults;
+  tasks: TaskRecord[];
+  runs: TaskRun[];
+  steps: TaskStep[];
+  reviews: TaskReview[];
+  lastImportedAt?: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type RuntimeMemoryStore = {
+  version: "v1";
+  memories: MemoryRecord[];
+  strategies: StrategyRecord[];
+  metaLearning: MetaLearningRecord[];
+  evolutionMemory: EvolutionMemoryRecord[];
+  lastImportedAt?: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type RuntimeIntelStore = {
+  version: "v1";
+  enabled: boolean;
+  digestEnabled: boolean;
+  candidateLimitPerDomain: number;
+  digestItemLimitPerDomain: number;
+  exploitItemsPerDigest: number;
+  exploreItemsPerDigest: number;
+  candidates: IntelCandidate[];
+  digestItems: IntelDigestItem[];
+  sourceProfiles: IntelSourceProfile[];
+  topicProfiles: IntelTopicProfile[];
+  usefulnessRecords: IntelUsefulnessRecord[];
+  pinnedRecords: ManualPinnedIntelRecord[];
+  lastImportedAt?: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type RuntimeGovernanceStore = {
+  version: "v1";
+  entries: GovernanceRegistryEntry[];
+  shadowEvaluations: ShadowEvaluationRecord[];
+  lastImportedAt?: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type RuntimeEventRecord = {
+  id: string;
+  type: string;
+  createdAt: number;
+  payload?: RuntimeMetadata;
 };

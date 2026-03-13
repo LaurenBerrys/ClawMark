@@ -9,6 +9,7 @@ import {
   resolvePathWithHome,
 } from "../../instance/paths.js";
 import { resolveRuntimeServiceVersion } from "../../version.js";
+import { syncRuntimeCapabilityRegistry } from "./capability-plane.js";
 import {
   FORMAL_MEMORY_TYPES,
   MEMORY_LAYERS,
@@ -17,13 +18,25 @@ import {
   type InstanceManifest,
   type IntelCandidate,
   type IntelDigestEnvelope,
+  type RuntimeGovernanceStore,
+  type RuntimeIntelStore,
+  type RuntimeMemoryStore,
   type RuntimeManifest,
   type RuntimeMetadata,
+  type RuntimeTaskStore,
   type StrategyDigestEnvelope,
   type StrategyRecord,
   type TaskRecord,
   type TaskStatus,
 } from "./contracts.js";
+import {
+  loadRuntimeGovernanceStore,
+  loadRuntimeIntelStore,
+  loadRuntimeMemoryStore,
+  loadRuntimeTaskStore,
+  saveRuntimeStoreBundle,
+} from "./store.js";
+import { buildTaskRecordSnapshot } from "./task-artifacts.js";
 import {
   buildTaskStatusCounts,
   compareTaskQueueOrder,
@@ -37,6 +50,23 @@ const LEGACY_RUNTIME_DIRNAME = ".openclaw";
 const LEGACY_MANAGED_STATE_DIRNAME = "openclaw-codex-control";
 const IMPORTS_ROOT_SEGMENTS = ["imports", "legacy-runtime"] as const;
 const FEDERATION_ROOT_SEGMENTS = ["federation"] as const;
+const DEFAULT_FEDERATION_ALLOWED_PUSH_SCOPES = [
+  "shareable_derived",
+  "review_summary",
+  "metrics",
+  "shadow_telemetry",
+  "strategy_digest",
+  "intel_digest",
+] as const;
+const DEFAULT_FEDERATION_BLOCKED_PUSH_SCOPES = [
+  "raw_chat",
+  "secrets",
+  "durable_private_memory_dump",
+] as const;
+const KNOWN_FEDERATION_PUSH_SCOPES = [
+  ...DEFAULT_FEDERATION_ALLOWED_PUSH_SCOPES,
+  ...DEFAULT_FEDERATION_BLOCKED_PUSH_SCOPES,
+] as const;
 
 type RuntimeStateOptions = {
   env?: Record<string, string | undefined>;
@@ -48,19 +78,32 @@ type RuntimeStateOptions = {
 type LegacyAutopilotTask = Record<string, unknown> & {
   id?: string;
   title?: string;
+  goal?: string;
+  successCriteria?: string;
   route?: string;
+  taskKind?: string;
   status?: string;
   priority?: string;
   budgetMode?: string;
   retrievalMode?: string;
+  assignee?: string;
   skillHints?: string[];
   memoryRefs?: string[];
   intelRefs?: string[];
   recurring?: boolean;
   maintenance?: boolean;
+  planSummary?: string;
   blockedReason?: string;
   nextAction?: string;
+  lastError?: string;
+  reportPolicy?: string;
   tags?: string[];
+  notes?: string;
+  source?: string;
+  workspace?: string;
+  delivery?: Record<string, unknown>;
+  sourceMeta?: Record<string, unknown>;
+  intakeText?: string;
   createdAt?: number;
   updatedAt?: number;
   nextRunAt?: number;
@@ -74,6 +117,7 @@ type LegacyAutopilotState = {
   version?: number;
   config?: {
     enabled?: boolean;
+    localFirst?: boolean;
     heartbeatEnabled?: boolean;
     defaultBudgetMode?: string;
     defaultRetrievalMode?: string;
@@ -91,8 +135,19 @@ type LegacyMemoryEntry = {
   scope?: string;
   route?: string;
   summary?: string;
+  detail?: string;
+  appliesWhen?: string;
+  avoidWhen?: string;
+  tags?: string[];
   confidence?: number;
+  version?: number;
   invalidatedBy?: string[];
+  sourceEventIds?: string[];
+  sourceTaskIds?: string[];
+  sourceIntelIds?: string[];
+  derivedFromMemoryIds?: string[];
+  lastReinforcedAt?: number;
+  decayScore?: number;
   updatedAt?: number;
   createdAt?: number;
 };
@@ -102,7 +157,20 @@ type LegacyStrategyEntry = {
   route?: string;
   worker?: string;
   summary?: string;
+  fallback?: string;
+  triggerConditions?: string;
+  recommendedPath?: string;
+  fallbackPath?: string;
+  thinkingLane?: string;
+  skillIds?: string[];
   confidence?: number;
+  version?: number;
+  invalidatedBy?: string[];
+  sourceEventIds?: string[];
+  sourceTaskIds?: string[];
+  sourceIntelIds?: string[];
+  derivedFromMemoryIds?: string[];
+  measuredEffect?: Record<string, unknown>;
   updatedAt?: number;
   createdAt?: number;
 };
@@ -173,7 +241,17 @@ type LegacyEvolutionCandidate = {
   targetLayer?: string;
   candidateType?: string;
   candidateRef?: string;
+  expectedEffect?: Record<string, unknown>;
+  measuredEffect?: Record<string, unknown>;
+  shadowMetrics?: Record<string, unknown>;
   adoptionState?: string;
+  notes?: string;
+  sourceTaskIds?: string[];
+  sourceEventIds?: string[];
+  sourceIntelIds?: string[];
+  derivedFromMemoryIds?: string[];
+  invalidatedBy?: string[];
+  lastShadowAt?: number;
   updatedAt?: number;
   createdAt?: number;
 };
@@ -186,6 +264,32 @@ type LegacyEvolutionState = {
     reviewIntervalHours?: number;
   };
   candidates?: LegacyEvolutionCandidate[];
+};
+
+type LegacySkillGovernanceEntry = {
+  id?: string;
+  title?: string;
+  origin?: string;
+  path?: string;
+  routeAffinity?: string;
+  sideEffectLevel?: string;
+  tokenProfile?: string;
+  trustClass?: string;
+  adoptionState?: string;
+  notes?: string;
+  findings?: string[];
+  lastAuditedAt?: number;
+  updatedAt?: number;
+};
+
+type LegacySkillGovernanceState = {
+  version?: number;
+  scannedAt?: number;
+  rules?: {
+    enforceDecisionFilter?: boolean;
+    allowedDecisionStates?: string[];
+  };
+  skills?: LegacySkillGovernanceEntry[];
 };
 
 export type CapabilityPolicyPreset = "managed_high" | "balanced" | "custom";
@@ -353,8 +457,8 @@ export type LegacyRuntimeImportApplyResult = {
 
 export type FederationRuntimeSnapshot = {
   generatedAt: number;
-  enabled: true;
-  remoteConfigured: false;
+  enabled: boolean;
+  remoteConfigured: boolean;
   manifest: RuntimeManifest;
   outboxRoot: string;
   assignmentsRoot: string;
@@ -395,6 +499,8 @@ type LegacyRuntimeLocation = {
   extensionsRoot: string;
 };
 
+const RUNTIME_INTEL_DOMAIN_ORDER = ["tech", "ai", "business", "github"] as const;
+
 function resolveNow(now?: number): number {
   return Number.isFinite(now) ? Number(now) : Date.now();
 }
@@ -410,12 +516,142 @@ function toArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const value of values) {
+    const text = toStringValue(value).trim();
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(text);
+  }
+  return output;
+}
+
 function toNumber(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function toStringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function normalizeConfidencePercent(value: unknown, fallback = 0): number {
+  const numeric = toNumber(value, fallback);
+  if (numeric <= 1) {
+    return Math.max(0, Math.min(100, Math.round(numeric * 100)));
+  }
+  return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
+function hashText(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function normalizeLegacyBudgetMode(value: unknown): TaskRecord["budgetMode"] {
+  const normalized = toStringValue(value).trim().toLowerCase();
+  if (normalized === "strict" || normalized === "balanced" || normalized === "deep") {
+    return normalized;
+  }
+  return "balanced";
+}
+
+function normalizeLegacyRetrievalMode(value: unknown): TaskRecord["retrievalMode"] {
+  const normalized = toStringValue(value).trim().toLowerCase();
+  if (normalized === "off" || normalized === "light" || normalized === "deep") {
+    return normalized;
+  }
+  return "light";
+}
+
+function normalizeLegacyPriority(value: unknown): TaskRecord["priority"] {
+  const normalized = toStringValue(value).trim().toLowerCase();
+  if (normalized === "high" || normalized === "low" || normalized === "normal") {
+    return normalized;
+  }
+  return "normal";
+}
+
+function normalizeLegacyThinkingLane(value: unknown): StrategyRecord["thinkingLane"] {
+  return toStringValue(value).trim().toLowerCase() === "system2" ? "system2" : "system1";
+}
+
+function normalizeEvolutionCandidateType(
+  value: unknown,
+): RuntimeMemoryStore["evolutionMemory"][number]["candidateType"] {
+  const normalized = toStringValue(value).trim().toLowerCase();
+  if (
+    normalized === "route_default_lane" ||
+    normalized === "route_skill_bundle" ||
+    normalized === "retry_policy_review" ||
+    normalized === "intel_source_reweight" ||
+    normalized === "model_route" ||
+    normalized === "skill_bundle" ||
+    normalized === "retry_policy" ||
+    normalized === "intel_source" ||
+    normalized === "strategy_refresh" ||
+    normalized === "prompt_context_policy" ||
+    normalized === "worker_routing"
+  ) {
+    return normalized;
+  }
+  return "strategy_refresh";
+}
+
+function normalizeEvolutionTargetLayer(
+  value: unknown,
+): RuntimeMemoryStore["evolutionMemory"][number]["targetLayer"] {
+  const normalized = toStringValue(value).trim().toLowerCase();
+  if (
+    normalized === "decision" ||
+    normalized === "task_loop" ||
+    normalized === "intel" ||
+    normalized === "retrieval" ||
+    normalized === "governance"
+  ) {
+    return normalized;
+  }
+  return "decision";
+}
+
+function normalizeEvolutionAdoptionState(
+  value: unknown,
+): RuntimeMemoryStore["evolutionMemory"][number]["adoptionState"] {
+  const normalized = toStringValue(value).trim().toLowerCase();
+  if (normalized === "shadow" || normalized === "candidate" || normalized === "adopted") {
+    return normalized;
+  }
+  return "shadow";
+}
+
+function normalizeLegacyGovernanceState(value: unknown): GovernanceState {
+  const normalized = toStringValue(value).trim().toLowerCase();
+  if (
+    normalized === "blocked" ||
+    normalized === "shadow" ||
+    normalized === "candidate" ||
+    normalized === "adopted" ||
+    normalized === "core"
+  ) {
+    return normalized;
+  }
+  return "shadow";
+}
+
+function mapShadowEvaluationStateToGovernanceState(value: unknown): GovernanceState | null {
+  const normalized = toStringValue(value).trim().toLowerCase();
+  if (normalized === "shadow" || normalized === "observed") return "shadow";
+  if (normalized === "promoted") return "candidate";
+  if (normalized === "adopted") return "adopted";
+  if (normalized === "reverted") return "blocked";
+  return null;
 }
 
 function readJsonFile<T>(filePath: string): T | null {
@@ -514,6 +750,440 @@ function loadLegacyEvolutionState(location: LegacyRuntimeLocation): LegacyEvolut
   );
 }
 
+function loadLegacySkillGovernanceState(
+  location: LegacyRuntimeLocation,
+): LegacySkillGovernanceState | null {
+  return readJsonFile<LegacySkillGovernanceState>(
+    joinResolvedPath(location.managedStateRoot, "skill-governance.json"),
+  );
+}
+
+function buildImportedTaskStore(location: LegacyRuntimeLocation, now: number): RuntimeTaskStore {
+  const autopilot = loadLegacyAutopilotState(location);
+  const tasks = toArray<LegacyAutopilotTask>(autopilot?.tasks).map((task) =>
+    buildTaskRecordSnapshot(
+      {
+        id: toStringValue(task.id) || undefined,
+        title: toStringValue(task.title || task.goal, "Untitled task"),
+        goal: toStringValue(task.goal) || undefined,
+        successCriteria: toStringValue(task.successCriteria) || undefined,
+        route: toStringValue(task.route || task.taskKind, "general"),
+        status: toStringValue(task.status, "queued"),
+        priority: normalizeLegacyPriority(task.priority),
+        budgetMode: normalizeLegacyBudgetMode(task.budgetMode),
+        retrievalMode: normalizeLegacyRetrievalMode(task.retrievalMode),
+        tags: toArray<string>(task.tags).filter((value) => typeof value === "string"),
+        worker: toStringValue(task.assignee) || undefined,
+        skillIds: toArray<string>(task.skillHints).filter((value) => typeof value === "string"),
+        memoryRefs: toArray<string>(task.memoryRefs).filter((value) => typeof value === "string"),
+        intelRefs: toArray<string>(task.intelRefs).filter((value) => typeof value === "string"),
+        recurring: task.recurring === true,
+        maintenance: task.maintenance === true,
+        planSummary: toStringValue(task.planSummary) || undefined,
+        nextAction: toStringValue(task.nextAction) || undefined,
+        blockedReason: toStringValue(task.blockedReason) || undefined,
+        lastError: toStringValue(task.lastError) || undefined,
+        reportPolicy: toStringValue(task.reportPolicy) || undefined,
+        nextRunAt:
+          typeof task.nextRunAt === "number" && Number.isFinite(task.nextRunAt)
+            ? task.nextRunAt
+            : undefined,
+        createdAt: toNumber(task.createdAt, now),
+        updatedAt: toNumber(task.updatedAt, toNumber(task.createdAt, now)),
+        metadata: {
+          ...(toRecord(task.runState) == null
+            ? {}
+            : {
+                runtimeTask: {
+                  runState: toRecord(task.runState),
+                },
+                lastThinkingLane:
+                  toStringValue(toRecord(task.runState)?.lastThinkingLane) || undefined,
+                remoteCallCount: toNumber(toRecord(task.runState)?.remoteCallCount, 0) || undefined,
+              }),
+          taskContext: {
+            notes: toStringValue(task.notes) || undefined,
+            source: toStringValue(task.source) || undefined,
+            workspace: toStringValue(task.workspace) || undefined,
+            delivery: toRecord(task.delivery) ?? undefined,
+            sourceMeta: toRecord(task.sourceMeta) ?? undefined,
+            intakeText: toStringValue(task.intakeText) || undefined,
+          },
+        },
+      },
+      now,
+    ),
+  );
+
+  return {
+    version: "v1",
+    defaults: {
+      defaultBudgetMode: normalizeLegacyBudgetMode(autopilot?.config?.defaultBudgetMode),
+      defaultRetrievalMode: normalizeLegacyRetrievalMode(autopilot?.config?.defaultRetrievalMode),
+      maxInputTokensPerTurn: toNumber(autopilot?.config?.maxInputTokensPerTurn, 6000),
+      maxContextChars: toNumber(autopilot?.config?.maxContextChars, 9000),
+      maxRemoteCallsPerTask: toNumber(autopilot?.config?.maxRemoteCallsPerTask, 6),
+    },
+    tasks,
+    runs: [],
+    steps: [],
+    reviews: [],
+    lastImportedAt: now,
+    metadata: {
+      autopilot: {
+        enabled: autopilot?.config?.enabled !== false,
+        localFirst: autopilot?.config?.localFirst !== false,
+        heartbeatEnabled: autopilot?.config?.heartbeatEnabled !== false,
+        dailyRemoteTokenBudget: toNumber(autopilot?.config?.dailyRemoteTokenBudget, 250000),
+      },
+    },
+  };
+}
+
+function buildImportedMemoryStore(
+  location: LegacyRuntimeLocation,
+  now: number,
+): RuntimeMemoryStore {
+  const memoryState = loadLegacyMemoryState(location);
+  const evolutionState = loadLegacyEvolutionState(location);
+  return {
+    version: "v1",
+    memories: toArray<LegacyMemoryEntry>(memoryState?.memories).map((entry) => ({
+      id: toStringValue(entry.id, "memory-unknown"),
+      layer: "memories",
+      memoryType: normalizeMemoryType(entry.memoryType),
+      route: toStringValue(entry.route) || undefined,
+      scope: toStringValue(entry.scope) || undefined,
+      summary: toStringValue(entry.summary, "No summary"),
+      detail: toStringValue(entry.detail) || undefined,
+      appliesWhen: toStringValue(entry.appliesWhen) || undefined,
+      avoidWhen: toStringValue(entry.avoidWhen) || undefined,
+      tags: toArray<string>(entry.tags).filter((value) => typeof value === "string"),
+      confidence: normalizeConfidencePercent(entry.confidence, 0),
+      version: toNumber(entry.version, 1),
+      invalidatedBy: toArray<string>(entry.invalidatedBy).filter(
+        (value) => typeof value === "string",
+      ),
+      sourceEventIds: toArray<string>(entry.sourceEventIds).filter(
+        (value) => typeof value === "string",
+      ),
+      sourceTaskIds: toArray<string>(entry.sourceTaskIds).filter(
+        (value) => typeof value === "string",
+      ),
+      sourceIntelIds: toArray<string>(entry.sourceIntelIds).filter(
+        (value) => typeof value === "string",
+      ),
+      derivedFromMemoryIds: toArray<string>(entry.derivedFromMemoryIds).filter(
+        (value) => typeof value === "string",
+      ),
+      lastReinforcedAt:
+        toNumber(entry.lastReinforcedAt, toNumber(entry.updatedAt, now)) || undefined,
+      decayScore: toNumber(entry.decayScore, 0),
+      createdAt: toNumber(entry.createdAt, now),
+      updatedAt: toNumber(entry.updatedAt, toNumber(entry.createdAt, now)),
+    })),
+    strategies: toArray<LegacyStrategyEntry>(memoryState?.strategies).map((entry) => ({
+      id: toStringValue(entry.id, "strategy-unknown"),
+      layer: "strategies",
+      route: toStringValue(entry.route, "general"),
+      worker: toStringValue(entry.worker, "main"),
+      skillIds: toArray<string>(entry.skillIds).filter((value) => typeof value === "string"),
+      summary: toStringValue(entry.summary, "No strategy summary"),
+      fallback: toStringValue(entry.fallback) || undefined,
+      triggerConditions: toStringValue(entry.triggerConditions) || undefined,
+      recommendedPath: toStringValue(entry.recommendedPath) || undefined,
+      fallbackPath: toStringValue(entry.fallbackPath) || undefined,
+      thinkingLane: normalizeLegacyThinkingLane(entry.thinkingLane),
+      confidence: normalizeConfidencePercent(entry.confidence, 0),
+      version: toNumber(entry.version, 1),
+      invalidatedBy: toArray<string>(entry.invalidatedBy).filter(
+        (value) => typeof value === "string",
+      ),
+      sourceEventIds: toArray<string>(entry.sourceEventIds).filter(
+        (value) => typeof value === "string",
+      ),
+      sourceTaskIds: toArray<string>(entry.sourceTaskIds).filter(
+        (value) => typeof value === "string",
+      ),
+      sourceIntelIds: toArray<string>(entry.sourceIntelIds).filter(
+        (value) => typeof value === "string",
+      ),
+      derivedFromMemoryIds: toArray<string>(entry.derivedFromMemoryIds).filter(
+        (value) => typeof value === "string",
+      ),
+      measuredEffect: toRecord(entry.measuredEffect) ?? undefined,
+      createdAt: toNumber(entry.createdAt, now),
+      updatedAt: toNumber(entry.updatedAt, toNumber(entry.createdAt, now)),
+    })),
+    metaLearning: toArray<Record<string, unknown>>(memoryState?.learnings).map((entry, index) => ({
+      id: toStringValue(entry.id, `meta-learning-${index}`),
+      layer: "meta_learning",
+      summary: toStringValue(entry.summary || entry.observedPattern, "Imported legacy learning"),
+      hypothesis: toStringValue(entry.hypothesis) || undefined,
+      adoptedAs:
+        toStringValue(entry.adoptedAs) === "strategy" ||
+        toStringValue(entry.adoptedAs) === "memory" ||
+        toStringValue(entry.adoptedAs) === "policy" ||
+        toStringValue(entry.adoptedAs) === "shadow"
+          ? (toStringValue(entry.adoptedAs) as "strategy" | "memory" | "policy" | "shadow")
+          : undefined,
+      sourceTaskIds: toArray<string>(entry.sourceTaskIds).filter(
+        (value) => typeof value === "string",
+      ),
+      sourceReviewIds: toArray<string>(entry.sourceReviewIds).filter(
+        (value) => typeof value === "string",
+      ),
+      sourceMemoryIds: toArray<string>(entry.sourceMemoryIds).filter(
+        (value) => typeof value === "string",
+      ),
+      createdAt: toNumber(entry.createdAt, now),
+      updatedAt: toNumber(entry.updatedAt, toNumber(entry.createdAt, now)),
+      metadata: toRecord(entry) ?? undefined,
+    })),
+    evolutionMemory: toArray<LegacyEvolutionCandidate>(evolutionState?.candidates).map(
+      (candidate, index) => ({
+        id: toStringValue(candidate.id, `evolution-${index}`),
+        layer: "evolution_memory",
+        candidateType: normalizeEvolutionCandidateType(candidate.candidateType),
+        targetLayer: normalizeEvolutionTargetLayer(candidate.targetLayer),
+        summary: toStringValue(candidate.notes, "Imported legacy evolution candidate"),
+        adoptionState: normalizeEvolutionAdoptionState(candidate.adoptionState),
+        baselineRef: undefined,
+        candidateRef: toStringValue(candidate.candidateRef) || undefined,
+        sourceTaskIds: toArray<string>(candidate.sourceTaskIds).filter(
+          (value) => typeof value === "string",
+        ),
+        sourceReviewIds: [],
+        sourceShadowTelemetryIds: [],
+        createdAt: toNumber(candidate.createdAt, now),
+        updatedAt: toNumber(candidate.updatedAt, toNumber(candidate.createdAt, now)),
+        metadata: {
+          expectedEffect: toRecord(candidate.expectedEffect) ?? undefined,
+          measuredEffect: toRecord(candidate.measuredEffect) ?? undefined,
+          shadowMetrics: toRecord(candidate.shadowMetrics) ?? undefined,
+          sourceEventIds: toArray<string>(candidate.sourceEventIds).filter(
+            (value) => typeof value === "string",
+          ),
+          sourceIntelIds: toArray<string>(candidate.sourceIntelIds).filter(
+            (value) => typeof value === "string",
+          ),
+          derivedFromMemoryIds: toArray<string>(candidate.derivedFromMemoryIds).filter(
+            (value) => typeof value === "string",
+          ),
+          invalidatedBy: toArray<string>(candidate.invalidatedBy).filter(
+            (value) => typeof value === "string",
+          ),
+          lastShadowAt: toNumber(candidate.lastShadowAt, 0) || undefined,
+        },
+      }),
+    ),
+    lastImportedAt: now,
+  };
+}
+
+function buildImportedIntelStore(location: LegacyRuntimeLocation, now: number): RuntimeIntelStore {
+  const intel = loadLegacyIntelState(location);
+  const domains = toArray<LegacyIntelDomain>(intel?.domains);
+  const candidates = toArray<LegacyIntelItem>(intel?.items).map((item) => ({
+    id: toStringValue(item.id, "intel-unknown"),
+    domain:
+      item.domain === "tech" ||
+      item.domain === "ai" ||
+      item.domain === "business" ||
+      item.domain === "github"
+        ? item.domain
+        : "tech",
+    sourceId: toStringValue(item.sourceId, "legacy-source"),
+    title: toStringValue(item.title, "Untitled intel"),
+    url: toStringValue(item.url) || undefined,
+    summary: toStringValue(item.summary) || undefined,
+    score: toNumber(item.overallScore, 0),
+    selected: item.selectedForDigest === true,
+    createdAt: toNumber(item.deliveredAt, toNumber(item.fetchedAt, now)),
+  }));
+
+  return {
+    version: "v1",
+    enabled: intel?.config?.enabled !== false,
+    digestEnabled: intel?.config?.digestEnabled !== false,
+    candidateLimitPerDomain: toNumber(intel?.config?.candidateLimitPerDomain, 20),
+    digestItemLimitPerDomain: toNumber(intel?.config?.digestItemLimitPerDomain, 10),
+    exploitItemsPerDigest: toNumber(intel?.config?.exploitItemsPerDigest, 8),
+    exploreItemsPerDigest: toNumber(intel?.config?.exploreItemsPerDigest, 2),
+    candidates,
+    digestItems: toArray<LegacyIntelDigest>(intel?.digests).flatMap((digest) =>
+      toArray<LegacyIntelDigestItem>(digest.items).map((item, index) => ({
+        id: toStringValue(item.id, `${toStringValue(digest.id, "digest")}-${index}`),
+        domain:
+          digest.domain === "tech" ||
+          digest.domain === "ai" ||
+          digest.domain === "business" ||
+          digest.domain === "github"
+            ? digest.domain
+            : "tech",
+        title: toStringValue(item.title, "Untitled intel"),
+        conclusion: toStringValue(item.judgement, "Reference only."),
+        whyItMatters: `importance=${toNumber(item.importanceScore, 0)}`,
+        recommendedAttention: "review",
+        recommendedAction: "reference",
+        sourceIds: toStringValue(item.sourceId) ? [toStringValue(item.sourceId)] : [],
+        exploit: true,
+        createdAt: toNumber(digest.createdAt, now),
+      })),
+    ),
+    sourceProfiles: domains.map((domain, index) => ({
+      id: toStringValue(domain.id, `domain-${index}`),
+      domain:
+        domain.id === "tech" ||
+        domain.id === "ai" ||
+        domain.id === "business" ||
+        domain.id === "github"
+          ? domain.id
+          : "tech",
+      label: toStringValue(domain.label, domain.id),
+      priority: 1,
+      metadata: {
+        latestFetchAt: toNumber(domain.lastFetchedAt, 0) || undefined,
+      },
+    })),
+    topicProfiles: [],
+    usefulnessRecords: [],
+    pinnedRecords: [],
+    lastImportedAt: now,
+    metadata: {
+      refreshMinutes: toNumber(intel?.config?.refreshMinutes, 180),
+      maxItemsPerSourceInDigest: 2,
+      recentDigestTopicWindowDays: 5,
+      githubSearchWindowDays: 7,
+    },
+  };
+}
+
+function buildImportedGovernanceStore(
+  location: LegacyRuntimeLocation,
+  now: number,
+): RuntimeGovernanceStore {
+  const evolution = loadLegacyEvolutionState(location);
+  const skillGovernance = loadLegacySkillGovernanceState(location);
+  const entries = toArray<LegacySkillGovernanceEntry>(skillGovernance?.skills)
+    .map((entry) => {
+      const targetId = toStringValue(entry.id);
+      return {
+        id: `governance_skill_${hashText(targetId)}`,
+        registryType: "skill" as const,
+        targetId,
+        state: normalizeLegacyGovernanceState(entry.adoptionState),
+        summary:
+          toStringValue(entry.notes) ||
+          toStringValue(entry.title) ||
+          `Imported legacy skill governance state for ${targetId}.`,
+        updatedAt: toNumber(entry.updatedAt, now),
+        metadata: {
+          origin: toStringValue(entry.origin) || undefined,
+          path: toStringValue(entry.path) || undefined,
+          routeAffinity: toStringValue(entry.routeAffinity) || undefined,
+          sideEffectLevel: toStringValue(entry.sideEffectLevel) || undefined,
+          tokenProfile: toStringValue(entry.tokenProfile) || undefined,
+          trustClass: toStringValue(entry.trustClass) || undefined,
+          findings: toArray<string>(entry.findings).filter((value) => typeof value === "string"),
+          lastAuditedAt: toNumber(entry.lastAuditedAt, 0) || undefined,
+          importedFrom: "legacy-skill-governance",
+        },
+      };
+    })
+    .filter((entry) => entry.targetId);
+  const shadowEvaluations = toArray<LegacyEvolutionCandidate>(evolution?.candidates).map(
+    (candidate, index) => {
+      const evolutionId = toStringValue(candidate.id, `evolution-${index}`);
+      const shadowMetrics = toRecord(candidate.shadowMetrics);
+      const shadowType = toStringValue(shadowMetrics?.shadowType);
+      const route = toStringValue(shadowMetrics?.route);
+      const lane = toStringValue(shadowMetrics?.lane);
+      const worker = toStringValue(shadowMetrics?.worker);
+      const skillBundle = toArray<string>(shadowMetrics?.skillBundle).filter(
+        (value) => typeof value === "string",
+      );
+      return {
+        id: `shadow_eval_${hashText(evolutionId)}`,
+        candidateType: normalizeEvolutionCandidateType(candidate.candidateType),
+        targetLayer: normalizeEvolutionTargetLayer(candidate.targetLayer),
+        state:
+          normalizeEvolutionAdoptionState(candidate.adoptionState) === "adopted"
+            ? "adopted"
+            : normalizeEvolutionAdoptionState(candidate.adoptionState) === "candidate"
+              ? "promoted"
+              : toArray<string>(candidate.invalidatedBy).length > 0
+                ? "reverted"
+                : "shadow",
+        baselineRef: toStringValue(candidate.candidateRef) || undefined,
+        candidateRef: evolutionId,
+        expectedEffect: toStringValue(toRecord(candidate.expectedEffect)?.summary) || undefined,
+        measuredEffect: toStringValue(toRecord(candidate.measuredEffect)?.summary) || undefined,
+        observationCount: Math.max(
+          1,
+          toNumber(shadowMetrics?.observationCount, toNumber(shadowMetrics?.shadowSampleCount, 1)),
+        ),
+        updatedAt: toNumber(
+          candidate.updatedAt,
+          toNumber(candidate.lastShadowAt, toNumber(candidate.createdAt, now)),
+        ),
+        metadata: {
+          route: route || undefined,
+          lane: lane || undefined,
+          worker: worker || undefined,
+          skillBundle,
+          shadowType: shadowType || undefined,
+          shadowMetrics: shadowMetrics ?? undefined,
+          expectedEffect: toRecord(candidate.expectedEffect) ?? undefined,
+          measuredEffect: toRecord(candidate.measuredEffect) ?? undefined,
+          originalCandidateRef: toStringValue(candidate.candidateRef) || undefined,
+          invalidatedBy: toArray<string>(candidate.invalidatedBy).filter(
+            (value) => typeof value === "string",
+          ),
+        },
+      };
+    },
+  );
+  return {
+    version: "v1",
+    entries,
+    shadowEvaluations,
+    lastImportedAt: now,
+    metadata: {
+      enabled: evolution?.config?.enabled !== false,
+      autoApplyLowRisk: evolution?.config?.autoApplyLowRisk === true,
+      reviewIntervalHours: toNumber(evolution?.config?.reviewIntervalHours, 12),
+      skillGovernance: {
+        scannedAt: toNumber(skillGovernance?.scannedAt, 0) || undefined,
+        enforceDecisionFilter: toRecord(skillGovernance?.rules)?.enforceDecisionFilter === true,
+        allowedDecisionStates: toArray<string>(
+          toRecord(skillGovernance?.rules)?.allowedDecisionStates,
+        ).filter((value) => typeof value === "string"),
+      },
+    },
+  };
+}
+
+function syncLegacyRuntimeIntoAuthoritativeStore(
+  location: LegacyRuntimeLocation,
+  opts: RuntimeStateOptions = {},
+): void {
+  const now = resolveNow(opts.now);
+  saveRuntimeStoreBundle(
+    {
+      taskStore: buildImportedTaskStore(location, now),
+      memoryStore: buildImportedMemoryStore(location, now),
+      intelStore: buildImportedIntelStore(location, now),
+      governanceStore: buildImportedGovernanceStore(location, now),
+    },
+    {
+      env: opts.env,
+      homedir: opts.homedir,
+      now,
+    },
+  );
+}
+
 function buildRuntimeManifest(params: {
   instanceManifest: InstanceManifest;
   runtimeVersion: string;
@@ -571,44 +1241,57 @@ function sortTasks(tasks: RuntimeTaskSummary[]): RuntimeTaskSummary[] {
 
 export function buildRuntimeTasksList(opts: RuntimeStateOptions = {}): RuntimeTasksListResult {
   const now = resolveNow(opts.now);
-  const location = resolveLegacyRuntimeLocation(opts);
-  const autopilot = loadLegacyAutopilotState(location);
-  const tasks = toArray<LegacyAutopilotTask>(autopilot?.tasks).map((task) => {
-    const runState = toRecord(task.runState);
-    const status = normalizeTaskStatus(task.status);
+  const taskStore = loadRuntimeTaskStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
+  const latestRuns = new Map<string, RuntimeTaskStore["runs"][number]>();
+  for (const run of [...taskStore.runs].toSorted(
+    (left, right) => right.updatedAt - left.updatedAt,
+  )) {
+    if (!latestRuns.has(run.taskId)) {
+      latestRuns.set(run.taskId, run);
+    }
+  }
+  const tasks = taskStore.tasks.map((task) => {
+    const taskMetadata = toRecord(task.metadata);
+    const runtimeTaskMetadata = toRecord(taskMetadata?.runtimeTask);
+    const runtimeTaskRunState = toRecord(runtimeTaskMetadata?.runState);
+    const latestRun = latestRuns.get(task.id);
     return {
-      id: toStringValue(task.id, "task-unknown"),
-      title: toStringValue(task.title, "Untitled task"),
-      route: toStringValue(task.route, "general"),
-      status,
-      priority:
-        task.priority === "high" || task.priority === "low" || task.priority === "normal"
-          ? task.priority
-          : "normal",
-      budgetMode:
-        task.budgetMode === "deep" || task.budgetMode === "balanced" || task.budgetMode === "strict"
-          ? task.budgetMode
-          : "strict",
-      retrievalMode:
-        task.retrievalMode === "deep" ||
-        task.retrievalMode === "light" ||
-        task.retrievalMode === "off"
-          ? task.retrievalMode
-          : "light",
-      recurring: task.recurring === true,
-      maintenance: task.maintenance === true,
+      id: task.id,
+      title: task.title,
+      route: task.route,
+      status: normalizeTaskStatus(task.status),
+      priority: task.priority,
+      budgetMode: task.budgetMode,
+      retrievalMode: task.retrievalMode,
+      recurring: task.recurring,
+      maintenance: task.maintenance,
       tags: toArray<string>(task.tags).filter((value) => typeof value === "string"),
-      nextAction: toStringValue(task.nextAction) || undefined,
-      blockedReason: toStringValue(task.blockedReason) || undefined,
-      lastError: toStringValue(task.lastError) || undefined,
-      thinkingLane: toStringValue(runState?.lastThinkingLane) || undefined,
-      remoteCallCount: toNumber(runState?.remoteCallCount, 0) || undefined,
-      createdAt: toNumber(task.createdAt, now),
-      updatedAt: toNumber(task.updatedAt, toNumber(task.createdAt, now)),
-      nextRunAt:
-        typeof task.nextRunAt === "number" && Number.isFinite(task.nextRunAt)
-          ? task.nextRunAt
-          : undefined,
+      nextAction: task.nextAction,
+      blockedReason: task.blockedReason,
+      lastError: task.lastError,
+      thinkingLane:
+        latestRun?.thinkingLane ||
+        toStringValue(
+          taskMetadata?.lastThinkingLane ||
+            runtimeTaskMetadata?.lastThinkingLane ||
+            runtimeTaskRunState?.lastThinkingLane,
+        ) ||
+        undefined,
+      remoteCallCount:
+        toNumber(
+          toRecord(latestRun?.metadata)?.remoteCallCount ??
+            taskMetadata?.remoteCallCount ??
+            runtimeTaskMetadata?.remoteCallCount ??
+            runtimeTaskRunState?.remoteCallCount,
+          0,
+        ) || undefined,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      nextRunAt: task.nextRunAt,
     } satisfies RuntimeTaskSummary;
   });
   const sorted = sortTasks(tasks);
@@ -623,55 +1306,37 @@ export function buildRuntimeTasksList(opts: RuntimeStateOptions = {}): RuntimeTa
 
 export function buildRuntimeMemoryList(opts: RuntimeStateOptions = {}): RuntimeMemoryListResult {
   const now = resolveNow(opts.now);
-  const location = resolveLegacyRuntimeLocation(opts);
-  const memoryState = loadLegacyMemoryState(location);
+  const memoryStore = loadRuntimeMemoryStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
   const memoryTypeCounts = emptyMemoryTypeCounts();
-  const memories = toArray<LegacyMemoryEntry>(memoryState?.memories)
+  const memories = [...memoryStore.memories]
     .map((entry) => {
-      const memoryType = normalizeMemoryType(entry.memoryType);
-      memoryTypeCounts[memoryType] += 1;
+      memoryTypeCounts[entry.memoryType] += 1;
       return {
-        id: toStringValue(entry.id, "memory-unknown"),
-        memoryType,
-        route: toStringValue(entry.route) || undefined,
-        scope: toStringValue(entry.scope) || undefined,
-        summary: toStringValue(entry.summary, "No summary"),
-        confidence: toNumber(entry.confidence, 0),
-        invalidated: toArray<string>(entry.invalidatedBy).length > 0,
-        updatedAt: toNumber(entry.updatedAt, toNumber(entry.createdAt, now)),
+        id: entry.id,
+        memoryType: entry.memoryType,
+        route: entry.route,
+        scope: entry.scope,
+        summary: entry.summary,
+        confidence: normalizeConfidencePercent(entry.confidence, 0),
+        invalidated: entry.invalidatedBy.length > 0,
+        updatedAt: entry.updatedAt,
       } satisfies RuntimeMemorySummary;
     })
     .toSorted((left, right) => right.updatedAt - left.updatedAt);
 
-  const strategies = toArray<LegacyStrategyEntry>(memoryState?.strategies)
-    .map(
-      (entry) =>
-        ({
-          id: toStringValue(entry.id, "strategy-unknown"),
-          layer: "strategies",
-          route: toStringValue(entry.route, "general"),
-          worker: toStringValue(entry.worker, "main"),
-          skillIds: [],
-          summary: toStringValue(entry.summary, "No strategy summary"),
-          thinkingLane: "system1",
-          createdAt: toNumber(entry.createdAt, now),
-          updatedAt: toNumber(entry.updatedAt, toNumber(entry.createdAt, now)),
-          sourceEventIds: [],
-          sourceTaskIds: [],
-          sourceIntelIds: [],
-          derivedFromMemoryIds: [],
-          confidence: toNumber(entry.confidence, 0),
-          version: 1,
-          invalidatedBy: [],
-        }) satisfies StrategyRecord,
-    )
-    .toSorted((left, right) => right.updatedAt - left.updatedAt);
+  const strategies = [...memoryStore.strategies].toSorted(
+    (left, right) => right.updatedAt - left.updatedAt,
+  );
 
   return {
     generatedAt: now,
     total: memories.length,
     strategyCount: strategies.length,
-    learningCount: toArray(memoryState?.learnings).length,
+    learningCount: memoryStore.metaLearning.length,
     memoryTypeCounts,
     memories,
     strategies,
@@ -682,56 +1347,79 @@ export function buildRuntimeRetrievalStatus(
   opts: RuntimeStateOptions = {},
 ): RuntimeRetrievalStatus {
   const now = resolveNow(opts.now);
-  const location = resolveLegacyRuntimeLocation(opts);
-  const autopilot = loadLegacyAutopilotState(location);
+  const taskStore = loadRuntimeTaskStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
   return {
     generatedAt: now,
     planes: ["strategy", "memory", "intel", "archive"],
     layers: MEMORY_LAYERS,
     system1DefaultPlanes: ["strategy", "memory"],
     system2DefaultPlanes: ["strategy", "memory", "intel", "archive"],
-    defaultBudgetMode: toStringValue(autopilot?.config?.defaultBudgetMode, "strict"),
-    defaultRetrievalMode: toStringValue(autopilot?.config?.defaultRetrievalMode, "light"),
-    maxInputTokensPerTurn: toNumber(autopilot?.config?.maxInputTokensPerTurn, 6000),
-    maxContextChars: toNumber(autopilot?.config?.maxContextChars, 9000),
-    maxRemoteCallsPerTask: toNumber(autopilot?.config?.maxRemoteCallsPerTask, 6),
+    defaultBudgetMode: taskStore.defaults.defaultBudgetMode,
+    defaultRetrievalMode: taskStore.defaults.defaultRetrievalMode,
+    maxInputTokensPerTurn: taskStore.defaults.maxInputTokensPerTurn,
+    maxContextChars: taskStore.defaults.maxContextChars,
+    maxRemoteCallsPerTask: taskStore.defaults.maxRemoteCallsPerTask,
   };
 }
 
 export function buildRuntimeIntelStatus(opts: RuntimeStateOptions = {}): RuntimeIntelStatus {
   const now = resolveNow(opts.now);
-  const location = resolveLegacyRuntimeLocation(opts);
-  const intel = loadLegacyIntelState(location);
-  const items = toArray<LegacyIntelItem>(intel?.items);
-  const digests = toArray<LegacyIntelDigest>(intel?.digests);
-  const domains = toArray<LegacyIntelDomain>(intel?.domains).map((domain) => {
-    const id = toStringValue(domain.id, "unknown") || "unknown";
-    const domainItems = items.filter((item) => item.domain === id);
-    const domainDigests = digests.filter((digest) => digest.domain === id);
+  const intelStore = loadRuntimeIntelStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
+  const detectedDomainIds = new Set<IntelCandidate["domain"]>();
+  for (const candidate of intelStore.candidates) detectedDomainIds.add(candidate.domain);
+  for (const digestItem of intelStore.digestItems) detectedDomainIds.add(digestItem.domain);
+  for (const sourceProfile of intelStore.sourceProfiles)
+    detectedDomainIds.add(sourceProfile.domain);
+  const domainIds = (
+    detectedDomainIds.size > 0 ? [...detectedDomainIds] : [...RUNTIME_INTEL_DOMAIN_ORDER]
+  ).toSorted(
+    (left, right) =>
+      RUNTIME_INTEL_DOMAIN_ORDER.indexOf(left) - RUNTIME_INTEL_DOMAIN_ORDER.indexOf(right),
+  );
+  const domains = domainIds.map((domainId) => {
+    const profile = intelStore.sourceProfiles.find((entry) => entry.domain === domainId);
+    const metadata = toRecord(profile?.metadata);
     return {
-      id,
-      label: toStringValue(domain.label, id),
-      candidateCount: domainItems.length,
-      selectedCount: domainItems.filter((item) => item.selectedForDigest === true).length,
-      digestCount: domainDigests.length,
+      id: domainId,
+      label:
+        profile?.label ||
+        (domainId === "ai"
+          ? "AI"
+          : domainId === "github"
+            ? "GitHub"
+            : domainId === "tech"
+              ? "Tech"
+              : "Business"),
+      candidateCount: intelStore.candidates.filter((entry) => entry.domain === domainId).length,
+      selectedCount: intelStore.candidates.filter(
+        (entry) => entry.domain === domainId && entry.selected,
+      ).length,
+      digestCount: intelStore.digestItems.filter((entry) => entry.domain === domainId).length,
       latestDigestAt:
-        domainDigests.reduce(
-          (latest, digest) => Math.max(latest, toNumber(digest.createdAt, 0)),
-          0,
-        ) || null,
-      latestFetchAt: toNumber(domain.lastFetchedAt, 0) || null,
+        intelStore.digestItems
+          .filter((entry) => entry.domain === domainId)
+          .reduce((latest, entry) => Math.max(latest, entry.createdAt), 0) || null,
+      latestFetchAt: toNumber(metadata?.latestFetchAt ?? metadata?.lastFetchedAt, 0) || null,
     } satisfies RuntimeIntelDomainStatus;
   });
   return {
     generatedAt: now,
-    enabled: intel?.config?.enabled !== false,
-    digestEnabled: intel?.config?.digestEnabled !== false,
-    candidateLimitPerDomain: toNumber(intel?.config?.candidateLimitPerDomain, 20),
-    digestItemLimitPerDomain: toNumber(intel?.config?.digestItemLimitPerDomain, 10),
-    exploitItemsPerDigest: toNumber(intel?.config?.exploitItemsPerDigest, 8),
-    exploreItemsPerDigest: toNumber(intel?.config?.exploreItemsPerDigest, 2),
-    itemCount: items.length,
-    digestCount: digests.length,
+    enabled: intelStore.enabled,
+    digestEnabled: intelStore.digestEnabled,
+    candidateLimitPerDomain: intelStore.candidateLimitPerDomain,
+    digestItemLimitPerDomain: intelStore.digestItemLimitPerDomain,
+    exploitItemsPerDigest: intelStore.exploitItemsPerDigest,
+    exploreItemsPerDigest: intelStore.exploreItemsPerDigest,
+    itemCount: intelStore.candidates.length,
+    digestCount: intelStore.digestItems.length,
     domains,
   };
 }
@@ -750,13 +1438,29 @@ export function buildRuntimeCapabilitiesStatus(
     homedir: opts.homedir,
   });
   const config = opts.config ?? null;
-  const location = resolveLegacyRuntimeLocation(opts);
-  const evolution = loadLegacyEvolutionState(location);
   const stateCounts = emptyGovernanceStateCounts();
-  for (const candidate of toArray<LegacyEvolutionCandidate>(evolution?.candidates)) {
-    const state = toStringValue(candidate.adoptionState) as GovernanceState;
-    if (state in stateCounts) {
-      stateCounts[state] += 1;
+  const governanceStore = loadRuntimeGovernanceStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
+  const memoryStore = loadRuntimeMemoryStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
+  const authoritativeEntries = governanceStore.entries;
+  if (governanceStore.entries.length > 0) {
+    for (const entry of governanceStore.entries) {
+      stateCounts[entry.state] += 1;
+    }
+  } else {
+    for (const entry of memoryStore.evolutionMemory) {
+      stateCounts[entry.adoptionState] += 1;
+    }
+    for (const entry of governanceStore.shadowEvaluations) {
+      const state = mapShadowEvaluationStateToGovernanceState(entry.state);
+      if (state) stateCounts[state] += 1;
     }
   }
 
@@ -765,6 +1469,15 @@ export function buildRuntimeCapabilitiesStatus(
   const sandbox = toRecord(defaults?.sandbox);
   const tools = toRecord(config?.tools);
   const mcp = toRecord(config?.mcp);
+  const agentCount =
+    authoritativeEntries.filter((entry) => entry.registryType === "agent").length ||
+    toArray(toRecord(agents)?.list).length;
+  const skillCount =
+    authoritativeEntries.filter((entry) => entry.registryType === "skill").length ||
+    countObjectEntries(toRecord(tools)?.skills ?? toRecord(config?.skills));
+  const mcpCount =
+    authoritativeEntries.filter((entry) => entry.registryType === "mcp").length ||
+    countObjectEntries(mcp?.servers ?? mcp?.entries ?? mcp?.list);
 
   return {
     generatedAt: now,
@@ -773,10 +1486,10 @@ export function buildRuntimeCapabilitiesStatus(
     sandboxMode: toStringValue(sandbox?.mode, "unknown"),
     workspaceRoot: toStringValue(defaults?.workspace) || manifest.workspaceRoot || null,
     extensions: listDirectoryNames(manifest.extensionsRoot),
-    legacyExtensions: listDirectoryNames(location.extensionsRoot),
-    agentCount: toArray(toRecord(agents)?.list).length,
-    skillCount: countObjectEntries(toRecord(tools)?.skills ?? toRecord(config?.skills)),
-    mcpCount: countObjectEntries(mcp?.servers ?? mcp?.entries ?? mcp?.list),
+    legacyExtensions: [],
+    agentCount,
+    skillCount,
+    mcpCount,
     governanceStateCounts: stateCounts,
   };
 }
@@ -785,19 +1498,31 @@ export function buildRuntimeEvolutionStatus(
   opts: RuntimeStateOptions = {},
 ): RuntimeEvolutionStatus {
   const now = resolveNow(opts.now);
-  const location = resolveLegacyRuntimeLocation(opts);
-  const evolution = loadLegacyEvolutionState(location);
+  const memoryStore = loadRuntimeMemoryStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
+  const governanceStore = loadRuntimeGovernanceStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
+  const metadata = toRecord(governanceStore.metadata);
   return {
     generatedAt: now,
-    enabled: evolution?.config?.enabled !== false,
-    autoApplyLowRisk: evolution?.config?.autoApplyLowRisk === true,
-    reviewIntervalHours: toNumber(evolution?.config?.reviewIntervalHours, 12),
-    candidateCount: toArray(evolution?.candidates).length,
-    stateCounts: countBy(
-      toArray<LegacyEvolutionCandidate>(evolution?.candidates).map(
-        (candidate) => toStringValue(candidate.adoptionState, "shadow") || "shadow",
-      ),
-    ),
+    enabled: metadata?.enabled !== false,
+    autoApplyLowRisk: metadata?.autoApplyLowRisk === true,
+    reviewIntervalHours: toNumber(metadata?.reviewIntervalHours, 12),
+    candidateCount: memoryStore.evolutionMemory.length,
+    stateCounts:
+      memoryStore.evolutionMemory.length > 0
+        ? countBy(memoryStore.evolutionMemory.map((entry) => entry.adoptionState))
+        : countBy(
+            governanceStore.shadowEvaluations
+              .map((entry) => mapShadowEvaluationStateToGovernanceState(entry.state))
+              .filter((value): value is GovernanceState => value != null),
+          ),
   };
 }
 
@@ -819,6 +1544,7 @@ export function buildLegacyRuntimeImportPreview(
     "intel.json",
     "memory.json",
     "evolution.json",
+    "skill-governance.json",
     "events.jsonl",
   ].filter((fileName) => fs.existsSync(joinResolvedPath(location.managedStateRoot, fileName)));
   const autopilot = loadLegacyAutopilotState(location);
@@ -832,10 +1558,12 @@ export function buildLegacyRuntimeImportPreview(
     listDirectoryNames(location.extensionsRoot).length > 0;
 
   if (!detected) {
-    warnings.push("No legacy runtime files were detected under the default ~/.openclaw root.");
+    warnings.push(`No migration source files were detected under ${location.legacyRoot}.`);
   }
   if (manifest.instanceRoot === location.legacyRoot) {
-    warnings.push("Current instance root matches the legacy runtime root; import stays read-only.");
+    warnings.push(
+      "Current instance root matches the migration source root; import stays read-only.",
+    );
   }
 
   const mappings: RuntimeImportMapping[] = [];
@@ -950,6 +1678,12 @@ export function applyLegacyRuntimeImport(
     "utf8",
   );
   fs.writeFileSync(reportPath, JSON.stringify(preview, null, 2), "utf8");
+  syncLegacyRuntimeIntoAuthoritativeStore(resolveLegacyRuntimeLocation(opts), opts);
+  syncRuntimeCapabilityRegistry(opts.config ?? null, {
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
 
   return {
     importId,
@@ -971,6 +1705,86 @@ function countJsonFiles(root: string): number {
   } catch {
     return 0;
   }
+}
+
+function readFederationConfigRecord(
+  config: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  const direct = toRecord(config?.federation);
+  if (direct) return direct;
+  const runtime = toRecord(config?.runtime);
+  const runtimeFederation = toRecord(runtime?.federation);
+  if (runtimeFederation) return runtimeFederation;
+  const brain = toRecord(config?.brain);
+  return toRecord(brain?.federation);
+}
+
+function parseScopeList(value: unknown): string[] {
+  if (typeof value === "string") {
+    return uniqueStrings(
+      value
+        .split(/[,\s]+/)
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    );
+  }
+  if (!Array.isArray(value)) return [];
+  return uniqueStrings(
+    value.map((entry) => (typeof entry === "string" ? entry.trim() : "")).filter(Boolean),
+  );
+}
+
+function resolveFederationPushPolicy(config: Record<string, unknown> | null): {
+  enabled: boolean;
+  remoteConfigured: boolean;
+  allowedPushScopes: string[];
+  blockedPushScopes: string[];
+} {
+  const federation = readFederationConfigRecord(config);
+  const remote = toRecord(federation?.remote);
+  const push = toRecord(federation?.push);
+  const explicitAllowed = parseScopeList(
+    push?.allowedScopes ?? push?.scopes ?? federation?.allowedPushScopes,
+  );
+  const explicitBlocked = parseScopeList(
+    push?.blockedScopes ?? push?.deny ?? federation?.blockedPushScopes,
+  );
+  const blockedPushScopes = uniqueStrings([
+    ...DEFAULT_FEDERATION_BLOCKED_PUSH_SCOPES,
+    ...explicitBlocked,
+  ]);
+  const allowedSeed =
+    explicitAllowed.length > 0
+      ? explicitAllowed.filter((scope) =>
+          (KNOWN_FEDERATION_PUSH_SCOPES as readonly string[]).includes(scope),
+        )
+      : [...DEFAULT_FEDERATION_ALLOWED_PUSH_SCOPES];
+  const allowedPushScopes = uniqueStrings(
+    allowedSeed.filter((scope) => !blockedPushScopes.includes(scope)),
+  );
+  const remoteConfigured =
+    typeof remote?.enabled === "boolean"
+      ? remote.enabled === true &&
+        uniqueStrings([
+          toStringValue(remote.url),
+          toStringValue(remote.endpoint),
+          toStringValue(remote.baseUrl),
+          toStringValue(remote.origin),
+          toStringValue(remote.assignmentInbox),
+        ]).length > 0
+      : uniqueStrings([
+          toStringValue(remote?.url),
+          toStringValue(remote?.endpoint),
+          toStringValue(remote?.baseUrl),
+          toStringValue(remote?.origin),
+          toStringValue(remote?.assignmentInbox),
+        ]).length > 0;
+  return {
+    enabled: federation?.enabled !== false,
+    remoteConfigured,
+    allowedPushScopes,
+    blockedPushScopes,
+  };
 }
 
 export function buildFederationRuntimeSnapshot(
@@ -996,10 +1810,11 @@ export function buildFederationRuntimeSnapshot(
   const federationRoot = resolver.resolveDataPath(...FEDERATION_ROOT_SEGMENTS);
   const outboxRoot = path.join(federationRoot, "outbox");
   const assignmentsRoot = path.join(federationRoot, "assignments");
+  const federationPolicy = resolveFederationPushPolicy(opts.config ?? null);
   return {
     generatedAt: now,
-    enabled: true,
-    remoteConfigured: false,
+    enabled: federationPolicy.enabled,
+    remoteConfigured: federationPolicy.remoteConfigured,
     manifest: runtimeManifest,
     outboxRoot,
     assignmentsRoot,
@@ -1012,15 +1827,8 @@ export function buildFederationRuntimeSnapshot(
       shadowTelemetry: countJsonFiles(path.join(outboxRoot, "shadow-telemetry")),
       capabilityGovernance: countJsonFiles(path.join(outboxRoot, "capability-governance")),
     },
-    allowedPushScopes: [
-      "shareable_derived",
-      "review_summary",
-      "metrics",
-      "shadow_telemetry",
-      "strategy_digest",
-      "intel_digest",
-    ],
-    blockedPushScopes: ["raw_chat", "secrets", "durable_private_memory_dump"],
+    allowedPushScopes: federationPolicy.allowedPushScopes,
+    blockedPushScopes: federationPolicy.blockedPushScopes,
   };
 }
 
@@ -1074,27 +1882,16 @@ export function buildLatestIntelDigestEnvelope(
   opts: RuntimeStateOptions = {},
 ): IntelDigestEnvelope {
   const now = resolveNow(opts.now);
-  const location = resolveLegacyRuntimeLocation(opts);
-  const intel = loadLegacyIntelState(location);
-  const digests = toArray<LegacyIntelDigest>(intel?.digests)
-    .toSorted((left, right) => toNumber(right.createdAt, 0) - toNumber(left.createdAt, 0))
-    .slice(0, 4);
+  const intelStore = loadRuntimeIntelStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
   return {
     id: `intel-digest-${now}`,
-    digestItems: digests.flatMap((digest) =>
-      toArray<LegacyIntelDigestItem>(digest.items).map((item, index) => ({
-        id: toStringValue(item.id, `${toStringValue(digest.id, "digest")}-${index}`),
-        domain: digest.domain ?? "tech",
-        title: toStringValue(item.title, "Untitled intel"),
-        conclusion: toStringValue(item.judgement, "Reference only."),
-        whyItMatters: `importance=${toNumber(item.importanceScore, 0)}`,
-        recommendedAttention: "review",
-        recommendedAction: "reference",
-        sourceIds: toStringValue(item.sourceId) ? [toStringValue(item.sourceId)] : [],
-        exploit: true,
-        createdAt: toNumber(digest.createdAt, now),
-      })),
-    ),
+    digestItems: [...intelStore.digestItems]
+      .toSorted((left, right) => right.createdAt - left.createdAt)
+      .slice(0, 40),
     generatedAt: now,
   };
 }

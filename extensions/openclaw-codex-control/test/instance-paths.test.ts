@@ -1,15 +1,15 @@
 import { createRequire } from "node:module";
-
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const {
-  buildManagedRuntimeEnv,
-  resolveControlExtensionPaths,
-} = require("../lib/instance-paths.js") as {
-  buildManagedRuntimeEnv: (baseEnv?: Record<string, string>, instancePaths?: Record<string, unknown>) => Record<string, string>;
-  resolveControlExtensionPaths: (opts?: Record<string, unknown>) => Record<string, any>;
-};
+const { buildManagedRuntimeEnv, resolveControlExtensionPaths } =
+  require("../lib/instance-paths.js") as {
+    buildManagedRuntimeEnv: (
+      baseEnv?: Record<string, string>,
+      instancePaths?: Record<string, unknown>,
+    ) => Record<string, string>;
+    resolveControlExtensionPaths: (opts?: Record<string, unknown>) => Record<string, any>;
+  };
 
 function normalizeSlashes(value: string): string {
   return value.replace(/\\/g, "/");
@@ -34,17 +34,23 @@ describe("resolveControlExtensionPaths", () => {
     expect(normalizeSlashes(paths.workspaceRoot)).toBe("E:/OpenClawVault/instances/main/workspace");
     expect(normalizeSlashes(paths.agentsRoot)).toBe("E:/OpenClawVault/instances/main/agents");
     expect(normalizeSlashes(paths.skillsRoot)).toBe("E:/OpenClawVault/instances/main/skills");
-    expect(normalizeSlashes(paths.extensionsRoot)).toBe("E:/OpenClawVault/instances/main/extensions");
+    expect(normalizeSlashes(paths.extensionsRoot)).toBe(
+      "E:/OpenClawVault/instances/main/extensions",
+    );
     expect(normalizeSlashes(paths.codexRoot)).toBe("E:/OpenClawVault/codex");
     expect(normalizeSlashes(paths.archiveRoot)).toBe("E:/OpenClawVault/instances/main/archive");
-    expect(normalizeSlashes(paths.controlStateDir)).toBe("E:/OpenClawVault/instances/main/data/extensions/openclaw-codex-control");
-    expect(normalizeSlashes(paths.openclawBin)).toBe("E:/OpenClawVault/instances/main/runtime/bin/openclaw");
+    expect(normalizeSlashes(paths.controlStateDir)).toBe(
+      "E:/OpenClawVault/instances/main/data/extensions/openclaw-codex-control",
+    );
+    expect(normalizeSlashes(paths.openclawBin)).toBe(
+      "E:/OpenClawVault/instances/main/runtime/bin/openclaw",
+    );
     expect(normalizeSlashes(paths.controlUiIndexPath)).toBe(
-      "E:/OpenClawVault/instances/main/runtime/lib/node_modules/openclaw/dist/control-ui/index.html"
+      "E:/OpenClawVault/instances/main/runtime/lib/node_modules/openclaw/dist/control-ui/index.html",
     );
   });
 
-  it("falls back to legacy runtime and control state paths when only the old layout exists", () => {
+  it("keeps using instance-scoped runtime and extension data paths even if an old layout exists", () => {
     const existing = new Set([
       "/home/test/.openclaw/bin/openclaw",
       "/home/test/.openclaw/state/openclaw-codex-control",
@@ -59,9 +65,11 @@ describe("resolveControlExtensionPaths", () => {
 
     expect(paths.stateRoot).toBe("/home/test/.openclaw");
     expect(paths.runtimeRoot).toBe("/home/test/.openclaw/runtime");
-    expect(paths.effectiveRuntimeRoot).toBe("/home/test/.openclaw");
-    expect(paths.openclawBin).toBe("/home/test/.openclaw/bin/openclaw");
-    expect(paths.controlStateDir).toBe("/home/test/.openclaw/state/openclaw-codex-control");
+    expect(paths.effectiveRuntimeRoot).toBe("/home/test/.openclaw/runtime");
+    expect(paths.openclawBin).toBe("/home/test/.openclaw/runtime/bin/openclaw");
+    expect(paths.controlStateDir).toBe(
+      "/home/test/.openclaw/data/extensions/openclaw-codex-control",
+    );
   });
 });
 
@@ -80,7 +88,7 @@ describe("buildManagedRuntimeEnv", () => {
         PATH: "/usr/bin",
         OPENCLAW_PREFIX: "/legacy/prefix",
       },
-      instancePaths
+      instancePaths,
     );
 
     expect(env.OPENCLAW_INSTANCE_ROOT).toBe("/srv/openclaw/main");

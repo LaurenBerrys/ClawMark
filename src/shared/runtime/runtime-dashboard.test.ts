@@ -8,6 +8,7 @@ import {
   buildLegacyRuntimeImportPreview,
   buildRuntimeDashboardSnapshot,
 } from "./runtime-dashboard.js";
+import { resolveRuntimeStorePaths } from "./store.js";
 
 async function withTempRoot(
   prefix: string,
@@ -78,6 +79,8 @@ async function seedLegacyRuntime(root: string) {
       {
         version: 1,
         config: {
+          localFirst: false,
+          heartbeatEnabled: true,
           defaultBudgetMode: "balanced",
           defaultRetrievalMode: "light",
           maxInputTokensPerTurn: 7000,
@@ -211,6 +214,28 @@ async function seedLegacyRuntime(root: string) {
   );
 
   await fs.writeFile(
+    path.join(managedStateRoot, "skill-governance.json"),
+    JSON.stringify(
+      {
+        version: 1,
+        scannedAt: 1_700_000_006_500,
+        skills: [
+          {
+            id: "patch-edit",
+            title: "Patch Edit",
+            adoptionState: "shadow",
+            notes: "Imported legacy governed skill.",
+            updatedAt: 1_700_000_006_600,
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+
+  await fs.writeFile(
     path.join(managedStateRoot, "events.jsonl"),
     '{"type":"task_transition","taskId":"task-a"}\n',
     "utf8",
@@ -244,6 +269,7 @@ describe("runtime dashboard legacy import", () => {
         "state",
         "state",
         "state",
+        "state",
         "events",
         "extensions_manifest",
       ]);
@@ -255,11 +281,35 @@ describe("runtime dashboard legacy import", () => {
         env,
         now: 1_700_000_100_000,
       });
+      const storePaths = resolveRuntimeStorePaths({
+        env,
+        now: 1_700_000_100_000,
+      });
 
       expect(applied.targetRoot).toContain(
         path.join("instance", "data", "imports", "legacy-runtime"),
       );
       expect(applied.extensionsManifestPath).toContain("extensions-manifest.json");
+      await expect(fs.readFile(storePaths.taskStorePath, "utf8")).resolves.toContain('"task-a"');
+      await expect(fs.readFile(storePaths.memoryStorePath, "utf8")).resolves.toContain(
+        '"memory-a"',
+      );
+      await expect(fs.readFile(storePaths.intelStorePath, "utf8")).resolves.toContain(
+        '"digest-item-a"',
+      );
+      await expect(fs.readFile(storePaths.governanceStorePath, "utf8")).resolves.toContain(
+        '"patch-edit"',
+      );
+      const importedTaskStore = JSON.parse(await fs.readFile(storePaths.taskStorePath, "utf8")) as {
+        metadata?: {
+          autopilot?: {
+            localFirst?: boolean;
+            heartbeatEnabled?: boolean;
+          };
+        };
+      };
+      expect(importedTaskStore.metadata?.autopilot?.localFirst).toBe(false);
+      expect(importedTaskStore.metadata?.autopilot?.heartbeatEnabled).toBe(true);
 
       const importedConfig = await fs.readFile(
         path.join(applied.targetRoot, "config", "openclaw.json"),
@@ -276,10 +326,33 @@ describe("runtime dashboard legacy import", () => {
         "openviking-context-bridge",
       ]);
       expect(manifest.extensions[0]?.sourcePath).toContain(path.join("legacy", "extensions"));
+
+      await fs.writeFile(
+        path.join(root, "legacy", "state", "openclaw-codex-control", "autopilot.json"),
+        JSON.stringify({ version: 1, tasks: [] }, null, 2),
+        "utf8",
+      );
+      await fs.writeFile(
+        path.join(root, "legacy", "state", "openclaw-codex-control", "memory.json"),
+        JSON.stringify({ version: 1, memories: [], strategies: [], learnings: [] }, null, 2),
+        "utf8",
+      );
+
+      const dashboard = buildRuntimeDashboardSnapshot({
+        env,
+        now: 1_700_000_100_100,
+      });
+
+      expect(dashboard.tasks.total).toBe(2);
+      expect(dashboard.memory.total).toBe(1);
+      expect(dashboard.memory.strategyCount).toBe(1);
+      expect(dashboard.intel.digestCount).toBe(1);
+      expect(dashboard.capabilities.skillCount).toBe(1);
+      expect(dashboard.capabilities.governanceStateCounts.shadow).toBe(1);
     });
   });
 
-  it("builds runtime and federation snapshots from legacy state without mutating it", async () => {
+  it("keeps runtime snapshots empty until legacy data is explicitly imported", async () => {
     await withTempRoot("openclaw-runtime-snapshot-", async (root, env) => {
       await seedLegacyRuntime(root);
 
@@ -335,32 +408,70 @@ describe("runtime dashboard legacy import", () => {
               memory: { enabled: true },
             },
           },
+          federation: {
+            remote: {
+              enabled: true,
+              url: "https://brain.example.test/runtime",
+            },
+            allowedPushScopes: ["shareable_derived", "intel_digest", "metrics"],
+            blockedPushScopes: ["raw_chat", "secrets", "durable_private_memory_dump"],
+          },
         },
       });
 
       expect(dashboard.preset).toBe("managed_high");
-      expect(dashboard.tasks.tasks.map((entry) => entry.status)).toEqual([
-        "waiting_user",
-        "completed",
+      expect(dashboard.tasks.total).toBe(0);
+      expect(dashboard.memory.total).toBe(0);
+      expect(dashboard.memory.strategyCount).toBe(0);
+      expect(dashboard.intel.itemCount).toBe(0);
+      expect(dashboard.intel.domains.map((domain) => domain.id)).toEqual([
+        "tech",
+        "ai",
+        "business",
+        "github",
       ]);
-      expect(dashboard.memory.strategyCount).toBe(1);
-      expect(dashboard.intel.domains.map((domain) => domain.id)).toEqual(["ai", "github"]);
       expect(dashboard.capabilities.agentCount).toBe(2);
       expect(dashboard.capabilities.skillCount).toBe(2);
+      expect(dashboard.capabilities.legacyExtensions).toEqual([]);
+      expect(dashboard.importPreview.counts.tasks).toBe(2);
+      expect(dashboard.importPreview.counts.memories).toBe(1);
       expect(dashboard.federation.pendingAssignments).toBe(1);
       expect(dashboard.federation.outboxEnvelopeCounts.strategyDigest).toBe(1);
       expect(dashboard.federation.outboxEnvelopeCounts.intelDigest).toBe(1);
+      expect(dashboard.federation.allowedPushScopes).toEqual([
+        "shareable_derived",
+        "intel_digest",
+        "metrics",
+      ]);
       expect(dashboard.federation.blockedPushScopes).toContain("raw_chat");
+      expect(dashboard.federation.remoteConfigured).toBe(true);
 
       const federation = buildFederationRuntimeSnapshot({
         env,
         now: 1_700_000_200_000,
+        config: {
+          federation: {
+            remote: {
+              enabled: true,
+              endpoint: "https://brain.example.test/runtime",
+            },
+            push: {
+              allowedScopes: ["shareable_derived", "strategy_digest"],
+              blockedScopes: ["raw_chat", "secrets"],
+            },
+          },
+        },
         runtimeManifest: dashboard.runtimeManifest,
       });
 
       expect(federation.manifest.instanceId).toBe(dashboard.runtimeManifest.instanceId);
-      expect(federation.allowedPushScopes).toContain("shareable_derived");
-      expect(federation.remoteConfigured).toBe(false);
+      expect(federation.allowedPushScopes).toEqual(["shareable_derived", "strategy_digest"]);
+      expect(federation.blockedPushScopes).toEqual([
+        "raw_chat",
+        "secrets",
+        "durable_private_memory_dump",
+      ]);
+      expect(federation.remoteConfigured).toBe(true);
     });
   });
 });

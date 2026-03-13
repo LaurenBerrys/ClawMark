@@ -23,14 +23,6 @@ const CODEX_CLI_AUTH_PATH = path.join(CODEX_HOME, "auth.json");
 const CODEX_CLI_CONFIG_PATH = path.join(CODEX_HOME, "config.toml");
 const CODEX_CLI_STORE_PATH = path.join(INSTANCE_PATHS.controlStateDir, "codex-cli-profiles.json");
 const CONTROL_STATE_DIR = INSTANCE_PATHS.controlStateDir;
-const AUTOPILOT_STORE_PATH = path.join(
-  CONTROL_STATE_DIR,
-  "autopilot.json"
-);
-const INTEL_STORE_PATH = path.join(CONTROL_STATE_DIR, "intel.json");
-const MEMORY_STORE_PATH = path.join(CONTROL_STATE_DIR, "memory.json");
-const EVOLUTION_STORE_PATH = path.join(CONTROL_STATE_DIR, "evolution.json");
-const EVENT_LOG_PATH = path.join(CONTROL_STATE_DIR, "events.jsonl");
 const SKILL_GOVERNANCE_STORE_PATH = path.join(CONTROL_STATE_DIR, "skill-governance.json");
 const INJECT_JS_PATH = path.join(__dirname, "ui", "inject.js");
 const OAUTH_HELPER_PATH = INSTANCE_PATHS.oauthHelperPath;
@@ -39,20 +31,8 @@ const OPENAI_OAUTH_TOKEN_URL = "https://auth.openai.com/oauth/token";
 const OPENAI_OAUTH_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 const EXPIRING_SOON_MS = 24 * 60 * 60 * 1000;
 const AUTOPILOT_TICK_MS = 60 * 1000;
-const INTEL_REFRESH_MINUTES = 180;
 const INTEL_DIGEST_RETRY_BACKOFF_MS = 30 * 60 * 1000;
-const EVOLUTION_REVIEW_INTERVAL_MS = 12 * 60 * 60 * 1000;
-const EVOLUTION_SHADOW_MIN_OBSERVATIONS = 3;
-const EVOLUTION_AUTO_ADOPT_MIN_OBSERVATIONS = 4;
-const EVOLUTION_ROUTE_SUCCESS_RATE_MIN = 0.65;
-const EVOLUTION_ROUTE_COMPLETION_MIN = 62;
-const EVOLUTION_ROUTE_SHADOW_WIN_RATE_PROMOTE = 0.55;
-const EVOLUTION_ROUTE_SHADOW_WIN_RATE_ADOPT = 0.62;
 const EVENT_LOG_TAIL_LIMIT = 120;
-const INTEL_ITEM_RETENTION = 600;
-const INTEL_DIGEST_RETENTION = 45;
-const MEMORY_ENTRY_RETENTION = 800;
-const STRATEGY_ENTRY_RETENTION = 240;
 const AUTOPILOT_TASK_STATUSES = new Set([
   "queued",
   "planning",
@@ -87,62 +67,6 @@ const DEFAULT_AUTOPILOT_CONFIG = Object.freeze({
   maxRemoteCallsPerTask: 6,
   dailyRemoteTokenBudget: 250000
 });
-const DEFAULT_INTEL_CONFIG = Object.freeze({
-  enabled: true,
-  digestEnabled: true,
-  refreshMinutes: INTEL_REFRESH_MINUTES,
-  digestHourLocal: 9,
-  candidateLimitPerDomain: 20,
-  digestItemLimitPerDomain: 10,
-  exploitItemsPerDigest: 8,
-  exploreItemsPerDigest: 2,
-  maxItemsPerSourceInDigest: 2,
-  recentDigestTopicWindowDays: 5,
-  llmJudgeEnabled: true,
-  llmAgent: "research",
-  deliveryMode: "preferred_recent",
-  notifyOnlyHighUrgency: true
-});
-const DEFAULT_EVOLUTION_CONFIG = Object.freeze({
-  enabled: true,
-  autoApplyLowRisk: true,
-  reviewIntervalHours: 12
-});
-const DEFAULT_INTEL_DOMAINS = Object.freeze([
-  {
-    id: "tech",
-    label: "科技",
-    keywords: ["technology", "tech", "startup", "chip", "software", "cloud", "developer"],
-    sources: [
-      { id: "hn-frontpage", url: "https://hnrss.org/frontpage", priority: 1.0 },
-      { id: "techcrunch", url: "https://techcrunch.com/feed/", priority: 0.9 },
-      { id: "theverge", url: "https://www.theverge.com/rss/index.xml", priority: 0.8 },
-      { id: "arstechnica", url: "https://feeds.arstechnica.com/arstechnica/index", priority: 0.8 }
-    ]
-  },
-  {
-    id: "ai",
-    label: "AI",
-    keywords: ["ai", "artificial intelligence", "model", "agent", "llm", "inference", "gpu"],
-    sources: [
-      { id: "openai-news", url: "https://openai.com/news/rss.xml", priority: 1.0 },
-      { id: "anthropic-news", url: "https://www.anthropic.com/news/rss.xml", priority: 0.95 },
-      { id: "mit-ai", url: "https://www.technologyreview.com/topic/artificial-intelligence/feed/", priority: 0.85 },
-      { id: "google-ai", url: "https://blog.google/technology/ai/rss/", priority: 0.8 }
-    ]
-  },
-  {
-    id: "business",
-    label: "商业",
-    keywords: ["business", "market", "company", "funding", "finance", "policy", "economy"],
-    sources: [
-      { id: "reuters-business", url: "https://feeds.reuters.com/reuters/businessNews", priority: 1.0 },
-      { id: "cnbc-business", url: "https://www.cnbc.com/id/10001147/device/rss/rss.html", priority: 0.9 },
-      { id: "reuters-top", url: "https://feeds.reuters.com/reuters/topNews", priority: 0.75 },
-      { id: "marketwatch", url: "https://feeds.marketwatch.com/marketwatch/topstories/", priority: 0.75 }
-    ]
-  }
-]);
 
 let activeLogin = null;
 let autopilotTicker = null;
@@ -373,30 +297,12 @@ async function loadCodexCliStore() {
   return readJsonFile(CODEX_CLI_STORE_PATH, { version: 1, profiles: {} });
 }
 
-async function loadAutopilotStore() {
-  return normalizeAutopilotStore(await readJsonFile(AUTOPILOT_STORE_PATH, null));
-}
-
-async function loadIntelStore() {
-  const raw = await readJsonFile(INTEL_STORE_PATH, null);
-  if (raw == null) {
-    return saveIntelStore(normalizeIntelStore(null));
-  }
-  return normalizeIntelStore(raw);
-}
-
-async function loadMemoryStore() {
-  const raw = await readJsonFile(MEMORY_STORE_PATH, null);
-  if (raw == null) {
-    return saveMemoryStore(normalizeMemoryStore(null));
-  }
-  return normalizeMemoryStore(raw);
-}
-
 let managedRuntimeDecisionCorePromise = null;
-let managedRuntimeTaskLoopPromise = null;
 let managedRuntimeTaskArtifactsPromise = null;
-let managedRuntimeTaskLoopWarned = false;
+let managedRuntimeStorePromise = null;
+let managedRuntimeTaskEnginePromise = null;
+let managedRuntimeIntelRefreshPromise = null;
+let managedRuntimeMutationsPromise = null;
 let managedRuntimeTaskArtifactsWarned = false;
 
 async function loadManagedRuntimeDecisionCore() {
@@ -412,19 +318,6 @@ async function loadManagedRuntimeDecisionCore() {
   return managedRuntimeDecisionCorePromise;
 }
 
-async function loadManagedRuntimeTaskLoopCore() {
-  if (!managedRuntimeTaskLoopPromise) {
-    const modulePath = pathToFileURL(
-      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "task-loop.js")
-    ).href;
-    managedRuntimeTaskLoopPromise = import(modulePath).catch((error) => {
-      managedRuntimeTaskLoopPromise = null;
-      throw error;
-    });
-  }
-  return managedRuntimeTaskLoopPromise;
-}
-
 async function loadManagedRuntimeTaskArtifactsCore() {
   if (!managedRuntimeTaskArtifactsPromise) {
     const modulePath = pathToFileURL(
@@ -438,12 +331,63 @@ async function loadManagedRuntimeTaskArtifactsCore() {
   return managedRuntimeTaskArtifactsPromise;
 }
 
-async function loadEvolutionStore() {
-  const raw = await readJsonFile(EVOLUTION_STORE_PATH, null);
-  if (raw == null) {
-    return saveEvolutionStore(normalizeEvolutionStore(null));
+async function loadManagedRuntimeStoreCore() {
+  if (!managedRuntimeStorePromise) {
+    const modulePath = pathToFileURL(
+      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "store.js")
+    ).href;
+    managedRuntimeStorePromise = import(modulePath).catch((error) => {
+      managedRuntimeStorePromise = null;
+      throw error;
+    });
   }
-  return normalizeEvolutionStore(raw);
+  return managedRuntimeStorePromise;
+}
+
+async function loadManagedRuntimeTaskEngineCore() {
+  if (!managedRuntimeTaskEnginePromise) {
+    const modulePath = pathToFileURL(
+      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "task-engine.js")
+    ).href;
+    managedRuntimeTaskEnginePromise = import(modulePath).catch((error) => {
+      managedRuntimeTaskEnginePromise = null;
+      throw error;
+    });
+  }
+  return managedRuntimeTaskEnginePromise;
+}
+
+async function loadManagedRuntimeIntelRefreshCore() {
+  if (!managedRuntimeIntelRefreshPromise) {
+    const modulePath = pathToFileURL(
+      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "intel-refresh.js")
+    ).href;
+    managedRuntimeIntelRefreshPromise = import(modulePath).catch((error) => {
+      managedRuntimeIntelRefreshPromise = null;
+      throw error;
+    });
+  }
+  return managedRuntimeIntelRefreshPromise;
+}
+
+async function loadManagedRuntimeMutationsCore() {
+  if (!managedRuntimeMutationsPromise) {
+    const modulePath = pathToFileURL(
+      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "mutations.js")
+    ).href;
+    managedRuntimeMutationsPromise = import(modulePath).catch((error) => {
+      managedRuntimeMutationsPromise = null;
+      throw error;
+    });
+  }
+  return managedRuntimeMutationsPromise;
+}
+
+function managedRuntimeStoreOptions(nowValue = nowTs()) {
+  return {
+    env: buildManagedRuntimeEnv(process.env, INSTANCE_PATHS),
+    now: nowValue
+  };
 }
 
 function resolveAgentSessionsStorePath(agentId = "main") {
@@ -1235,384 +1179,40 @@ function normalizeAutopilotTask(task, defaults = DEFAULT_AUTOPILOT_CONFIG) {
   };
 }
 
-function normalizeAutopilotStore(store) {
-  const source = isRecord(store) ? store : {};
-  const version = clampInt(source.version, 1, 1, 999);
-  const configPatch = version < 2 ? { enabled: true, heartbeatEnabled: true } : null;
-  const config = normalizeAutopilotConfig({ ...(isRecord(source.config) ? source.config : {}), ...(configPatch || {}) });
-  const tasks = Array.isArray(source.tasks)
-    ? source.tasks.map((task) => normalizeAutopilotTask(task, config)).sort(compareAutopilotTasks)
-    : [];
-  const scheduler = isRecord(source.scheduler) ? source.scheduler : {};
-  return {
-    version: 2,
-    config,
-    scheduler: {
-      startedAt: parseOptionalTimestamp(scheduler.startedAt),
-      lastPersistedAt: parseOptionalTimestamp(scheduler.lastPersistedAt)
-    },
-    tasks
-  };
-}
-
 function hasDefinedOwn(obj, key) {
   return isRecord(obj) && Object.prototype.hasOwnProperty.call(obj, key) && obj[key] !== undefined;
 }
 
-function normalizeIntelSource(value) {
-  const source = isRecord(value) ? value : {};
-  return {
-    id: normalizeString(source.id) || `source_${hashText(JSON.stringify(source) || crypto.randomUUID(), 12)}`,
-    url: normalizeString(source.url),
-    priority: Math.max(0, Math.min(3, Number(source.priority) || 0.5))
-  };
-}
-
-function normalizeIntelDomain(value, fallback = null) {
-  const base = isRecord(fallback) ? fallback : {};
-  const source = isRecord(value) ? value : {};
-  const mergedSources = Array.isArray(source.sources) ? source.sources : Array.isArray(base.sources) ? base.sources : [];
-  const normalizedSources = dedupe(
-    mergedSources
-      .map((entry) => normalizeIntelSource(entry))
-      .filter((entry) => entry.url)
-      .map((entry) => entry.id)
-  ).map((id) => {
-    const raw = mergedSources.find((entry) => normalizeIntelSource(entry).id === id);
-    return normalizeIntelSource(raw);
-  });
-  const rawStats = isRecord(source.sourceStats) ? source.sourceStats : isRecord(base.sourceStats) ? base.sourceStats : {};
-  const sourceStats = {};
-  for (const [sourceId, stats] of Object.entries(rawStats)) {
-    sourceStats[sourceId] = {
-      successCount: clampInt(stats?.successCount, 0, 0, 100000),
-      failureCount: clampInt(stats?.failureCount, 0, 0, 100000),
-      lastSeenAt: parseOptionalTimestamp(stats?.lastSeenAt),
-      lastFailureAt: parseOptionalTimestamp(stats?.lastFailureAt),
-      avgScore: Math.max(0, Math.min(100, Number(stats?.avgScore) || 0))
-    };
-  }
-  return {
-    id: normalizeString(source.id || base.id) || `domain_${crypto.randomUUID()}`,
-    label: normalizeString(source.label || base.label) || normalizeString(source.id || base.id),
-    keywords: normalizeKeywordTags(source.keywords || base.keywords),
-    sources: normalizedSources,
-    lastFetchedAt: parseOptionalTimestamp(source.lastFetchedAt ?? base.lastFetchedAt),
-    lastDigestAt: parseOptionalTimestamp(source.lastDigestAt ?? base.lastDigestAt),
-    lastDigestId: normalizeString(source.lastDigestId || base.lastDigestId) || null,
-    lastDigestAttemptAt: parseOptionalTimestamp(source.lastDigestAttemptAt ?? base.lastDigestAttemptAt),
-    lastDigestError: normalizeString(source.lastDigestError || base.lastDigestError),
-    nextDigestDate: normalizeString(source.nextDigestDate || base.nextDigestDate) || null,
-    sourceStats
-  };
-}
-
-function normalizeIntelItem(value) {
-  const source = isRecord(value) ? value : {};
-  const title = normalizeString(source.title);
-  const summary = normalizeString(source.summary);
-  const url = normalizeString(source.url);
-  const contentHash = normalizeString(source.contentHash) || hashText(`${title}|${url}|${summary}`, 16);
-  return {
-    id: normalizeString(source.id) || `intel_${contentHash}`,
-    domain: normalizeString(source.domain),
-    title,
-    summary,
-    url,
-    sourceId: normalizeString(source.sourceId),
-    sourceUrl: normalizeString(source.sourceUrl),
-    publishedAt: parseOptionalTimestamp(source.publishedAt),
-    fetchedAt: parseOptionalTimestamp(source.fetchedAt) || nowTs(),
-    contentHash,
-    rawText: normalizeString(source.rawText),
-    tags: normalizeKeywordTags(source.tags),
-    credibilityScore: clampPercent(source.credibilityScore),
-    importanceScore: clampPercent(source.importanceScore),
-    noveltyScore: clampPercent(source.noveltyScore),
-    relevanceScore: clampPercent(source.relevanceScore),
-    overallScore: clampPercent(source.overallScore),
-    actionability: normalizeString(source.actionability),
-    judgement: normalizeString(source.judgement),
-    selectedForDigest: Boolean(source.selectedForDigest),
-    explorationCandidate: Boolean(source.explorationCandidate),
-    digestId: normalizeString(source.digestId) || null,
-    deliveredAt: parseOptionalTimestamp(source.deliveredAt),
-    sourceEventIds: normalizeStringArray(source.sourceEventIds).slice(0, 24)
-  };
-}
-
-function normalizeDigestItem(value) {
-  const source = isRecord(value) ? value : {};
-  return {
-    itemId: normalizeString(source.itemId),
-    rank: clampInt(source.rank, 0, 0, 1000),
-    title: normalizeString(source.title),
-    summary: normalizeString(source.summary),
-    judgement: normalizeString(source.judgement),
-    whyImportant: normalizeString(source.whyImportant || source.why),
-    actionability: normalizeString(source.actionability),
-    url: normalizeString(source.url),
-    sourceId: normalizeString(source.sourceId),
-    overallScore: clampPercent(source.overallScore),
-    exploration: Boolean(source.exploration)
-  };
-}
-
-function normalizeIntelDigest(value) {
-  const source = isRecord(value) ? value : {};
-  return {
-    id: normalizeString(source.id) || `digest_${crypto.randomUUID()}`,
-    domain: normalizeString(source.domain),
-    digestDate: normalizeString(source.digestDate),
-    createdAt: parseOptionalTimestamp(source.createdAt) || nowTs(),
-    items: Array.isArray(source.items) ? source.items.map((item) => normalizeDigestItem(item)).filter((item) => item.itemId) : [],
-    delivery: normalizeAutopilotDelivery(source.delivery),
-    status: normalizeString(source.status, "draft"),
-    sourceEventIds: normalizeStringArray(source.sourceEventIds).slice(0, 24)
-  };
-}
-
-function normalizeIntelConfig(value) {
-  const source = isRecord(value) ? value : {};
-  return {
-    enabled: source.enabled == null ? DEFAULT_INTEL_CONFIG.enabled : Boolean(source.enabled),
-    digestEnabled: source.digestEnabled == null ? DEFAULT_INTEL_CONFIG.digestEnabled : Boolean(source.digestEnabled),
-    refreshMinutes: clampInt(source.refreshMinutes, DEFAULT_INTEL_CONFIG.refreshMinutes, 15, 24 * 60),
-    digestHourLocal: clampInt(source.digestHourLocal, DEFAULT_INTEL_CONFIG.digestHourLocal, 0, 23),
-    candidateLimitPerDomain: clampInt(source.candidateLimitPerDomain, DEFAULT_INTEL_CONFIG.candidateLimitPerDomain, 5, 100),
-    digestItemLimitPerDomain: clampInt(source.digestItemLimitPerDomain, DEFAULT_INTEL_CONFIG.digestItemLimitPerDomain, 3, 30),
-    exploitItemsPerDigest: clampInt(source.exploitItemsPerDigest, DEFAULT_INTEL_CONFIG.exploitItemsPerDigest, 1, 20),
-    exploreItemsPerDigest: clampInt(source.exploreItemsPerDigest, DEFAULT_INTEL_CONFIG.exploreItemsPerDigest, 0, 10),
-    maxItemsPerSourceInDigest: clampInt(source.maxItemsPerSourceInDigest, DEFAULT_INTEL_CONFIG.maxItemsPerSourceInDigest, 1, 10),
-    recentDigestTopicWindowDays: clampInt(source.recentDigestTopicWindowDays, DEFAULT_INTEL_CONFIG.recentDigestTopicWindowDays, 1, 30),
-    llmJudgeEnabled: source.llmJudgeEnabled == null ? DEFAULT_INTEL_CONFIG.llmJudgeEnabled : Boolean(source.llmJudgeEnabled),
-    llmAgent: normalizeString(source.llmAgent, DEFAULT_INTEL_CONFIG.llmAgent),
-    deliveryMode: normalizeString(source.deliveryMode, DEFAULT_INTEL_CONFIG.deliveryMode),
-    notifyOnlyHighUrgency: source.notifyOnlyHighUrgency == null ? DEFAULT_INTEL_CONFIG.notifyOnlyHighUrgency : Boolean(source.notifyOnlyHighUrgency)
-  };
-}
-
-function normalizeIntelStore(store) {
-  const source = isRecord(store) ? store : {};
-  const config = normalizeIntelConfig(source.config);
-  const baseDomains = DEFAULT_INTEL_DOMAINS.map((entry) => normalizeIntelDomain(entry));
-  const storedDomains = Array.isArray(source.domains) ? source.domains.map((entry) => normalizeIntelDomain(entry)) : [];
-  const domainsById = new Map(baseDomains.map((entry) => [entry.id, entry]));
-  for (const stored of storedDomains) {
-    domainsById.set(stored.id, normalizeIntelDomain(stored, domainsById.get(stored.id) || null));
-  }
-  const items = (Array.isArray(source.items) ? source.items : [])
-    .map((entry) => normalizeIntelItem(entry))
-    .sort((left, right) => (right.fetchedAt || 0) - (left.fetchedAt || 0))
-    .slice(0, INTEL_ITEM_RETENTION);
-  const digests = (Array.isArray(source.digests) ? source.digests : [])
-    .map((entry) => normalizeIntelDigest(entry))
-    .sort((left, right) => (right.createdAt || 0) - (left.createdAt || 0))
-    .slice(0, INTEL_DIGEST_RETENTION);
-  const scheduler = isRecord(source.scheduler) ? source.scheduler : {};
-  return {
-    version: 2,
-    config,
-    domains: [...domainsById.values()],
-    items,
-    digests,
-    scheduler: {
-      lastTickAt: parseOptionalTimestamp(scheduler.lastTickAt),
-      lastDigestSweepAt: parseOptionalTimestamp(scheduler.lastDigestSweepAt),
-      lastPersistedAt: parseOptionalTimestamp(scheduler.lastPersistedAt)
-    }
-  };
-}
-
-function normalizeMemoryEntry(value) {
-  const source = isRecord(value) ? value : {};
-  const createdAt = parseOptionalTimestamp(source.createdAt) || nowTs();
-  return {
-    id: normalizeString(source.id) || `mem_${crypto.randomUUID()}`,
-    memoryType: normalizeString(source.memoryType || source.type, "execution"),
-    scope: normalizeString(source.scope, "global"),
-    route: normalizeString(source.route),
-    summary: normalizeString(source.summary),
-    appliesWhen: normalizeString(source.appliesWhen),
-    avoidWhen: normalizeString(source.avoidWhen),
-    tags: normalizeKeywordTags(source.tags),
-    confidence: clampPercent(source.confidence),
-    sourceEventIds: normalizeStringArray(source.sourceEventIds).slice(0, 48),
-    sourceTaskIds: normalizeStringArray(source.sourceTaskIds).slice(0, 24),
-    sourceIntelIds: normalizeStringArray(source.sourceIntelIds).slice(0, 24),
-    derivedFromMemoryIds: normalizeStringArray(source.derivedFromMemoryIds).slice(0, 24),
-    invalidatedBy: normalizeStringArray(source.invalidatedBy).slice(0, 24),
-    lastReinforcedAt: parseOptionalTimestamp(source.lastReinforcedAt) || createdAt,
-    decayScore: clampPercent(source.decayScore),
-    version: clampInt(source.version, 1, 1, 999),
-    createdAt,
-    updatedAt: parseOptionalTimestamp(source.updatedAt) || createdAt
-  };
-}
-
-function normalizeStrategyEntry(value) {
-  const source = isRecord(value) ? value : {};
-  const createdAt = parseOptionalTimestamp(source.createdAt) || nowTs();
-  return {
-    id: normalizeString(source.id) || `strategy_${crypto.randomUUID()}`,
-    route: normalizeString(source.route),
-    scope: normalizeString(source.scope, "global"),
-    triggerConditions: normalizeString(source.triggerConditions),
-    recommendedPath: normalizeString(source.recommendedPath),
-    fallbackPath: normalizeString(source.fallbackPath),
-    recommendedWorker: normalizeString(source.recommendedWorker),
-    recommendedSkills: normalizeAutopilotTaskHintSet(source.recommendedSkills),
-    thinkingLane: normalizeString(source.thinkingLane, "system1"),
-    confidence: clampPercent(source.confidence),
-    measuredEffect: normalizeOptionalRecord(source.measuredEffect),
-    tags: normalizeKeywordTags(source.tags),
-    derivedFromMemoryIds: normalizeStringArray(source.derivedFromMemoryIds).slice(0, 24),
-    sourceTaskIds: normalizeStringArray(source.sourceTaskIds).slice(0, 24),
-    sourceIntelIds: normalizeStringArray(source.sourceIntelIds).slice(0, 24),
-    invalidatedBy: normalizeStringArray(source.invalidatedBy).slice(0, 24),
-    sourceEventIds: normalizeStringArray(source.sourceEventIds).slice(0, 24),
-    version: clampInt(source.version, 1, 1, 999),
-    createdAt,
-    updatedAt: parseOptionalTimestamp(source.updatedAt) || createdAt
-  };
-}
-
-function normalizeLearningEntry(value) {
-  const source = isRecord(value) ? value : {};
-  const createdAt = parseOptionalTimestamp(source.createdAt) || nowTs();
-  return {
-    id: normalizeString(source.id) || `learning_${crypto.randomUUID()}`,
-    observedPattern: normalizeString(source.observedPattern),
-    effectOnSuccessRate: Number.isFinite(Number(source.effectOnSuccessRate)) ? Number(source.effectOnSuccessRate) : 0,
-    effectOnTokenCost: Number.isFinite(Number(source.effectOnTokenCost)) ? Number(source.effectOnTokenCost) : 0,
-    effectOnCompletionQuality: Number.isFinite(Number(source.effectOnCompletionQuality)) ? Number(source.effectOnCompletionQuality) : 0,
-    adoptedAs: normalizeString(source.adoptedAs),
-    sourceEventIds: normalizeStringArray(source.sourceEventIds).slice(0, 24),
-    sourceTaskIds: normalizeStringArray(source.sourceTaskIds).slice(0, 24),
-    createdAt,
-    updatedAt: parseOptionalTimestamp(source.updatedAt) || createdAt
-  };
-}
-
-function normalizeMemoryStore(store) {
-  const source = isRecord(store) ? store : {};
-  const scheduler = isRecord(source.scheduler) ? source.scheduler : {};
-  return {
-    version: 1,
-    memories: (Array.isArray(source.memories) ? source.memories : [])
-      .map((entry) => normalizeMemoryEntry(entry))
-      .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
-      .slice(0, MEMORY_ENTRY_RETENTION),
-    strategies: (Array.isArray(source.strategies) ? source.strategies : [])
-      .map((entry) => normalizeStrategyEntry(entry))
-      .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
-      .slice(0, STRATEGY_ENTRY_RETENTION),
-    learnings: (Array.isArray(source.learnings) ? source.learnings : [])
-      .map((entry) => normalizeLearningEntry(entry))
-      .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
-      .slice(0, 240),
-    scheduler: {
-      lastDistilledAt: parseOptionalTimestamp(scheduler.lastDistilledAt),
-      lastPersistedAt: parseOptionalTimestamp(scheduler.lastPersistedAt)
-    }
-  };
-}
-
-function normalizeEvolutionCandidate(value) {
-  const source = isRecord(value) ? value : {};
-  const createdAt = parseOptionalTimestamp(source.createdAt) || nowTs();
-  return {
-    id: normalizeString(source.id) || `evo_${crypto.randomUUID()}`,
-    targetLayer: normalizeString(source.targetLayer),
-    candidateType: normalizeString(source.candidateType),
-    candidateRef: normalizeString(source.candidateRef),
-    expectedEffect: normalizeOptionalRecord(source.expectedEffect),
-    measuredEffect: normalizeOptionalRecord(source.measuredEffect),
-    shadowMetrics: normalizeOptionalRecord(source.shadowMetrics),
-    adoptionState: normalizeString(source.adoptionState, "shadow"),
-    sourceEventIds: normalizeStringArray(source.sourceEventIds).slice(0, 24),
-    sourceTaskIds: normalizeStringArray(source.sourceTaskIds).slice(0, 24),
-    sourceIntelIds: normalizeStringArray(source.sourceIntelIds).slice(0, 24),
-    derivedFromMemoryIds: normalizeStringArray(source.derivedFromMemoryIds).slice(0, 24),
-    invalidatedBy: normalizeStringArray(source.invalidatedBy).slice(0, 24),
-    notes: normalizeString(source.notes),
-    createdAt,
-    updatedAt: parseOptionalTimestamp(source.updatedAt) || createdAt,
-    lastShadowAt: parseOptionalTimestamp(source.lastShadowAt)
-  };
-}
-
-function normalizeEvolutionConfig(value) {
-  const source = isRecord(value) ? value : {};
-  return {
-    enabled: source.enabled == null ? DEFAULT_EVOLUTION_CONFIG.enabled : Boolean(source.enabled),
-    autoApplyLowRisk: source.autoApplyLowRisk == null ? DEFAULT_EVOLUTION_CONFIG.autoApplyLowRisk : Boolean(source.autoApplyLowRisk),
-    reviewIntervalHours: clampInt(source.reviewIntervalHours, DEFAULT_EVOLUTION_CONFIG.reviewIntervalHours, 1, 7 * 24)
-  };
-}
-
-function normalizeEvolutionStore(store) {
-  const source = isRecord(store) ? store : {};
-  const scheduler = isRecord(source.scheduler) ? source.scheduler : {};
-  return {
-    version: 1,
-    config: normalizeEvolutionConfig(source.config),
-    candidates: (Array.isArray(source.candidates) ? source.candidates : [])
-      .map((entry) => normalizeEvolutionCandidate(entry))
-      .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
-      .slice(0, 240),
-    scheduler: {
-      lastReviewAt: parseOptionalTimestamp(scheduler.lastReviewAt),
-      lastPersistedAt: parseOptionalTimestamp(scheduler.lastPersistedAt)
-    }
-  };
-}
-
-async function saveIntelStore(store) {
-  const normalized = normalizeIntelStore(store);
-  normalized.scheduler.lastPersistedAt = nowTs();
-  await writeJsonAtomicSecure(INTEL_STORE_PATH, normalized);
-  return normalized;
-}
-
-async function saveMemoryStore(store) {
-  const normalized = normalizeMemoryStore(store);
-  normalized.scheduler.lastPersistedAt = nowTs();
-  await writeJsonAtomicSecure(MEMORY_STORE_PATH, normalized);
-  return normalized;
-}
-
-async function saveEvolutionStore(store) {
-  const normalized = normalizeEvolutionStore(store);
-  normalized.scheduler.lastPersistedAt = nowTs();
-  await writeJsonAtomicSecure(EVOLUTION_STORE_PATH, normalized);
-  return normalized;
-}
-
 async function appendSystemEvent(type, payload = {}) {
-  const ts = nowTs();
-  const event = {
-    eventId: `evt_${hashText(`${type}|${ts}|${JSON.stringify(payload)}`, 16)}`,
-    type: normalizeString(type, "unknown"),
+  const opts = managedRuntimeStoreOptions();
+  const storeCore = await loadManagedRuntimeStoreCore();
+  const runtimeEvent = storeCore.appendRuntimeEvent(
+    normalizeString(type, "unknown"),
+    isRecord(payload) ? payload : {},
+    opts
+  );
+  const ts = Number(runtimeEvent?.createdAt || opts.now || nowTs()) || nowTs();
+  return {
+    eventId: normalizeString(runtimeEvent?.id) || `runtime-event-${ts}`,
+    type: normalizeString(runtimeEvent?.type, normalizeString(type, "unknown")),
     ts,
     iso: toIso(ts),
-    payload: isRecord(payload) ? payload : {}
+    payload: isRecord(runtimeEvent?.payload) ? runtimeEvent.payload : {}
   };
-  await appendJsonLine(EVENT_LOG_PATH, event);
-  return event;
 }
 
 async function readRecentSystemEvents(limit = EVENT_LOG_TAIL_LIMIT) {
-  const text = await readTextFile(EVENT_LOG_PATH, "");
-  if (!text) return [];
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const selected = lines.slice(Math.max(0, lines.length - limit));
-  return selected
-    .map((line) => safeParseJson(line, null))
-    .filter(Boolean);
+  const storeCore = await loadManagedRuntimeStoreCore();
+  return storeCore.readRuntimeEvents(limit, managedRuntimeStoreOptions()).map((event) => {
+    const ts = Number(event?.createdAt || 0) || 0;
+    return {
+      eventId: normalizeString(event?.id),
+      type: normalizeString(event?.type),
+      ts,
+      iso: toIso(ts),
+      payload: isRecord(event?.payload) ? event.payload : {}
+    };
+  });
 }
 
 function truncateText(value, limit = 160) {
@@ -1844,11 +1444,11 @@ function normalizeDeliveryCandidate(value) {
 
 async function resolvePreferredDigestDelivery() {
   const [autopilot, sessions] = await Promise.all([
-    loadAutopilotStore(),
+    loadAutopilotStatus(),
     loadAgentSessionsStore("main")
   ]);
   const candidates = [];
-  for (const task of [...autopilot.tasks].sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))) {
+  for (const task of [...(autopilot?.tasks || [])].sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))) {
     const delivery = normalizeDeliveryCandidate(task.delivery);
     if (!delivery) continue;
     candidates.push({
@@ -2013,82 +1613,6 @@ function shouldUseSystem2(task, topStrategy, relevantMemories, relevantIntel) {
   if (task.priority === "high" && relevantMemories.length < 2) return true;
   if (relevantIntel.length >= 2 && relevantMemories.length === 0) return true;
   return topStrategy.confidence < 68;
-}
-
-function toManagedRuntimeMemoryRecord(entry) {
-  const normalized = normalizeMemoryEntry(entry);
-  const detailParts = [
-    normalized.appliesWhen ? `applies=${normalized.appliesWhen}` : "",
-    normalized.avoidWhen ? `avoid=${normalized.avoidWhen}` : ""
-  ].filter(Boolean);
-  const allowedTypes = new Set(["user", "knowledge", "execution", "avoidance", "efficiency", "completion", "resource", "communication"]);
-  const memoryType = allowedTypes.has(normalized.memoryType) ? normalized.memoryType : "execution";
-  return {
-    id: normalized.id,
-    layer: "memories",
-    memoryType,
-    route: normalized.route || undefined,
-    summary: normalized.summary,
-    detail: detailParts.join(" | ") || undefined,
-    scope: normalized.scope || undefined,
-    tags: normalizeKeywordTags(normalized.tags),
-    confidence: clampPercent(normalized.confidence),
-    version: clampInt(normalized.version, 1, 1, 999),
-    invalidatedBy: normalizeStringArray(normalized.invalidatedBy).slice(0, 24),
-    sourceEventIds: normalizeStringArray(normalized.sourceEventIds).slice(0, 48),
-    sourceTaskIds: normalizeStringArray(normalized.sourceTaskIds).slice(0, 24),
-    sourceIntelIds: normalizeStringArray(normalized.sourceIntelIds).slice(0, 24),
-    derivedFromMemoryIds: normalizeStringArray(normalized.derivedFromMemoryIds).slice(0, 24),
-    createdAt: normalized.createdAt || nowTs(),
-    updatedAt: normalized.updatedAt || normalized.createdAt || nowTs()
-  };
-}
-
-function toManagedRuntimeStrategyRecord(entry) {
-  const normalized = normalizeStrategyEntry(entry);
-  return {
-    id: normalized.id,
-    layer: "strategies",
-    route: normalized.route || "general",
-    worker: normalized.recommendedWorker || "main",
-    skillIds: normalizeAutopilotTaskHintSet(normalized.recommendedSkills),
-    summary: normalized.recommendedPath || normalized.triggerConditions || `${normalized.route || "general"} strategy`,
-    fallback: normalized.fallbackPath || undefined,
-    thinkingLane: normalizeString(normalized.thinkingLane, "system1") === "system2" ? "system2" : "system1",
-    confidence: clampPercent(normalized.confidence),
-    version: clampInt(normalized.version, 1, 1, 999),
-    invalidatedBy: normalizeStringArray(normalized.invalidatedBy).slice(0, 24),
-    sourceEventIds: normalizeStringArray(normalized.sourceEventIds).slice(0, 24),
-    sourceTaskIds: normalizeStringArray(normalized.sourceTaskIds).slice(0, 24),
-    sourceIntelIds: normalizeStringArray(normalized.sourceIntelIds).slice(0, 24),
-    derivedFromMemoryIds: normalizeStringArray(normalized.derivedFromMemoryIds).slice(0, 24),
-    createdAt: normalized.createdAt || nowTs(),
-    updatedAt: normalized.updatedAt || normalized.createdAt || nowTs()
-  };
-}
-
-function toManagedRuntimeIntelCandidate(entry) {
-  const normalized = normalizeIntelItem(entry);
-  const allowedDomains = new Set(["tech", "ai", "business", "github"]);
-  const domain = allowedDomains.has(normalizeString(normalized.domain)) ? normalizeString(normalized.domain) : "tech";
-  return {
-    id: normalized.id,
-    domain,
-    sourceId: normalized.sourceId || `legacy:${domain}`,
-    title: normalized.title || normalized.summary || normalized.id,
-    url: normalized.url || undefined,
-    summary: normalized.summary || normalized.judgement || "",
-    score: clampPercent(normalized.overallScore),
-    selected: Boolean(normalized.selectedForDigest),
-    createdAt: normalized.publishedAt || normalized.fetchedAt || nowTs(),
-    metadata: {
-      judgement: normalized.judgement,
-      actionability: normalized.actionability,
-      explorationCandidate: normalized.explorationCandidate,
-      digestId: normalized.digestId || null,
-      sourceEventIds: normalizeStringArray(normalized.sourceEventIds).slice(0, 24)
-    }
-  };
 }
 
 function buildManagedRuntimeDecisionTask(task, config) {
@@ -2312,106 +1836,35 @@ async function buildManagedRuntimeTaskArtifacts(task, options = {}) {
   } catch (error) {
     if (!managedRuntimeTaskArtifactsWarned && pluginApi?.logger) {
       managedRuntimeTaskArtifactsWarned = true;
-      pluginApi.logger.warn(`[openclaw-codex-control] managed runtime task artifacts unavailable, using legacy task events only: ${error?.message || error}`);
+      pluginApi.logger.warn(`[openclaw-codex-control] managed runtime task artifacts unavailable, runtime event snapshots will be partial: ${error?.message || error}`);
     }
     return null;
   }
 }
 
-async function buildTaskDecisionLegacy(task, config) {
-  const [memoryStore, intelStore] = await Promise.all([
-    loadMemoryStore(),
-    loadIntelStore()
-  ]);
-  const relevantMemories = selectRelevantMemories(task, memoryStore, 5);
-  const relevantStrategies = selectRelevantStrategies(task, memoryStore, 3);
-  const relevantIntel = selectRelevantIntel(task, intelStore, 4);
-  const topStrategy = relevantStrategies[0]?.entry || null;
-  const thinkingLane = shouldUseSystem2(task, topStrategy, relevantMemories, relevantIntel) ? "system2" : "system1";
-  const recommendedWorker = normalizeString(topStrategy?.recommendedWorker || task.assignee || "main");
-  const recommendedSkills = mergeUniqueStrings(
-    task.skillHints,
-    topStrategy?.recommendedSkills,
-    buildSkillHintsForTask(task.route || task.taskKind || "general", `${task.goal} ${task.lastError} ${task.blockedReason}`)
-  ).slice(0, 12);
-  const relevantMemoryIds = relevantMemories.map((entry) => entry.entry.id);
-  const relevantIntelIds = relevantIntel.map((entry) => entry.entry.id);
-  const fallbackOrder = buildFallbackOrder(task, recommendedWorker, recommendedSkills, thinkingLane);
-  const memoryLines = relevantMemories.map((entry) => (
-    `- [memory][${entry.entry.memoryType}] ${truncateText(entry.entry.summary, 160)}`
-  ));
-  const intelLines = relevantIntel.map((entry) => (
-    `- [intel][${entry.entry.domain}] ${truncateText(entry.entry.title, 90)} | ${truncateText(entry.entry.judgement || entry.entry.summary, 120)}`
-  ));
-  const strategyLine = topStrategy
-    ? `命中策略：${truncateText(topStrategy.triggerConditions, 120)} -> ${truncateText(topStrategy.recommendedPath, 120)}`
-    : "命中策略：无高置信固定策略，本轮需要显式规划。";
-  const decisionSummary = [
-    `lane=${thinkingLane}`,
-    `worker=${recommendedWorker}`,
-    strategyLine,
-    memoryLines.length ? `记忆命中 ${memoryLines.length} 条` : "记忆命中 0 条",
-    intelLines.length ? `相关情报 ${intelLines.length} 条` : "相关情报 0 条",
-    thinkingLane === "system1"
-      ? "优先快通道，直接复用稳定路径。"
-      : "进入慢通道，需要显式规划、裁剪上下文并准备 fallback。"
-  ].join(" | ");
-  const contextPack = [
-    `决策通道：${thinkingLane}`,
-    strategyLine,
-    `本地优先策略：${buildLocalFirstPlan(task, thinkingLane)}`,
-    `远程推理策略：${buildRemoteModelPlan(task, thinkingLane)}`,
-    memoryLines.length ? "相关记忆：" : "",
-    ...memoryLines,
-    intelLines.length ? "相关情报：" : "",
-    ...intelLines
-  ].filter(Boolean).join("\n");
-  return {
-    builtAt: nowTs(),
-    thinkingLane,
-    decisionSummary,
-    recommendedWorker,
-    recommendedSkills,
-    relevantMemoryIds,
-    relevantIntelIds,
-    relevantMemorySummaries: relevantMemories.map((entry) => truncateText(entry.entry.summary, 180)),
-    relevantIntelSummaries: relevantIntel.map((entry) => truncateText(entry.entry.judgement || entry.entry.summary || entry.entry.title, 180)),
-    localFirstPlan: buildLocalFirstPlan(task, thinkingLane),
-    remoteModelPlan: buildRemoteModelPlan(task, thinkingLane),
-    fallbackOrder,
-    budgetLimit: {
-      maxInputTokens: config.maxInputTokensPerTurn,
-      maxRemoteCallsRemaining: Math.max(0, config.maxRemoteCallsPerTask - (task.runState?.remoteCallCount || 0))
-    },
-    contextPack: truncateText(contextPack, Math.max(1200, config.maxContextChars))
-  };
-}
-
 async function buildTaskDecision(task, config) {
-  try {
-    const core = await loadManagedRuntimeDecisionCore();
-    if (!core?.buildDecisionRecord) {
-      return await buildTaskDecisionLegacy(task, config);
-    }
-    const [memoryStore, intelStore] = await Promise.all([
-      loadMemoryStore(),
-      loadIntelStore()
-    ]);
-    const coreDecision = core.buildDecisionRecord({
-      task: buildManagedRuntimeDecisionTask(task, config),
-      config: buildManagedRuntimeDecisionConfig(config),
-      sources: {
-        strategies: memoryStore.strategies.map((entry) => toManagedRuntimeStrategyRecord(entry)),
-        memories: memoryStore.memories.map((entry) => toManagedRuntimeMemoryRecord(entry)),
-        intel: intelStore.items.map((entry) => toManagedRuntimeIntelCandidate(entry)),
-        archive: []
-      },
-      now: nowTs()
-    });
-    return adaptManagedRuntimeDecision(coreDecision);
-  } catch {
-    return await buildTaskDecisionLegacy(task, config);
+  const [core, storeCore] = await Promise.all([
+    loadManagedRuntimeDecisionCore(),
+    loadManagedRuntimeStoreCore()
+  ]);
+  if (!core?.buildDecisionRecord) {
+    throw new Error("Managed runtime decision core is unavailable.");
   }
+  const opts = managedRuntimeStoreOptions();
+  const memoryStore = storeCore.loadRuntimeMemoryStore(opts);
+  const intelStore = storeCore.loadRuntimeIntelStore(opts);
+  const coreDecision = core.buildDecisionRecord({
+    task: buildManagedRuntimeDecisionTask(task, config),
+    config: buildManagedRuntimeDecisionConfig(config),
+    sources: {
+      strategies: memoryStore.strategies,
+      memories: memoryStore.memories,
+      intel: intelStore.candidates,
+      archive: []
+    },
+    now: nowTs()
+  });
+  return adaptManagedRuntimeDecision(coreDecision);
 }
 
 function buildDecisionPromptBlock(decision) {
@@ -2429,1817 +1882,177 @@ function buildDecisionPromptBlock(decision) {
   return lines.join("\n");
 }
 
-function buildMemorySignature(memoryType, route, tags, summary) {
-  return `mem_${hashText(`${memoryType}|${route}|${normalizeKeywordTags(tags).slice(0, 8).join("|")}|${truncateText(summary, 96)}`, 16)}`;
-}
-
-function buildStrategySignature(route, worker, skills, lane) {
-  return `strategy_${hashText(`${route}|${worker}|${mergeUniqueStrings(skills).slice(0, 8).join("|")}|${lane}`, 16)}`;
-}
-
-function computeTaskCompletionScore(task) {
-  const status = normalizeAutopilotStatusValue(task?.status, "queued");
-  const remoteCalls = clampInt(task?.runState?.remoteCallCount, 0, 0, 100000);
-  const failures = clampInt(task?.runState?.consecutiveFailures, 0, 0, 100000);
-  let score = 30;
-  if (status === "completed") score = 92;
-  else if (status === "waiting_external") score = 60;
-  else if (status === "waiting_user") score = 44;
-  else if (status === "ready") score = 40;
-  else if (status === "blocked") score = 18;
-  score -= Math.max(0, remoteCalls - 1) * 6;
-  score -= Math.max(0, failures) * 4;
-  if (normalizeString(task?.lastError)) score -= 6;
-  if (normalizeString(task?.blockedReason)) score -= 4;
-  return Math.max(5, Math.min(100, score));
-}
-
-function extractObservedTaskSkillBundle(task) {
-  return mergeUniqueStrings(
-    task?.runState?.lastRecommendedSkills,
-    task?.skillHints
-  ).slice(0, 6);
-}
-
-function buildEvolutionCandidateSignal(candidate) {
-  const type = normalizeString(candidate?.candidateType);
-  if (type === "intel_source_reweight") {
-    return Math.sign(Number(candidate?.measuredEffect?.priorityDelta || 0));
-  }
-  const shadowWinCount = Number(candidate?.shadowMetrics?.shadowWinCount || 0);
-  const shadowLossCount = Number(candidate?.shadowMetrics?.shadowLossCount || 0);
-  if (shadowWinCount > shadowLossCount) return 1;
-  if (shadowLossCount > shadowWinCount) return -1;
-  const successCount = Number(candidate?.measuredEffect?.successCount || 0);
-  const blockedCount = Number(candidate?.measuredEffect?.blockedCount || 0);
-  const waitingUserCount = Number(candidate?.measuredEffect?.waitingUserCount || candidate?.measuredEffect?.waitingHumanCount || 0);
-  if (successCount > blockedCount + waitingUserCount) return 1;
-  if (blockedCount + waitingUserCount > successCount) return -1;
-  return 0;
-}
-
-function mergeCandidateMetrics(currentValue, incomingValue, key) {
-  const incomingNum = Number(incomingValue);
-  if (!Number.isFinite(incomingNum)) return incomingValue ?? currentValue;
-  const currentNum = Number(currentValue);
-  if (key === "priorityDelta") return incomingNum;
-  if (/Count$|Total$/.test(key)) return (Number.isFinite(currentNum) ? currentNum : 0) + incomingNum;
-  if (/^avg[A-Z]|Rate$|Score$/.test(key)) return averageNumber([currentNum, incomingNum]);
-  return incomingNum;
-}
-
-function mergeEvolutionMeasuredEffect(currentEffect, incomingEffect) {
-  const result = { ...(isRecord(currentEffect) ? currentEffect : {}) };
-  for (const [key, value] of Object.entries(isRecord(incomingEffect) ? incomingEffect : {})) {
-    result[key] = mergeCandidateMetrics(result[key], value, key);
-  }
-  const sampleCount = Number(result.sampleCount || 0);
-  if (sampleCount > 0) {
-    if (Number.isFinite(Number(result.remoteCallTotal))) {
-      result.avgRemoteCalls = Number(result.remoteCallTotal) / sampleCount;
-    }
-    if (Number.isFinite(Number(result.completionScoreTotal))) {
-      result.avgCompletionScore = Number(result.completionScoreTotal) / sampleCount;
-    }
-    const successCount = Number(result.successCount || 0);
-    if (Number.isFinite(successCount)) {
-      result.successRate = successCount / sampleCount;
-    }
-  }
-  return result;
-}
-
-function mergeEvolutionShadowMetrics(currentMetrics, incomingMetrics) {
-  const result = { ...(isRecord(currentMetrics) ? currentMetrics : {}) };
-  for (const [key, value] of Object.entries(isRecord(incomingMetrics) ? incomingMetrics : {})) {
-    if (Array.isArray(value) || Array.isArray(result[key])) {
-      result[key] = mergeUniqueStrings(result[key], value).slice(0, 24);
-      continue;
-    }
-    if (typeof value === "number" || typeof result[key] === "number") {
-      if (key === "observationCount" || key === "consistentSignalCount" || key === "lastSignal") continue;
-      result[key] = mergeCandidateMetrics(result[key], value, key);
-      continue;
-    }
-    result[key] = value;
-  }
-  return result;
-}
-
-function buildRouteStrategyFromEvolutionCandidate(candidate) {
-  const shadow = isRecord(candidate?.shadowMetrics) ? candidate.shadowMetrics : {};
-  const route = normalizeString(shadow.route);
-  const thinkingLane = normalizeString(shadow.lane || "system1");
-  const worker = normalizeString(shadow.worker || (route && route !== "general" ? route : "main"), "main");
-  const skillBundle = normalizeAutopilotTaskHintSet(shadow.skillBundle || []);
-  const avgCompletionScore = Number(candidate?.measuredEffect?.avgCompletionScore || 0);
-  const successCount = clampInt(candidate?.measuredEffect?.successCount, 0, 0, 100000);
-  const blockedCount = clampInt(candidate?.measuredEffect?.blockedCount, 0, 0, 100000);
-  const waitingUserCount = clampInt(candidate?.measuredEffect?.waitingUserCount ?? candidate?.measuredEffect?.waitingHumanCount, 0, 0, 100000);
-  const fallbackPath = thinkingLane === "system1"
-    ? "若命中未知场景、连续失败或相关记忆不足，则升级到 system2 并回退到 worker:main。"
-    : "若已有高置信策略且上下文清晰，则降级到 system1，并只带最少必要上下文。";
+function buildManagedIntelDigest(domainId, intelStore, digestDate) {
+  const items = intelStore.digestItems
+    .filter((entry) => entry.domain === domainId && normalizeString(entry.metadata?.digestDate) === digestDate)
+    .sort((left, right) => (right.createdAt || 0) - (left.createdAt || 0));
   return {
-    id: buildStrategySignature(route || "general", worker, skillBundle, thinkingLane),
-    route: route || "general",
-    scope: "evolved-route-default",
-    triggerConditions: `${route || "general"} 高频任务默认采用 ${thinkingLane} 决策通道。`,
-    recommendedPath: `优先由 ${worker} 执行，默认通道 ${thinkingLane}；优先技能：${skillBundle.join(", ") || "route-native-skills"}。`,
-    fallbackPath,
-    recommendedWorker: worker,
-    recommendedSkills: skillBundle,
-    thinkingLane,
-    confidence: clampPercent(Math.round(Math.max(68, avgCompletionScore || 0) + Math.min(12, successCount * 2) - Math.min(10, blockedCount + waitingUserCount))),
-    measuredEffect: candidate?.measuredEffect,
-    tags: mergeUniqueStrings([route, thinkingLane, worker], skillBundle),
-    derivedFromMemoryIds: candidate?.derivedFromMemoryIds || [],
-    sourceTaskIds: candidate?.sourceTaskIds || [],
-    sourceIntelIds: candidate?.sourceIntelIds || [],
-    invalidatedBy: candidate?.invalidatedBy || [],
-    sourceEventIds: candidate?.sourceEventIds || []
+    id: `runtime-digest-${domainId}-${digestDate}`,
+    domain: domainId,
+    digestDate,
+    createdAt: items.reduce((latest, entry) => Math.max(latest, entry.createdAt || 0), 0),
+    items
   };
 }
 
-function computeTaskComplexityScore(task, decision) {
-  let score = 0;
-  score += Math.min(28, Math.round(normalizeString(task?.goal).length / 8));
-  score += Math.min(20, clampInt(task?.runState?.consecutiveFailures, 0, 0, 1000) * 12);
-  score += Math.min(18, Math.max(0, clampInt(task?.runState?.remoteCallCount, 0, 0, 1000) - 1) * 8);
-  score += Math.min(12, Math.max(0, 2 - normalizeStringArray(decision?.relevantMemoryIds).length) * 6);
-  score += Math.min(10, Math.max(0, normalizeStringArray(decision?.relevantIntelIds).length - 1) * 4);
-  if (task?.priority === "high") score += 8;
-  if (normalizeString(task?.route || task?.taskKind, "general") === "general") score += 8;
-  return Math.max(0, Math.min(100, score));
-}
-
-function buildCounterfactualShadowSample(task, candidateType, route, lane, worker, skillBundle, completionScore, remoteCalls, decision) {
-  const complexity = computeTaskComplexityScore(task, decision);
-  const actualScore = completionScore - remoteCalls * 5 - clampInt(task?.runState?.consecutiveFailures, 0, 0, 1000) * 6;
-  if (candidateType === "route_default_lane") {
-    const baselineLane = lane === "system1" ? "system2" : "system1";
-    let baselineScore = completionScore;
-    if (baselineLane === "system2") {
-      baselineScore -= 8;
-      if (complexity >= 62) baselineScore += 10;
-      if ((decision?.relevantIntelIds || []).length >= 2 && (decision?.relevantMemoryIds || []).length <= 1) baselineScore += 6;
-    } else {
-      baselineScore -= 4;
-      if (complexity <= 46) baselineScore += 10;
-      if (remoteCalls <= 1 && (decision?.relevantMemoryIds || []).length >= 2) baselineScore += 8;
-    }
-    if (task?.status === "blocked" || task?.status === "waiting_user") baselineScore += 6;
-    const delta = actualScore - baselineScore;
-    return {
-      shadowType: "counterfactual_lane",
-      baselineRef: `${route}:${baselineLane}`,
-      delta,
-      qualityDelta: delta,
-      tokenDelta: baselineLane === "system2" ? -6 : 6,
-      latencyDelta: baselineLane === "system2" ? -4 : 4,
-      result: delta >= 4 ? "win" : delta <= -4 ? "loss" : "tie",
-      reason: lane === "system1"
-        ? `system1 实际路径对比 ${baselineLane} 基线更省 token；复杂度 ${complexity}。`
-        : `system2 实际路径对比 ${baselineLane} 基线更稳；复杂度 ${complexity}。`
-    };
-  }
-  const bundleStrength = Math.min(16, skillBundle.length * 3 + (worker && worker !== "main" ? 2 : 0));
-  let baselineScore = completionScore - bundleStrength;
-  if (task?.status === "completed") baselineScore -= 4;
-  if (task?.status === "blocked" || task?.status === "waiting_user") baselineScore += 8;
-  if (remoteCalls <= 1) baselineScore -= 5;
-  if (route === "office" || route === "research" || route === "coder") baselineScore -= 4;
-  const delta = actualScore - baselineScore;
-  return {
-    shadowType: "counterfactual_skill_bundle",
-    baselineRef: `${route}:${worker || "main"}:route-native-skills`,
-    delta,
-    qualityDelta: delta,
-    tokenDelta: Math.max(0, 8 - bundleStrength),
-    latencyDelta: Math.max(0, 6 - Math.min(6, skillBundle.length)),
-    result: delta >= 4 ? "win" : delta <= -4 ? "loss" : "tie",
-    reason: `${route} 路由的技能组合对比 route-native 基线的对照结果：${delta >= 4 ? "更优" : delta <= -4 ? "更差" : "接近"}。`
-  };
-}
-
-async function observeTaskOutcomeForEvolution(task, sourceEvent) {
-  if (!task || !["completed", "blocked", "waiting_user"].includes(task.status) || !sourceEvent?.eventId) return null;
-  const route = normalizeString(task.route || task.taskKind || "general", "general");
-  const worker = normalizeString(task.assignee || task.runState?.lastRecommendedWorker || "main", "main");
-  const lane = normalizeString(task.runState?.lastThinkingLane || task.optimizationState?.decision?.thinkingLane || "system1", "system1");
-  const skillBundle = extractObservedTaskSkillBundle(task);
-  const completionScore = computeTaskCompletionScore(task);
-  const remoteCalls = clampInt(task.runState?.remoteCallCount, 0, 0, 100000);
-  const successCount = task.status === "completed" ? 1 : 0;
-  const blockedCount = task.status === "blocked" ? 1 : 0;
-  const waitingUserCount = task.status === "waiting_user" ? 1 : 0;
-  const decision = isRecord(task.optimizationState?.decision) ? task.optimizationState.decision : {};
-  const derivedMemoryIds = mergeUniqueStrings(task.memoryRefs, decision.relevantMemoryIds).slice(0, 24);
-  const sourceIntelIds = mergeUniqueStrings(task.intelRefs, decision.relevantIntelIds).slice(0, 24);
-  const store = await loadEvolutionStore();
-  const observedCandidateIds = [];
-  const shadowComparisons = [];
-  const laneShadow = buildCounterfactualShadowSample(task, "route_default_lane", route, lane, worker, skillBundle, completionScore, remoteCalls, decision);
-  const routeLaneCandidate = upsertEvolutionCandidate(store, {
-    id: `evo_${hashText(`route-lane|${route}|${lane}`, 16)}`,
-    targetLayer: "decision",
-    candidateType: "route_default_lane",
-    candidateRef: `${route}:${lane}`,
-    expectedEffect: {
-      reduceDecisionLatency: lane === "system1",
-      preserveDepth: lane === "system2"
-    },
-    measuredEffect: {
-      sampleCount: 1,
-      successCount,
-      blockedCount,
-      waitingUserCount,
-      remoteCallTotal: remoteCalls,
-      avgRemoteCalls: remoteCalls,
-      completionScoreTotal: completionScore,
-      avgCompletionScore: completionScore
-    },
-    shadowMetrics: {
-      route,
-      lane,
-      worker,
-      skillBundle,
-      completionScore,
-      baselineRef: laneShadow.baselineRef,
-      shadowType: laneShadow.shadowType,
-      shadowSampleCount: 1,
-      shadowWinCount: laneShadow.result === "win" ? 1 : 0,
-      shadowLossCount: laneShadow.result === "loss" ? 1 : 0,
-      shadowTieCount: laneShadow.result === "tie" ? 1 : 0,
-      shadowDeltaTotal: laneShadow.delta,
-      avgShadowDelta: laneShadow.delta,
-      lastShadowReason: laneShadow.reason
-    },
-    adoptionState: "shadow",
-    notes: `${route} 路由在 ${lane} 通道上的真实执行观测正在累积，先保持影子模式。`,
-    sourceEventIds: [sourceEvent.eventId],
-    sourceTaskIds: [task.id],
-    sourceIntelIds,
-    derivedFromMemoryIds: derivedMemoryIds
-  });
-  observedCandidateIds.push(routeLaneCandidate.id);
-  shadowComparisons.push({
-    candidateId: routeLaneCandidate.id,
-    ...laneShadow
-  });
-  if (skillBundle.length) {
-    const skillShadow = buildCounterfactualShadowSample(task, "route_skill_bundle", route, lane, worker, skillBundle, completionScore, remoteCalls, decision);
-    const routeSkillCandidate = upsertEvolutionCandidate(store, {
-      id: `evo_${hashText(`route-skill|${route}|${worker}|${skillBundle.join("|")}|${lane}`, 16)}`,
-      targetLayer: "skill",
-      candidateType: "route_skill_bundle",
-      candidateRef: `${route}:${worker}:${hashText(skillBundle.join("|"), 10)}`,
-      expectedEffect: {
-        reduceRemoteCalls: true,
-        improveCompletion: true
-      },
-      measuredEffect: {
-        sampleCount: 1,
-        successCount,
-        blockedCount,
-        waitingUserCount,
-        remoteCallTotal: remoteCalls,
-        avgRemoteCalls: remoteCalls,
-        completionScoreTotal: completionScore,
-        avgCompletionScore: completionScore
-      },
-      shadowMetrics: {
-        route,
-        lane,
-        worker,
-        skillBundle,
-        completionScore,
-        baselineRef: skillShadow.baselineRef,
-        shadowType: skillShadow.shadowType,
-        shadowSampleCount: 1,
-        shadowWinCount: skillShadow.result === "win" ? 1 : 0,
-        shadowLossCount: skillShadow.result === "loss" ? 1 : 0,
-        shadowTieCount: skillShadow.result === "tie" ? 1 : 0,
-        shadowDeltaTotal: skillShadow.delta,
-        avgShadowDelta: skillShadow.delta,
-        lastShadowReason: skillShadow.reason
-      },
-      adoptionState: "shadow",
-      notes: `${route} 路由的技能组合 ${skillBundle.join(", ")} 正在影子模式下累计真实效果。`,
-      sourceEventIds: [sourceEvent.eventId],
-      sourceTaskIds: [task.id],
-      sourceIntelIds,
-      derivedFromMemoryIds: derivedMemoryIds
-    });
-    observedCandidateIds.push(routeSkillCandidate.id);
-    shadowComparisons.push({
-      candidateId: routeSkillCandidate.id,
-      ...skillShadow
-    });
-  }
-  await saveEvolutionStore(store);
-  await appendSystemEvent("task_shadow_observed", {
-    taskId: task.id,
-    route,
-    worker,
-    thinkingLane: lane,
-    completionScore,
-    candidateIds: observedCandidateIds
-  });
-  await appendSystemEvent("task_shadow_compared", {
-    taskId: task.id,
-    route,
-    candidateIds: observedCandidateIds,
-    samples: shadowComparisons
-  });
-  return buildEvolutionStatus(store);
-}
-
-async function materializeAdoptedEvolutionStrategies(store, memoryStore) {
-  let memoryChanged = false;
-  const materialized = [];
-  for (const candidate of store.candidates) {
-    if (candidate.adoptionState !== "adopted") continue;
-    if (candidate.invalidatedBy?.length) continue;
-    if (!["route_default_lane", "route_skill_bundle"].includes(candidate.candidateType)) continue;
-    if (candidate.notes && candidate.notes.includes("[materialized]")) continue;
-    const strategy = buildRouteStrategyFromEvolutionCandidate(candidate);
-    upsertStrategyEntry(memoryStore, strategy);
-    candidate.notes = truncateText(`${candidate.notes || ""} [materialized] 已物化为可被 Decision Core 直接读取的策略。`, 220);
-    candidate.updatedAt = nowTs();
-    materialized.push({
-      candidateId: candidate.id,
-      strategyId: strategy.id
-    });
-    memoryChanged = true;
-  }
-  if (materialized.length) {
-    await appendSystemEvent("evolution_strategy_materialized", {
-      materialized
-    });
-  }
-  return memoryChanged;
-}
-
-function upsertMemoryEntry(store, candidate) {
-  const normalized = normalizeMemoryEntry(candidate);
-  const index = store.memories.findIndex((entry) => entry.id === normalized.id);
-  if (index < 0) {
-    store.memories.unshift(normalized);
-    return normalized;
-  }
-  const current = store.memories[index];
-  const merged = normalizeMemoryEntry({
-    ...current,
-    ...normalized,
-    summary: normalizeString(normalized.summary || current.summary),
-    tags: mergeUniqueStrings(current.tags, normalized.tags).slice(0, 24),
-    confidence: Math.max(current.confidence, normalized.confidence),
-    sourceEventIds: mergeUniqueStrings(current.sourceEventIds, normalized.sourceEventIds).slice(0, 48),
-    sourceTaskIds: mergeUniqueStrings(current.sourceTaskIds, normalized.sourceTaskIds).slice(0, 24),
-    sourceIntelIds: mergeUniqueStrings(current.sourceIntelIds, normalized.sourceIntelIds).slice(0, 24),
-    derivedFromMemoryIds: mergeUniqueStrings(current.derivedFromMemoryIds, normalized.derivedFromMemoryIds).slice(0, 24),
-    invalidatedBy: mergeUniqueStrings(current.invalidatedBy, normalized.invalidatedBy).slice(0, 24),
-    lastReinforcedAt: Math.max(current.lastReinforcedAt || 0, normalized.lastReinforcedAt || 0),
-    decayScore: Math.min(current.decayScore, normalized.decayScore),
-    version: Math.max(current.version, normalized.version),
-    updatedAt: nowTs()
-  });
-  store.memories[index] = merged;
-  return merged;
-}
-
-function upsertStrategyEntry(store, candidate) {
-  const normalized = normalizeStrategyEntry(candidate);
-  const index = store.strategies.findIndex((entry) => entry.id === normalized.id);
-  if (index < 0) {
-    store.strategies.unshift(normalized);
-    return normalized;
-  }
-  const current = store.strategies[index];
-  const merged = normalizeStrategyEntry({
-    ...current,
-    ...normalized,
-    confidence: Math.max(current.confidence, normalized.confidence),
-    recommendedSkills: mergeUniqueStrings(current.recommendedSkills, normalized.recommendedSkills).slice(0, 16),
-    derivedFromMemoryIds: mergeUniqueStrings(current.derivedFromMemoryIds, normalized.derivedFromMemoryIds).slice(0, 24),
-    sourceTaskIds: mergeUniqueStrings(current.sourceTaskIds, normalized.sourceTaskIds).slice(0, 24),
-    sourceIntelIds: mergeUniqueStrings(current.sourceIntelIds, normalized.sourceIntelIds).slice(0, 24),
-    invalidatedBy: mergeUniqueStrings(current.invalidatedBy, normalized.invalidatedBy).slice(0, 24),
-    sourceEventIds: mergeUniqueStrings(current.sourceEventIds, normalized.sourceEventIds).slice(0, 24),
-    measuredEffect: {
-      successCount: clampInt((current.measuredEffect?.successCount || 0) + (normalized.measuredEffect?.successCount || 0), 0, 0, 100000),
-      blockedCount: clampInt((current.measuredEffect?.blockedCount || 0) + (normalized.measuredEffect?.blockedCount || 0), 0, 0, 100000),
-      avgRemoteCalls: averageNumber([current.measuredEffect?.avgRemoteCalls, normalized.measuredEffect?.avgRemoteCalls])
-    },
-    updatedAt: nowTs()
-  });
-  store.strategies[index] = merged;
-  return merged;
-}
-
-function upsertLearningEntry(store, candidate) {
-  const normalized = normalizeLearningEntry(candidate);
-  const index = store.learnings.findIndex((entry) => entry.id === normalized.id);
-  if (index < 0) {
-    store.learnings.unshift(normalized);
-    return normalized;
-  }
-  const current = store.learnings[index];
-  const merged = normalizeLearningEntry({
-    ...current,
-    ...normalized,
-    effectOnSuccessRate: Math.max(current.effectOnSuccessRate, normalized.effectOnSuccessRate),
-    effectOnTokenCost: Math.min(current.effectOnTokenCost, normalized.effectOnTokenCost),
-    effectOnCompletionQuality: Math.max(current.effectOnCompletionQuality, normalized.effectOnCompletionQuality),
-    sourceEventIds: mergeUniqueStrings(current.sourceEventIds, normalized.sourceEventIds).slice(0, 24),
-    sourceTaskIds: mergeUniqueStrings(current.sourceTaskIds, normalized.sourceTaskIds).slice(0, 24),
-    updatedAt: nowTs()
-  });
-  store.learnings[index] = merged;
-  return merged;
-}
-
-function appendMemoryInvalidationNote(existing, reasonEventId) {
-  const base = normalizeString(existing);
-  const suffix = `[invalidated:${reasonEventId}]`;
-  if (base.includes(suffix)) return truncateText(base, 220);
-  return truncateText(`${base ? `${base} ` : ""}${suffix}`, 220);
-}
-
-async function invalidateMemoryLineage(memoryIds, reasonEventId) {
-  const targetIds = new Set(normalizeStringArray(memoryIds));
-  if (targetIds.size === 0 || !reasonEventId) return null;
-  const [memoryStore, evolutionStore, autopilotStore] = await Promise.all([
-    loadMemoryStore(),
-    loadEvolutionStore(),
-    loadAutopilotStore()
-  ]);
-  let changed = false;
-  let evolutionChanged = false;
-  let autopilotChanged = false;
-  const affectedMemoryIds = new Set(targetIds);
-  const affectedStrategyIds = new Set();
-  const affectedCandidateIds = new Set();
-  const affectedTaskIds = new Set();
-  let pending = [...targetIds];
-  while (pending.length > 0) {
-    const currentId = pending.pop();
-    for (const entry of memoryStore.memories) {
-      if (entry.id !== currentId && !entry.derivedFromMemoryIds.includes(currentId)) continue;
-      if (!affectedMemoryIds.has(entry.id)) {
-        affectedMemoryIds.add(entry.id);
-        pending.push(entry.id);
-      }
-      if (!entry.invalidatedBy.includes(reasonEventId)) {
-        entry.invalidatedBy = mergeUniqueStrings(entry.invalidatedBy, [reasonEventId]).slice(0, 24);
-        entry.confidence = Math.max(5, Math.round(entry.confidence * 0.45));
-        entry.decayScore = Math.min(100, Math.max(entry.decayScore, 65));
-        entry.updatedAt = nowTs();
-        changed = true;
-      }
-    }
-  }
-  for (const strategy of memoryStore.strategies) {
-    if (strategy.derivedFromMemoryIds.some((id) => affectedMemoryIds.has(id))) {
-      affectedStrategyIds.add(strategy.id);
-      if (strategy.invalidatedBy.includes(reasonEventId)) continue;
-      strategy.invalidatedBy = mergeUniqueStrings(strategy.invalidatedBy, [reasonEventId]).slice(0, 24);
-      strategy.confidence = Math.max(5, Math.round(strategy.confidence * 0.5));
-      strategy.updatedAt = nowTs();
-      changed = true;
-    }
-  }
-  for (const candidate of evolutionStore.candidates) {
-    if (!candidate.derivedFromMemoryIds.some((id) => affectedMemoryIds.has(id))) continue;
-    affectedCandidateIds.add(candidate.id);
-    if (candidate.invalidatedBy.includes(reasonEventId)) continue;
-    candidate.invalidatedBy = mergeUniqueStrings(candidate.invalidatedBy, [reasonEventId]).slice(0, 24);
-    candidate.adoptionState = "shadow";
-    candidate.notes = appendMemoryInvalidationNote(candidate.notes, reasonEventId);
-    candidate.updatedAt = nowTs();
-    candidate.lastShadowAt = nowTs();
-    evolutionChanged = true;
-  }
-  const requeueStatuses = new Set(["queued", "planning", "ready", "running", "waiting_external", "blocked"]);
-  for (let index = 0; index < autopilotStore.tasks.length; index += 1) {
-    const task = autopilotStore.tasks[index];
-    if (!task || task.status === "completed" || task.status === "cancelled") continue;
-    const taskMemoryRefs = normalizeStringArray(task.memoryRefs);
-    const decisionState = isRecord(task.optimizationState?.decision) ? task.optimizationState.decision : {};
-    const decisionMemoryRefs = normalizeStringArray(decisionState.relevantMemoryIds);
-    const runStateMemoryRefs = normalizeStringArray(task.runState?.lastRelevantMemoryIds);
-    const matchedMemoryIds = mergeUniqueStrings(
-      taskMemoryRefs.filter((id) => affectedMemoryIds.has(id)),
-      decisionMemoryRefs.filter((id) => affectedMemoryIds.has(id)),
-      runStateMemoryRefs.filter((id) => affectedMemoryIds.has(id))
-    ).slice(0, 24);
-    if (matchedMemoryIds.length === 0) continue;
-    affectedTaskIds.add(task.id);
-    const nextDecisionState = {
-      ...decisionState,
-      relevantMemoryIds: removeStringsFromSet(decisionMemoryRefs, affectedMemoryIds),
-      memoryInvalidatedAt: nowTs(),
-      memoryInvalidationReasonEventId: reasonEventId,
-      invalidatedMemoryIds: mergeUniqueStrings(decisionState.invalidatedMemoryIds, matchedMemoryIds).slice(0, 24)
-    };
-    const nextOptimizationState = {
-      ...(isRecord(task.optimizationState) ? task.optimizationState : {}),
-      needsReplan: true,
-      memoryInvalidatedAt: nowTs(),
-      invalidatedBy: mergeUniqueStrings(task.optimizationState?.invalidatedBy, [reasonEventId]).slice(0, 24),
-      invalidatedMemoryIds: mergeUniqueStrings(task.optimizationState?.invalidatedMemoryIds, matchedMemoryIds).slice(0, 24),
-      decision: nextDecisionState
-    };
-    const nextRunState = normalizeAutopilotRunState({
-      ...task.runState,
-      lastRelevantMemoryIds: removeStringsFromSet(runStateMemoryRefs, affectedMemoryIds),
-      lastFailureAt: nowTs(),
-      lastFailureSummary: truncateText(
-        `${normalizeString(task.runState?.lastFailureSummary) ? `${normalizeString(task.runState?.lastFailureSummary)} | ` : ""}相关记忆已失效，任务将重新规划。`,
-        180
-      ),
-      replanCount: (task.runState?.replanCount || 0) + 1
-    });
-    const nextStatus = requeueStatuses.has(task.status) ? "queued" : task.status;
-    autopilotStore.tasks[index] = normalizeAutopilotTask({
-      ...task,
-      status: nextStatus,
-      memoryRefs: removeStringsFromSet(taskMemoryRefs, affectedMemoryIds),
-      optimizationState: nextOptimizationState,
-      runState: nextRunState,
-      nextRunAt: nextStatus === "queued" ? nowTs() : task.nextRunAt,
-      nextAction: nextStatus === "queued" ? "相关记忆已失效，重新规划任务。" : task.nextAction,
-      updatedAt: nowTs()
-    }, autopilotStore.config);
-    autopilotChanged = true;
-  }
-  if (!changed && !evolutionChanged && !autopilotChanged) return buildMemoryStatus(memoryStore);
-  let savedMemoryStore = memoryStore;
-  const saveOperations = [];
-  if (changed) {
-    saveOperations.push(
-      saveMemoryStore(memoryStore).then((saved) => {
-        savedMemoryStore = saved;
-      })
-    );
-  }
-  if (evolutionChanged) saveOperations.push(saveEvolutionStore(evolutionStore));
-  if (autopilotChanged) saveOperations.push(saveAutopilotStore(autopilotStore));
-  if (saveOperations.length > 0) await Promise.all(saveOperations);
-  const invalidationEvent = await appendSystemEvent("memory_invalidated", {
-    reasonEventId,
-    memoryIds: [...affectedMemoryIds],
-    strategyIds: [...affectedStrategyIds],
-    candidateIds: [...affectedCandidateIds],
-    taskIds: [...affectedTaskIds]
-  });
-  if (affectedTaskIds.size > 0) {
-    await appendSystemEvent("task_memory_refs_invalidated", {
-      reasonEventId,
-      invalidationEventId: invalidationEvent.eventId,
-      taskIds: [...affectedTaskIds],
-      memoryIds: [...affectedMemoryIds]
-    });
-  }
-  return buildMemoryStatus(savedMemoryStore);
-}
-
-async function distillTaskOutcomeToMemory(task, sourceEvent) {
-  if (!task || !["completed", "blocked", "waiting_user"].includes(task.status)) return null;
-  const summary = truncateText(task.lastResult || task.runState?.lastResultSummary || task.blockedReason || task.lastError || task.goal, 220);
-  if (!summary) return null;
-  const decision = isRecord(task.optimizationState?.decision) ? task.optimizationState.decision : {};
-  const upstreamMemoryIds = mergeUniqueStrings(task.memoryRefs, decision.relevantMemoryIds).slice(0, 24);
-  const tags = extractKeywordTags(
-    `${task.title} ${task.goal} ${task.lastResult} ${task.blockedReason} ${task.lastError}`,
-    [...(task.tags || []), ...(task.skillHints || []), task.route, task.assignee]
-  );
-  const memoryStore = await loadMemoryStore();
-  const success = task.status === "completed";
-  const confidence = success ? 82 : task.status === "waiting_user" ? 58 : 64;
-  const executionMemory = upsertMemoryEntry(memoryStore, {
-    id: buildMemorySignature(success ? "execution" : "avoidance", task.route, tags, summary),
-    memoryType: success ? "execution" : "avoidance",
-    scope: "task-loop",
-    route: task.route,
-    summary: success
-      ? `在 ${task.route || "general"} 场景下，已验证有效路径：${summary}`
-      : `在 ${task.route || "general"} 场景下，容易阻塞/误判的模式：${summary}`,
-    appliesWhen: truncateText(task.goal || task.title, 180),
-    avoidWhen: success ? "" : truncateText(task.lastError || task.blockedReason || summary, 180),
-    tags,
-    confidence,
-    sourceEventIds: [sourceEvent.eventId],
-    sourceTaskIds: [task.id],
-    sourceIntelIds: task.intelRefs || [],
-    derivedFromMemoryIds: upstreamMemoryIds,
-    lastReinforcedAt: nowTs(),
-    decayScore: success ? 8 : 24
-  });
-  const efficiencyMemory = upsertMemoryEntry(memoryStore, {
-    id: buildMemorySignature("efficiency", task.route, [...tags, task.budgetMode], `${task.assignee}|${(task.skillHints || []).join(",")}|${task.runState?.remoteCallCount || 0}`),
-    memoryType: "efficiency",
-    scope: "task-loop",
-    route: task.route,
-    summary: success
-      ? `任务 ${task.title} 的更省 token 路径：优先 ${mergeUniqueStrings(task.skillHints).slice(0, 4).join(", ") || "本地工具"}，决策通道 ${decision.thinkingLane || task.runState?.lastThinkingLane || "system1"}。`
-      : `任务 ${task.title} 的低效点：${truncateText(task.lastError || task.blockedReason || summary, 180)}；下次先走 fallback ${mergeUniqueStrings(decision.fallbackOrder).join(" -> ") || "worker:main"}。`,
-    appliesWhen: truncateText(task.goal || task.title, 180),
-    avoidWhen: success ? "" : truncateText(task.lastError || task.blockedReason || summary, 180),
-    tags,
-    confidence: success ? 76 : 52,
-    sourceEventIds: [sourceEvent.eventId],
-    sourceTaskIds: [task.id],
-    sourceIntelIds: task.intelRefs || [],
-    derivedFromMemoryIds: mergeUniqueStrings([executionMemory.id], upstreamMemoryIds).slice(0, 24),
-    lastReinforcedAt: nowTs(),
-    decayScore: success ? 12 : 28
-  });
-  const strategyEntry = upsertStrategyEntry(memoryStore, {
-    id: buildStrategySignature(task.route, task.assignee, task.skillHints, decision.thinkingLane || task.runState?.lastThinkingLane || "system1"),
-    route: task.route,
-    scope: "task-loop",
-    triggerConditions: truncateText(task.goal || task.title, 180),
-    recommendedPath: truncateText(task.planSummary || task.nextAction || summary, 200),
-    fallbackPath: truncateText(mergeUniqueStrings(decision.fallbackOrder).join(" -> ") || task.blockedReason || task.lastError || "worker:main", 200),
-    recommendedWorker: task.assignee,
-    recommendedSkills: task.skillHints,
-    thinkingLane: decision.thinkingLane || task.runState?.lastThinkingLane || "system1",
-    confidence: success ? 78 : 48,
-    measuredEffect: {
-      successCount: success ? 1 : 0,
-      blockedCount: success ? 0 : 1,
-      avgRemoteCalls: task.runState?.remoteCallCount || 0
-    },
-    tags,
-    derivedFromMemoryIds: [executionMemory.id, efficiencyMemory.id],
-    sourceTaskIds: [task.id],
-    sourceIntelIds: task.intelRefs || [],
-    sourceEventIds: [sourceEvent.eventId]
-  });
-  upsertLearningEntry(memoryStore, {
-    id: `learning_${hashText(`${task.id}|${task.status}|${summary}`, 16)}`,
-    observedPattern: success
-      ? `成功模式：${truncateText(task.title, 80)} -> ${summary}`
-      : `失败模式：${truncateText(task.title, 80)} -> ${summary}`,
-    effectOnSuccessRate: success ? 1 : 0,
-    effectOnTokenCost: success ? -(task.runState?.remoteCallCount || 0) : task.runState?.remoteCallCount || 0,
-    effectOnCompletionQuality: success ? 1 : -1,
-    adoptedAs: success ? "strategy" : "avoidance-memory",
-    sourceEventIds: [sourceEvent.eventId],
-    sourceTaskIds: [task.id]
-  });
-  memoryStore.scheduler.lastDistilledAt = nowTs();
-  await saveMemoryStore(memoryStore);
-  await appendSystemEvent("task_memory_distilled", {
-    taskId: task.id,
-    status: task.status,
-    memoryIds: [executionMemory.id, efficiencyMemory.id],
-    strategyIds: [strategyEntry.id],
-    upstreamMemoryIds
-  });
-  return {
-    status: buildMemoryStatus(memoryStore),
-    memoryIds: [executionMemory.id, efficiencyMemory.id],
-    strategyIds: [strategyEntry.id]
-  };
-}
-
-function extractXmlTagValue(block, tagNames) {
-  const names = Array.isArray(tagNames) ? tagNames : [tagNames];
-  for (const name of names) {
-    const pattern = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, "i");
-    const match = String(block || "").match(pattern);
-    if (match?.[1]) return stripHtml(match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1"));
-  }
-  return "";
-}
-
-function extractXmlLink(block) {
-  const hrefMatch = String(block || "").match(/<link[^>]+href=["']([^"']+)["'][^>]*\/?>/i);
-  if (hrefMatch?.[1]) return hrefMatch[1].trim();
-  const tagLink = extractXmlTagValue(block, ["link", "id"]);
-  return normalizeString(tagLink);
-}
-
-function parseFeedEntries(xmlText) {
-  const xml = String(xmlText || "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
-  const blocks = xml.match(/<(item|entry)\b[\s\S]*?<\/\1>/gi) || [];
-  return blocks.map((block) => ({
-    title: extractXmlTagValue(block, ["title"]),
-    summary: extractXmlTagValue(block, ["description", "summary", "content:encoded", "content"]),
-    url: extractXmlLink(block),
-    publishedAt: parseOptionalTimestamp(extractXmlTagValue(block, ["pubDate", "published", "updated"]))
-  })).filter((entry) => entry.title && entry.url);
-}
-
-async function fetchTextWithTimeout(url, timeoutMs = 20000) {
-  if (typeof fetch !== "function") throw new Error("Global fetch is unavailable.");
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "user-agent": "openclaw-codex-control/1.0 (+https://chatgpt.com)"
-      }
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.text();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function scoreIntelCandidate(domain, source, sourceStats, item, existingItems) {
-  const text = `${item.title} ${item.summary}`.toLowerCase();
-  const keywordHits = domain.keywords.filter((keyword) => text.includes(String(keyword).toLowerCase())).length;
-  const sameHash = existingItems.find((entry) => entry.contentHash === item.contentHash);
-  const credibilityBase = Math.round((source.priority || 0.5) * 100);
-  const credibilityScore = clampPercent(averageNumber([credibilityBase, sourceStats?.avgScore || 0]) || credibilityBase);
-  const importanceBoost = /launch|release|funding|raising|security|policy|benchmark|earnings|acquisition|agent|model|chip|gpu|open source|deploy|pricing|attack|breach|partnership/i.test(text)
-    ? 28
-    : 0;
-  const importanceScore = clampPercent(38 + keywordHits * 14 + importanceBoost + scoreRecency(item.publishedAt, 24 * 5) * 0.18);
-  const noveltyScore = clampPercent(sameHash ? 8 : 52 + scoreRecency(item.publishedAt, 24 * 7) * 0.28 + Math.max(0, 18 - keywordHits * 2));
-  const relevanceScore = clampPercent(25 + keywordHits * 18 + intersectionSize(item.tags, domain.keywords) * 10);
-  const overallScore = clampPercent(
-    credibilityScore * 0.24 +
-    importanceScore * 0.31 +
-    noveltyScore * 0.2 +
-    relevanceScore * 0.25
-  );
-  const actionability = overallScore >= 82
-    ? "建议重点关注"
-    : overallScore >= 70
-      ? "建议关注"
-      : noveltyScore >= 82
-        ? "建议观察"
-        : "建议忽略";
-  const judgement = `${domain.label}情报判断：${actionability}；可信度 ${credibilityScore} / 新颖度 ${noveltyScore} / 重要性 ${importanceScore}。`;
-  return {
-    ...item,
-    credibilityScore,
-    importanceScore,
-    noveltyScore,
-    relevanceScore,
-    overallScore,
-    actionability,
-    judgement,
-    explorationCandidate: noveltyScore >= 76
-  };
-}
-
-function buildIntelTopicFingerprint(domain, item) {
-  const tags = normalizeKeywordTags(
-    item?.tags?.length
-      ? item.tags
-      : extractKeywordTags(
-        `${item?.title || ""} ${item?.summary || ""} ${item?.judgement || ""}`,
-        [domain.id, domain.label, ...domain.keywords]
-      )
-  );
-  const filtered = tags
-    .filter((tag) => tag && !domain.sources.some((source) => source.id === tag))
-    .slice(0, 6)
-    .sort();
-  const fallback = slugify(`${item?.title || ""} ${item?.summary || ""}`)
-    .split("-")
-    .filter(Boolean)
-    .slice(0, 4)
-    .join("|");
-  return hashText(`${domain.id}|${filtered.join("|") || fallback || normalizeString(item?.sourceId)}`, 16);
-}
-
-function buildRecentDigestSignals(store, domain) {
-  const sourceCounts = new Map();
-  const topicCounts = new Map();
-  const now = nowTs();
-  const lookbackMs = store.config.recentDigestTopicWindowDays * 24 * 60 * 60 * 1000;
-  const recentDigests = store.digests
-    .filter((entry) => (
-      entry.domain === domain.id &&
-      entry.status === "sent" &&
-      now - Number(entry.createdAt || 0) <= lookbackMs
-    ))
-    .slice(0, 12);
-  for (const digest of recentDigests) {
-    for (const item of digest.items || []) {
-      if (item.sourceId) sourceCounts.set(item.sourceId, (sourceCounts.get(item.sourceId) || 0) + 1);
-      const topicFingerprint = buildIntelTopicFingerprint(domain, item);
-      topicCounts.set(topicFingerprint, (topicCounts.get(topicFingerprint) || 0) + 1);
-    }
-  }
-  return {
-    sourceCounts,
-    topicCounts
-  };
-}
-
-function buildDigestSourceTrustSignals(memoryStore, domain) {
-  const scores = new Map();
-  for (const memory of memoryStore.memories || []) {
-    if (!memory || memory.invalidatedBy?.length) continue;
-    if (memory.scope !== domain.id) continue;
-    if (!memory.tags?.includes("source-trust")) continue;
-    const sourceId = domain.sources.find((entry) => memory.tags?.includes(entry.id) || memory.summary.includes(entry.id))?.id;
-    if (!sourceId) continue;
-    const weightedScore = ((memory.confidence || 0) - (memory.decayScore || 0) * 0.45) / 6 - (memory.avoidWhen ? 4 : 0);
-    scores.set(sourceId, (scores.get(sourceId) || 0) + weightedScore);
-  }
-  return scores;
-}
-
-function buildDigestIntelUsefulnessSignals(memoryStore, domainId) {
-  const scores = new Map();
-  for (const memory of memoryStore.memories || []) {
-    if (!memory || memory.invalidatedBy?.length || !Array.isArray(memory.sourceIntelIds) || !memory.sourceIntelIds.length) continue;
-    const typeWeight = memory.memoryType === "efficiency"
-      ? 16
-      : memory.memoryType === "execution"
-        ? 14
-        : memory.memoryType === "knowledge"
-          ? 8
-          : 6;
-    const confidenceWeight = Math.max(0.15, (Number(memory.confidence || 0) - Number(memory.decayScore || 0) * 0.35) / 100);
-    const scopeWeight = memory.scope === domainId ? 1.15 : 1;
-    const totalWeight = typeWeight * confidenceWeight * scopeWeight;
-    for (const intelId of memory.sourceIntelIds) {
-      if (!intelId) continue;
-      scores.set(intelId, (scores.get(intelId) || 0) + totalWeight);
-    }
-  }
-  return scores;
-}
-
-function buildDigestRankingContext(store, domain, memoryStore) {
-  const recentSignals = buildRecentDigestSignals(store, domain);
-  return {
-    sourceTrustScores: buildDigestSourceTrustSignals(memoryStore, domain),
-    intelUsefulnessScores: buildDigestIntelUsefulnessSignals(memoryStore, domain.id),
-    recentSourceCounts: recentSignals.sourceCounts,
-    recentTopicCounts: recentSignals.topicCounts
-  };
-}
-
-function scoreDigestCandidateForSelection(domain, item, rankingContext) {
-  const topicFingerprint = buildIntelTopicFingerprint(domain, item);
-  const sourceRecencyCount = rankingContext.recentSourceCounts.get(item.sourceId) || 0;
-  const recentTopicCount = rankingContext.recentTopicCounts.get(topicFingerprint) || 0;
-  const sourceTrustBoost = Math.max(-16, Math.min(16, Number(rankingContext.sourceTrustScores.get(item.sourceId) || 0)));
-  const usefulnessBoost = Math.max(-6, Math.min(18, Number(rankingContext.intelUsefulnessScores.get(item.id) || 0)));
-  const sourceDiversityBoost = Math.max(0, 9 - sourceRecencyCount * 3);
-  const recentTopicPenalty = recentTopicCount * 10;
-  const digestScore = (
-    Number(item.overallScore || 0) +
-    sourceTrustBoost +
-    usefulnessBoost +
-    sourceDiversityBoost -
-    recentTopicPenalty
-  );
-  const explorationScore = (
-    Number(item.noveltyScore || 0) * 0.55 +
-    digestScore * 0.25 +
-    sourceDiversityBoost * 1.8 -
-    recentTopicCount * 4
-  );
-  const reasons = [
-    `base:${Math.round(Number(item.overallScore || 0))}`,
-    sourceTrustBoost ? `source:${sourceTrustBoost > 0 ? "+" : ""}${Math.round(sourceTrustBoost)}` : "",
-    usefulnessBoost ? `memory:${usefulnessBoost > 0 ? "+" : ""}${Math.round(usefulnessBoost)}` : "",
-    sourceDiversityBoost ? `diversity:+${Math.round(sourceDiversityBoost)}` : "",
-    recentTopicPenalty ? `topic:-${Math.round(recentTopicPenalty)}` : ""
-  ].filter(Boolean);
-  return {
-    topicFingerprint,
-    digestScore,
-    explorationScore,
-    reasons
-  };
-}
-
-function greedilyPickDigestEntries(entries, limit, sourceCap, alreadySelected = [], options = {}) {
-  const preferFreshTopics = Boolean(options.preferFreshTopics);
-  const selected = [];
-  const selectedIds = new Set(alreadySelected.map((entry) => entry.id));
-  const sourceCounts = new Map();
-  const topicCounts = new Map();
-  for (const entry of alreadySelected) {
-    sourceCounts.set(entry.sourceId, (sourceCounts.get(entry.sourceId) || 0) + 1);
-    if (entry.topicFingerprint) topicCounts.set(entry.topicFingerprint, (topicCounts.get(entry.topicFingerprint) || 0) + 1);
-  }
-  const capLevels = [sourceCap, sourceCap + 1, Number.MAX_SAFE_INTEGER];
-  for (const cap of capLevels) {
-    for (const entry of entries) {
-      if (selected.length >= limit) break;
-      if (!entry || selectedIds.has(entry.id)) continue;
-      const sourceCount = sourceCounts.get(entry.sourceId) || 0;
-      const topicCount = topicCounts.get(entry.topicFingerprint) || 0;
-      if (sourceCount >= cap) continue;
-      if (preferFreshTopics && cap === sourceCap && topicCount >= 1) continue;
-      selected.push(entry);
-      selectedIds.add(entry.id);
-      sourceCounts.set(entry.sourceId, sourceCount + 1);
-      if (entry.topicFingerprint) topicCounts.set(entry.topicFingerprint, topicCount + 1);
-    }
-    if (selected.length >= limit) break;
-  }
-  return selected.slice(0, limit);
-}
-
-async function refreshIntelDomain(domainId, options = {}) {
-  const force = Boolean(options.force);
-  const store = await loadIntelStore();
-  if (!store.config.enabled) return buildIntelStatus(store);
-  const domain = store.domains.find((entry) => entry.id === domainId);
-  if (!domain) throw new Error(`Unknown intel domain: ${domainId}`);
-  if (!force && domain.lastFetchedAt && nowTs() - domain.lastFetchedAt < store.config.refreshMinutes * 60 * 1000) {
-    return buildIntelStatus(store);
-  }
-  intelRuntime.activeDomainId = domainId;
-  try {
-    const existingItems = store.items.filter((entry) => entry.domain === domainId);
-    const collected = [];
-    for (const source of domain.sources) {
-      try {
-        const xml = await fetchTextWithTimeout(source.url);
-        const parsedItems = parseFeedEntries(xml).slice(0, store.config.candidateLimitPerDomain * 2);
-        const scoredItems = parsedItems.map((entry) => {
-          const rawText = `${entry.title}\n${entry.summary}`.trim();
-          const contentHash = hashText(`${entry.title}|${entry.url}|${entry.summary}`, 16);
-          return scoreIntelCandidate(
-            domain,
-            source,
-            domain.sourceStats[source.id] || null,
-            normalizeIntelItem({
-              id: `intel_${contentHash}`,
-              domain: domainId,
-              title: entry.title,
-              summary: truncateText(entry.summary || entry.title, 320),
-              url: entry.url,
-              sourceId: source.id,
-              sourceUrl: source.url,
-              publishedAt: entry.publishedAt,
-              fetchedAt: nowTs(),
-              contentHash,
-              rawText,
-              tags: extractKeywordTags(rawText, [...domain.keywords, domain.label])
-            }),
-            existingItems
-          );
-        });
-        collected.push(...scoredItems);
-        const sourceItems = scoredItems.slice(0, 20);
-        const avgScore = clampPercent(averageNumber(sourceItems.map((entry) => entry.overallScore)));
-        domain.sourceStats[source.id] = {
-          successCount: clampInt((domain.sourceStats[source.id]?.successCount || 0) + 1, 0, 0, 100000),
-          failureCount: clampInt(domain.sourceStats[source.id]?.failureCount || 0, 0, 0, 100000),
-          lastSeenAt: nowTs(),
-          lastFailureAt: domain.sourceStats[source.id]?.lastFailureAt || null,
-          avgScore
-        };
-      } catch (error) {
-        domain.sourceStats[source.id] = {
-          successCount: clampInt(domain.sourceStats[source.id]?.successCount || 0, 0, 0, 100000),
-          failureCount: clampInt((domain.sourceStats[source.id]?.failureCount || 0) + 1, 0, 0, 100000),
-          lastSeenAt: domain.sourceStats[source.id]?.lastSeenAt || null,
-          lastFailureAt: nowTs(),
-          avgScore: clampPercent(domain.sourceStats[source.id]?.avgScore || 0)
-        };
-        await appendSystemEvent("intel_source_failed", {
-          domainId,
-          sourceId: source.id,
-          error: String(error?.message || error)
-        });
-      }
-    }
-    const deduped = new Map();
-    for (const item of [...collected, ...existingItems]) {
-      const current = deduped.get(item.contentHash);
-      if (!current || (item.overallScore || 0) > (current.overallScore || 0)) deduped.set(item.contentHash, item);
-    }
-    const mergedItems = [...deduped.values()]
-      .sort((left, right) => (right.overallScore || 0) - (left.overallScore || 0))
-      .slice(0, INTEL_ITEM_RETENTION);
-    store.items = [
-      ...store.items.filter((entry) => entry.domain !== domainId),
-      ...mergedItems
-    ].sort((left, right) => (right.fetchedAt || 0) - (left.fetchedAt || 0)).slice(0, INTEL_ITEM_RETENTION);
-    domain.lastFetchedAt = nowTs();
-    store.scheduler.lastTickAt = nowTs();
-    await appendSystemEvent("intel_ingested", {
-      domainId,
-      candidateCount: mergedItems.length,
-      topItemIds: mergedItems.slice(0, 5).map((entry) => entry.id)
-    });
-    await saveIntelStore(store);
-    return buildIntelStatus(store);
-  } finally {
-    intelRuntime.activeDomainId = null;
-    intelRuntime.lastTickAt = nowTs();
-  }
-}
-
-function selectDigestItemsForDomain(store, domain, memoryStore) {
-  const candidateLimit = store.config.candidateLimitPerDomain;
-  const digestLimit = store.config.digestItemLimitPerDomain;
-  const exploitLimit = Math.min(store.config.exploitItemsPerDigest, digestLimit);
-  const exploreLimit = Math.min(store.config.exploreItemsPerDigest, Math.max(0, digestLimit - exploitLimit));
-  const candidates = store.items
-    .filter((entry) => entry.domain === domain.id)
-    .sort((left, right) => (right.overallScore || 0) - (left.overallScore || 0))
-    .slice(0, candidateLimit);
-  const rankingContext = buildDigestRankingContext(store, domain, memoryStore);
-  const rankedCandidates = candidates
-    .map((entry) => {
-      const ranking = scoreDigestCandidateForSelection(domain, entry, rankingContext);
-      return {
-        ...entry,
-        topicFingerprint: ranking.topicFingerprint,
-        digestRankScore: ranking.digestScore,
-        explorationRankScore: ranking.explorationScore,
-        selectionReasons: ranking.reasons
-      };
-    })
-    .sort((left, right) => {
-      if ((right.digestRankScore || 0) !== (left.digestRankScore || 0)) {
-        return (right.digestRankScore || 0) - (left.digestRankScore || 0);
-      }
-      return (right.overallScore || 0) - (left.overallScore || 0);
-    });
-  const exploitItems = greedilyPickDigestEntries(
-    rankedCandidates,
-    exploitLimit,
-    store.config.maxItemsPerSourceInDigest
-  );
-  const explorationPool = rankedCandidates
-    .filter((entry) => !exploitItems.some((item) => item.id === entry.id))
-    .sort((left, right) => {
-      if ((right.explorationRankScore || 0) !== (left.explorationRankScore || 0)) {
-        return (right.explorationRankScore || 0) - (left.explorationRankScore || 0);
-      }
-      return (right.noveltyScore || 0) - (left.noveltyScore || 0);
-    });
-  const exploreItems = greedilyPickDigestEntries(
-    explorationPool,
-    exploreLimit,
-    store.config.maxItemsPerSourceInDigest,
-    exploitItems,
-    { preferFreshTopics: true }
-  );
-  const selected = [...exploitItems, ...exploreItems];
-  if (selected.length < digestLimit) {
-    selected.push(...greedilyPickDigestEntries(
-      rankedCandidates,
-      digestLimit - selected.length,
-      store.config.maxItemsPerSourceInDigest,
-      selected
-    ));
-  }
-  const finalSelected = selected.slice(0, digestLimit);
-  for (const entry of candidates) {
-    entry.selectedForDigest = finalSelected.some((item) => item.id === entry.id);
-  }
-  for (const entry of finalSelected) {
-    entry.explorationCandidate = exploreItems.some((item) => item.id === entry.id);
-  }
-  return {
-    selected: finalSelected,
-    rankingSummary: finalSelected.map((entry, index) => ({
-      itemId: entry.id,
-      rank: index + 1,
-      sourceId: entry.sourceId,
-      digestRankScore: Math.round(Number(entry.digestRankScore || entry.overallScore || 0)),
-      exploration: Boolean(entry.explorationCandidate),
-      reasons: entry.selectionReasons || []
-    }))
-  };
-}
-
-function buildDigestJudgement(item) {
-  const whyImportant = item.importanceScore >= 80
-    ? "重要性高，可能改变该领域的判断或优先级。"
-    : item.noveltyScore >= 80
-      ? "新颖度高，适合当作探索信号。"
-      : "相关性和可信度较高，值得纳入今日认知更新。";
-  return {
-    title: item.title,
-    summary: truncateText(item.summary || item.title, 120),
-    judgement: truncateText(item.judgement || `${item.actionability || "建议关注"}。`, 120),
-    whyImportant,
-    actionability: normalizeString(item.actionability, "建议关注"),
-    url: item.url
-  };
-}
-
-function formatDigestMessage(domain, digest) {
-  const header = `${domain.label} 情报日报 (${digest.digestDate})`;
-  const body = digest.items.map((item) => (
-    `${item.rank}. ${item.title}\n结论：${item.summary}\n判断：${item.judgement}\n原因：${item.whyImportant}${item.url ? `\n链接：${item.url}` : ""}`
+function formatManagedIntelDigestMessage(domainLabel, digest) {
+  const header = `${domainLabel} 情报日报 (${digest.digestDate})`;
+  const body = digest.items.map((item, index) => (
+    `${index + 1}. ${item.title}\n结论：${item.conclusion}\n判断：${item.whyItMatters}\n行动：${item.recommendedAction}`
   )).join("\n\n");
   return `${header}\n\n${body}`.trim();
 }
 
-function extractTaggedJson(rawText, tagName) {
-  const text = String(rawText || "");
-  const match = text.match(new RegExp(`<${tagName}>\\s*([\\s\\S]*?)\\s*<\\/${tagName}>`, "i"));
-  if (match?.[1]) return safeParseJson(match[1], null);
-  const arrayMatch = text.match(/\[[\s\S]*\]/);
-  if (arrayMatch?.[0]) return safeParseJson(arrayMatch[0], null);
-  return null;
-}
-
-async function maybeRefineDigestItemsWithLlm(config, domain, items) {
-  if (!config.llmJudgeEnabled || !items.length) return items;
-  const input = items.map((item) => ({
-    itemId: item.itemId,
-    title: item.title,
-    summary: item.summary,
-    overallScore: item.overallScore,
-    exploration: item.exploration,
-    url: item.url
-  }));
-  const prompt = [
-    `你是墨水个人超级智能 AI 的 research 专工，现在要把 ${domain.label} 日报的候选条目压缩成高信息密度的中文结论。`,
-    "要求：",
-    "1. 保持极简，但要比原始摘要更像真正的情报判断。",
-    "2. 不要胡编，不知道就保守。",
-    "3. 每条只返回 itemId、summary、judgement、whyImportant、actionability。",
-    "4. actionability 只能是：建议重点关注 / 建议关注 / 建议观察 / 建议忽略。",
-    "5. 用 <DIGEST_REVIEW> 包住 JSON 数组。",
-    "",
-    JSON.stringify(input, null, 2)
-  ].join("\n");
-  const cliResult = await runOpenClawCli([
-    "agent",
-    "--agent",
-    config.llmAgent || "research",
-    "--session-id",
-    `intel-digest-${domain.id}-${buildLocalDateKey()}`,
-    "--thinking",
-    "low",
-    "--verbose",
-    "off",
-    "--message",
-    prompt,
-    "--json"
-  ], { timeoutMs: 10 * 60 * 1000 });
-  if (!cliResult.ok) return items;
-  const parsed = extractTaggedJson([cliResult.stdout, cliResult.stderr].filter(Boolean).join("\n"), "DIGEST_REVIEW");
-  if (!Array.isArray(parsed)) return items;
-  const byId = new Map(parsed
-    .filter((entry) => isRecord(entry) && normalizeString(entry.itemId))
-    .map((entry) => [normalizeString(entry.itemId), entry]));
-  return items.map((item) => {
-    const refined = byId.get(item.itemId);
-    if (!refined) return item;
-    return normalizeDigestItem({
-      ...item,
-      summary: normalizeString(refined.summary) || item.summary,
-      judgement: normalizeString(refined.judgement) || item.judgement,
-      whyImportant: normalizeString(refined.whyImportant || refined.why) || item.whyImportant,
-      actionability: normalizeString(refined.actionability) || item.actionability
-    });
-  });
-}
-
-function buildIntelDigestKnowledgeSummary(domain, enrichedItems) {
-  const selected = enrichedItems.slice(0, 3);
-  if (!selected.length) return `${domain.label} 暂无足够高价值情报。`;
-  return selected
-    .map((item) => `${item.title}：${truncateText(item.summary || item.judgement || item.title, 42)}`)
-    .join("；");
-}
-
-function buildIntelSourceMemorySummary(domain, sourceId, stats, items) {
-  const avgOverallScore = Math.round(averageNumber(items.map((item) => item.overallScore)));
-  const explorationCount = items.filter((item) => item.exploration).length;
-  const topTitles = items.slice(0, 2).map((item) => item.title).join("；");
-  return `${domain.label} 来源 ${sourceId} 的近期有效性：平均信号 ${avgOverallScore}，成功 ${stats?.successCount || 0} / 失败 ${stats?.failureCount || 0}，探索信号 ${explorationCount} 条。${topTitles ? `近期代表项：${topTitles}。` : ""}`.trim();
-}
-
-async function distillIntelDigestToMemory(domain, digest, sourceEvent) {
-  const [memoryStore, intelStore] = await Promise.all([
-    loadMemoryStore(),
-    loadIntelStore()
-  ]);
-  const intelById = new Map(intelStore.items.map((item) => [item.id, item]));
-  const enrichedItems = digest.items
-    .map((item) => {
-      const full = intelById.get(item.itemId);
-      return {
-        ...item,
-        noveltyScore: clampPercent(full?.noveltyScore),
-        credibilityScore: clampPercent(full?.credibilityScore),
-        importanceScore: clampPercent(full?.importanceScore),
-        sourceId: normalizeString(item.sourceId || full?.sourceId),
-        exploration: Boolean(item.exploration),
-        tags: normalizeKeywordTags(full?.tags || extractKeywordTags(`${item.title} ${item.summary} ${item.judgement}`, [domain.id, domain.label]))
-      };
-    })
-    .sort((left, right) => (right.overallScore || 0) - (left.overallScore || 0));
-  const memoryIds = [];
-  const domainDigestMemory = upsertMemoryEntry(memoryStore, {
-    id: `mem_${hashText(`intel-digest-domain|${domain.id}`, 16)}`,
-    memoryType: "knowledge",
-    scope: domain.id,
-    route: "research",
-    summary: `${domain.label} 最新高价值认知摘要：${buildIntelDigestKnowledgeSummary(domain, enrichedItems)}`,
-    appliesWhen: `${domain.label} 相关任务规划、研究判断、背景补充`,
-    avoidWhen: "",
-    tags: extractKeywordTags(buildIntelDigestKnowledgeSummary(domain, enrichedItems), [domain.id, domain.label, "intel-digest", "knowledge"]),
-    confidence: clampPercent(Math.round(averageNumber(enrichedItems.slice(0, 4).map((item) => item.overallScore)))),
-    sourceEventIds: [sourceEvent.eventId],
-    sourceIntelIds: enrichedItems.slice(0, 6).map((item) => item.itemId),
-    lastReinforcedAt: nowTs(),
-    decayScore: 14
-  });
-  memoryIds.push(domainDigestMemory.id);
-  const selected = enrichedItems
-    .filter((item) => item.overallScore >= 75 || item.rank <= 3 || item.exploration)
-    .slice(0, 6);
-  for (const item of selected) {
-    const memory = upsertMemoryEntry(memoryStore, {
-      id: buildMemorySignature("knowledge", domain.id, [domain.id, domain.label], `${item.title}|${item.summary}`),
-      memoryType: "knowledge",
-      scope: domain.id,
-      route: "research",
-      summary: `${domain.label} 领域近期高价值认知：${item.title}。${item.summary}${item.judgement ? ` ${item.judgement}` : ""}`,
-      appliesWhen: `${domain.label} / ${item.actionability || "建议关注"}`,
-      avoidWhen: item.actionability === "建议忽略" ? "不需要主动升级成任务，除非命中既有目标。" : "",
-      tags: extractKeywordTags(`${item.title} ${item.summary} ${item.judgement}`, [domain.id, domain.label, item.sourceId, item.exploration ? "explore" : "exploit"]),
-      confidence: clampPercent(Math.round(averageNumber([item.overallScore, item.credibilityScore || item.overallScore]))),
-      sourceEventIds: [sourceEvent.eventId],
-      sourceIntelIds: [item.itemId],
-      lastReinforcedAt: nowTs(),
-      decayScore: item.exploration ? 22 : 16
-    });
-    memoryIds.push(memory.id);
-  }
-  const sourceGroups = new Map();
-  for (const item of enrichedItems) {
-    if (!item.sourceId) continue;
-    if (!sourceGroups.has(item.sourceId)) sourceGroups.set(item.sourceId, []);
-    sourceGroups.get(item.sourceId).push(item);
-  }
-  for (const [sourceId, items] of sourceGroups.entries()) {
-    const stats = domain.sourceStats?.[sourceId] || {};
-    const sourceMemory = upsertMemoryEntry(memoryStore, {
-      id: `mem_${hashText(`intel-source|${domain.id}|${sourceId}`, 16)}`,
-      memoryType: "knowledge",
-      scope: domain.id,
-      route: "research",
-      summary: buildIntelSourceMemorySummary(domain, sourceId, stats, items),
-      appliesWhen: `${domain.label} 情报筛选 / 来源调权 / 每日摘要排序`,
-      avoidWhen: Number(stats.failureCount || 0) > Number(stats.successCount || 0) ? `该来源近期失败偏多，避免过度依赖。` : "",
-      tags: extractKeywordTags(buildIntelSourceMemorySummary(domain, sourceId, stats, items), [domain.id, domain.label, sourceId, "source-trust"]),
-      confidence: clampPercent(Math.round(averageNumber([
-        Number(stats.avgScore || 0),
-        averageNumber(items.map((item) => item.credibilityScore || item.overallScore))
-      ]))),
-      sourceEventIds: [sourceEvent.eventId],
-      sourceIntelIds: items.slice(0, 8).map((item) => item.itemId),
-      lastReinforcedAt: nowTs(),
-      decayScore: Number(stats.failureCount || 0) > Number(stats.successCount || 0) ? 30 : 18
-    });
-    memoryIds.push(sourceMemory.id);
-  }
-  memoryStore.scheduler.lastDistilledAt = nowTs();
-  await saveMemoryStore(memoryStore);
-  await appendSystemEvent("intel_memory_distilled", {
-    domainId: domain.id,
-    digestId: digest.id,
-    memoryIds
-  });
-  return memoryIds;
-}
-
-async function runIntelDigest(domainId, options = {}) {
-  const [store, memoryStore] = await Promise.all([
-    loadIntelStore(),
-    loadMemoryStore()
-  ]);
-  if (!store.config.enabled || !store.config.digestEnabled) return buildIntelStatus(store);
-  const domain = store.domains.find((entry) => entry.id === domainId);
-  if (!domain) throw new Error(`Unknown intel domain: ${domainId}`);
-  const force = Boolean(options.force);
-  const todayKey = buildLocalDateKey();
-  const latestSentDigest = store.digests.find((entry) => entry.domain === domainId && entry.status === "sent");
-  if (!force && latestSentDigest?.digestDate === todayKey) return buildIntelStatus(store);
-  const { selected, rankingSummary } = selectDigestItemsForDomain(store, domain, memoryStore);
-  if (selected.length === 0) return buildIntelStatus(store);
-  const digestId = `digest_${hashText(`${domainId}|${todayKey}|${selected.map((entry) => entry.id).join("|")}`, 16)}`;
-  const buildDigestItems = () => selected.slice(0, store.config.digestItemLimitPerDomain).map((item, index) => {
-    const judgement = buildDigestJudgement(item);
-    return {
-      itemId: item.id,
-      rank: index + 1,
-      title: judgement.title,
-      summary: judgement.summary,
-      judgement: judgement.judgement,
-      whyImportant: judgement.whyImportant,
-      actionability: judgement.actionability,
-      url: judgement.url,
-      sourceId: item.sourceId,
-      overallScore: item.overallScore,
-      exploration: Boolean(item.explorationCandidate)
-    };
-  });
-  const persistDigestAttempt = async (status, eventType, reasonText, delivery) => {
-    const event = await appendSystemEvent(eventType, {
-      domainId,
-      digestId,
-      reason: normalizeString(reasonText),
-      delivery,
-      itemIds: selected.slice(0, store.config.digestItemLimitPerDomain).map((entry) => entry.id)
-    });
-    const digest = normalizeIntelDigest({
-      id: digestId,
-      domain: domainId,
-      digestDate: todayKey,
-      createdAt: nowTs(),
-      delivery,
-      status,
-      items: buildDigestItems(),
-      sourceEventIds: [event.eventId]
-    });
-    domain.lastDigestAttemptAt = nowTs();
-    domain.lastDigestError = normalizeString(reasonText);
-    domain.lastDigestId = digest.id;
-    store.scheduler.lastDigestSweepAt = nowTs();
-    store.digests = [digest, ...store.digests.filter((entry) => entry.id !== digest.id)]
-      .sort((left, right) => (right.createdAt || 0) - (left.createdAt || 0))
-      .slice(0, INTEL_DIGEST_RETENTION);
-    await saveIntelStore(store);
-    return buildIntelStatus(store);
-  };
-  const delivery = normalizeDeliveryCandidate(options.delivery) || await resolvePreferredDigestDelivery();
-  if (!delivery) return persistDigestAttempt("no_delivery", "digest_delivery_unavailable", "delivery_unavailable", null);
-  intelRuntime.activeDigestDomainId = domainId;
-  try {
-    const digest = normalizeIntelDigest({
-      id: digestId,
-      domain: domainId,
-      digestDate: todayKey,
-      createdAt: nowTs(),
-      delivery,
-      status: "draft",
-      items: buildDigestItems()
-    });
-    const rankingEvent = await appendSystemEvent("digest_ranked", {
-      domainId,
-      digestId: digest.id,
-      itemIds: digest.items.map((entry) => entry.itemId),
-      rankingSummary
-    });
-    const beforeRefineSignature = JSON.stringify(digest.items.map((item) => ({
-      itemId: item.itemId,
-      summary: item.summary,
-      judgement: item.judgement,
-      whyImportant: item.whyImportant,
-      actionability: item.actionability
-    })));
-    digest.items = await maybeRefineDigestItemsWithLlm(store.config, domain, digest.items);
-    const afterRefineSignature = JSON.stringify(digest.items.map((item) => ({
-      itemId: item.itemId,
-      summary: item.summary,
-      judgement: item.judgement,
-      whyImportant: item.whyImportant,
-      actionability: item.actionability
-    })));
-    let refineEventId = null;
-    if (beforeRefineSignature !== afterRefineSignature) {
-      const refineEvent = await appendSystemEvent("digest_refined_with_llm", {
-        domainId,
-        digestId: digest.id,
-        itemIds: digest.items.map((entry) => entry.itemId)
-      });
-      refineEventId = refineEvent.eventId;
-    }
-    const message = formatDigestMessage(domain, digest);
-    const deliveryResult = await notifyTaskTarget({
-      id: digest.id,
-      title: `${domain.label} 情报日报`,
-      delivery
-    }, "proactive", message);
-    if (!deliveryResult.ok) {
-      return persistDigestAttempt("failed", "digest_failed", deliveryResult.error || "digest_delivery_failed", delivery);
-    }
-    digest.status = "sent";
-    selected.forEach((item) => {
-      item.deliveredAt = nowTs();
-      item.selectedForDigest = true;
-      item.digestId = digest.id;
-    });
-    domain.lastDigestAttemptAt = nowTs();
-    domain.lastDigestAt = nowTs();
-    domain.lastDigestId = digest.id;
-    domain.lastDigestError = "";
-    domain.nextDigestDate = buildRelativeLocalDateKey(1);
-    store.scheduler.lastDigestSweepAt = nowTs();
-    const event = await appendSystemEvent("digest_sent", {
-      domainId,
-      digestId: digest.id,
-      delivery,
-      itemIds: digest.items.map((entry) => entry.itemId),
-      refineEventId,
-      rankingEventId: rankingEvent.eventId
-    });
-    digest.sourceEventIds = mergeUniqueStrings(
-      digest.sourceEventIds,
-      [rankingEvent.eventId],
-      refineEventId ? [refineEventId] : [],
-      [event.eventId]
-    ).slice(0, 24);
-    store.digests = [digest, ...store.digests.filter((entry) => entry.id !== digest.id)]
-      .sort((left, right) => (right.createdAt || 0) - (left.createdAt || 0))
-      .slice(0, INTEL_DIGEST_RETENTION);
-    await saveIntelStore(store);
-    await distillIntelDigestToMemory(domain, digest, event);
-    return buildIntelStatus(store);
-  } finally {
-    intelRuntime.activeDigestDomainId = null;
-    intelRuntime.lastTickAt = nowTs();
-  }
-}
-
 async function runIntelMaintenance(options = {}) {
-  const store = await loadIntelStore();
-  if (!store.config.enabled) return buildIntelStatus(store);
+  const nowValue = nowTs();
+  const opts = managedRuntimeStoreOptions(nowValue);
+  const [storeCore, intelRefresh] = await Promise.all([
+    loadManagedRuntimeStoreCore(),
+    loadManagedRuntimeIntelRefreshCore()
+  ]);
+  const initialIntelStore = storeCore.loadRuntimeIntelStore(opts);
+  if (!initialIntelStore.enabled) return await buildManagedIntelStatus();
   const domainIds = normalizeString(options.domainId)
     ? [normalizeString(options.domainId)]
-    : store.domains.map((entry) => entry.id);
-  for (const domainId of domainIds) {
-    await refreshIntelDomain(domainId, { force: Boolean(options.forceRefresh) });
-  }
-  const refreshed = await loadIntelStore();
-  if (!refreshed.config.digestEnabled) return buildIntelStatus(refreshed);
+    : [...new Set([
+        ...initialIntelStore.candidates.map((entry) => entry.domain),
+        ...initialIntelStore.digestItems.map((entry) => entry.domain),
+        ...initialIntelStore.sourceProfiles.map((entry) => entry.domain),
+        "tech",
+        "ai",
+        "business",
+        "github"
+      ])];
+  await intelRefresh.refreshRuntimeIntelPipeline({
+    ...opts,
+    domains: domainIds,
+    force: Boolean(options.forceRefresh),
+    githubToken: normalizeString(options.githubToken) || undefined
+  });
+  const refreshedIntelStore = storeCore.loadRuntimeIntelStore(opts);
+  if (!refreshedIntelStore.digestEnabled) return await buildManagedIntelStatus();
   const currentHour = new Date().getHours();
   const todayKey = buildLocalDateKey();
-  let schedulerAdjusted = false;
-  for (const domain of refreshed.domains) {
-    if (!domain.nextDigestDate) {
-      domain.nextDigestDate = computeInitialDigestDateKey(refreshed.config.digestHourLocal);
-      schedulerAdjusted = true;
+  let metadata = isRecord(refreshedIntelStore.metadata) ? refreshedIntelStore.metadata : {};
+  for (const domainId of domainIds) {
+    const domainMeta = readManagedIntelDomainMetadata(metadata, domainId);
+    if (!domainMeta.nextDigestDate) {
+      metadata = writeManagedIntelDomainMetadata(metadata, domainId, {
+        nextDigestDate: computeInitialDigestDateKey(clampInt(metadata.digestHourLocal, 9, 0, 23))
+      });
     }
   }
-  if (schedulerAdjusted) await saveIntelStore(refreshed);
-  const digestStore = schedulerAdjusted ? await loadIntelStore() : refreshed;
-  for (const domain of digestStore.domains) {
-    const latestSentDigest = digestStore.digests.find((entry) => entry.domain === domain.id && entry.status === "sent");
-    if (!Boolean(options.forceDigest) && latestSentDigest?.digestDate === todayKey) {
+  refreshedIntelStore.metadata = metadata;
+  storeCore.saveRuntimeIntelStore(refreshedIntelStore, opts);
+  const delivery = normalizeDeliveryCandidate(options.delivery) || await resolvePreferredDigestDelivery();
+  const nextIntelStore = storeCore.loadRuntimeIntelStore(opts);
+  let changed = false;
+  let nextMetadata = isRecord(nextIntelStore.metadata) ? nextIntelStore.metadata : {};
+  for (const domainId of domainIds) {
+    const domainMeta = readManagedIntelDomainMetadata(nextMetadata, domainId);
+    const latestDeliveredDigestDate = normalizeString(domainMeta.lastDeliveredDigestDate);
+    if (!Boolean(options.forceDigest) && latestDeliveredDigestDate === todayKey) {
       const tomorrowKey = buildRelativeLocalDateKey(1);
-      if (domain.nextDigestDate !== tomorrowKey) {
-        domain.nextDigestDate = tomorrowKey;
-        await saveIntelStore(digestStore);
+      if (domainMeta.nextDigestDate !== tomorrowKey) {
+        nextMetadata = writeManagedIntelDomainMetadata(nextMetadata, domainId, {
+          nextDigestDate: tomorrowKey
+        });
+        changed = true;
       }
       continue;
     }
     const backoffActive = Boolean(
       !options.forceDigest &&
-      domain.lastDigestAttemptAt &&
-      nowTs() - domain.lastDigestAttemptAt < INTEL_DIGEST_RETRY_BACKOFF_MS
+      Number(domainMeta.lastDigestAttemptAt || 0) &&
+      nowValue - Number(domainMeta.lastDigestAttemptAt || 0) < INTEL_DIGEST_RETRY_BACKOFF_MS
     );
     const dueDigest = Boolean(options.forceDigest) || (
-      currentHour >= digestStore.config.digestHourLocal &&
-      (!domain.nextDigestDate || domain.nextDigestDate <= todayKey) &&
+      currentHour >= clampInt(nextIntelStore.metadata?.digestHourLocal, 9, 0, 23) &&
+      (!normalizeString(domainMeta.nextDigestDate) || normalizeString(domainMeta.nextDigestDate) <= todayKey) &&
       !backoffActive
     );
-    if (dueDigest) {
-      await runIntelDigest(domain.id, {
-        force: Boolean(options.forceDigest)
+    if (!dueDigest) continue;
+    const digest = buildManagedIntelDigest(domainId, nextIntelStore, todayKey);
+    if (!digest.items.length) {
+      nextMetadata = writeManagedIntelDomainMetadata(nextMetadata, domainId, {
+        lastDigestAttemptAt: nowValue,
+        lastDigestError: "no_digest_items",
+        nextDigestDate: buildRelativeLocalDateKey(1)
       });
-    }
-  }
-  return buildIntelStatus(await loadIntelStore());
-}
-
-function upsertEvolutionCandidate(store, candidate) {
-  const normalized = normalizeEvolutionCandidate(candidate);
-  const index = store.candidates.findIndex((entry) => entry.id === normalized.id);
-  if (index < 0) {
-    const nextSignal = buildEvolutionCandidateSignal(normalized);
-    const seeded = normalizeEvolutionCandidate({
-      ...normalized,
-      measuredEffect: mergeEvolutionMeasuredEffect({}, normalized.measuredEffect),
-      shadowMetrics: {
-        ...(normalized.shadowMetrics || {}),
-        observationCount: clampInt(normalized.shadowMetrics?.observationCount, 1, 1, 100000),
-        consistentSignalCount: nextSignal ? clampInt(normalized.shadowMetrics?.consistentSignalCount, 1, 1, 100000) : clampInt(normalized.shadowMetrics?.consistentSignalCount, 0, 0, 100000),
-        lastSignal: nextSignal || 0
-      },
-      lastShadowAt: nowTs()
-    });
-    store.candidates.unshift(seeded);
-    return seeded;
-  }
-  const current = store.candidates[index];
-  const previousObservationCount = clampInt(current.shadowMetrics?.observationCount, 0, 0, 100000);
-  const previousConsistentCount = clampInt(current.shadowMetrics?.consistentSignalCount, 0, 0, 100000);
-  const previousSignal = Math.sign(Number(current.shadowMetrics?.lastSignal || buildEvolutionCandidateSignal(current)));
-  const nextSignal = buildEvolutionCandidateSignal({
-    ...current,
-    measuredEffect: mergeEvolutionMeasuredEffect(current.measuredEffect, normalized.measuredEffect)
-  });
-  const consistentSignalCount = nextSignal === 0
-    ? previousConsistentCount
-    : previousSignal === nextSignal
-      ? previousConsistentCount + 1
-      : 1;
-  const merged = normalizeEvolutionCandidate({
-    ...current,
-    ...normalized,
-    shadowMetrics: {
-      ...mergeEvolutionShadowMetrics(current.shadowMetrics, normalized.shadowMetrics),
-      observationCount: previousObservationCount + 1,
-      consistentSignalCount,
-      lastSignal: nextSignal || previousSignal || 0
-    },
-    expectedEffect: {
-      ...current.expectedEffect,
-      ...normalized.expectedEffect
-    },
-    measuredEffect: mergeEvolutionMeasuredEffect(current.measuredEffect, normalized.measuredEffect),
-    sourceEventIds: mergeUniqueStrings(current.sourceEventIds, normalized.sourceEventIds).slice(0, 24),
-    sourceTaskIds: mergeUniqueStrings(current.sourceTaskIds, normalized.sourceTaskIds).slice(0, 24),
-    sourceIntelIds: mergeUniqueStrings(current.sourceIntelIds, normalized.sourceIntelIds).slice(0, 24),
-    derivedFromMemoryIds: mergeUniqueStrings(current.derivedFromMemoryIds, normalized.derivedFromMemoryIds).slice(0, 24),
-    invalidatedBy: mergeUniqueStrings(current.invalidatedBy, normalized.invalidatedBy).slice(0, 24),
-    adoptionState: current.adoptionState === "adopted"
-      ? "adopted"
-      : current.adoptionState === "candidate" && normalized.adoptionState === "shadow"
-        ? "candidate"
-        : normalized.adoptionState || current.adoptionState || "shadow",
-    lastShadowAt: nowTs(),
-    updatedAt: nowTs()
-  });
-  store.candidates[index] = merged;
-  return merged;
-}
-
-async function rollbackPrematureEvolutionAdoptions(store, intelStore) {
-  let evolutionChanged = false;
-  let intelChanged = false;
-  const reverted = [];
-  for (const candidate of store.candidates) {
-    if (candidate.candidateType !== "intel_source_reweight" || candidate.adoptionState !== "adopted") continue;
-    const observationCount = clampInt(candidate.shadowMetrics?.observationCount, 0, 0, 100000);
-    if (observationCount >= EVOLUTION_AUTO_ADOPT_MIN_OBSERVATIONS) continue;
-    const [domainId, sourceId] = String(candidate.candidateRef || "").split(":");
-    const domain = intelStore.domains.find((entry) => entry.id === domainId);
-    const source = domain?.sources.find((entry) => entry.id === sourceId);
-    const delta = Number(candidate.measuredEffect?.priorityDelta);
-    if (domain && source && Number.isFinite(delta) && Math.abs(delta) >= 0.01) {
-      source.priority = Math.max(0.1, Math.min(3, Number(source.priority || 0.5) - delta));
-      intelChanged = true;
-    }
-    candidate.adoptionState = "shadow";
-    candidate.updatedAt = nowTs();
-    candidate.notes = truncateText(`${candidate.notes || ""} 已自动回退到影子模式，等待更多真实观测后再决定是否采纳。`, 220);
-    candidate.shadowMetrics = {
-      ...(candidate.shadowMetrics || {}),
-      observationCount: Math.max(1, observationCount),
-      consistentSignalCount: Math.max(1, clampInt(candidate.shadowMetrics?.consistentSignalCount, 0, 0, 100000))
-    };
-    reverted.push(candidate.id);
-    evolutionChanged = true;
-  }
-  if (intelChanged) await saveIntelStore(intelStore);
-  if (evolutionChanged) {
-    await saveEvolutionStore(store);
-    await appendSystemEvent("evolution_candidate_reverted_to_shadow", {
-      candidateIds: reverted
-    });
-  }
-  return evolutionChanged || intelChanged;
-}
-
-async function maybeAutoApplyLowRiskEvolution(store, intelStore) {
-  if (!store.config.autoApplyLowRisk) return false;
-  let evolutionChanged = false;
-  let intelChanged = false;
-  const promoted = [];
-  const adopted = [];
-  for (const candidate of store.candidates) {
-    if (candidate.invalidatedBy?.length) continue;
-    const observationCount = clampInt(candidate.shadowMetrics?.observationCount, 0, 0, 100000);
-    const consistentSignalCount = clampInt(candidate.shadowMetrics?.consistentSignalCount, 0, 0, 100000);
-    if (candidate.candidateType === "intel_source_reweight") {
-      const [domainId, sourceId] = String(candidate.candidateRef || "").split(":");
-      const domain = intelStore.domains.find((entry) => entry.id === domainId);
-      const source = domain?.sources.find((entry) => entry.id === sourceId);
-      if (!domain || !source) continue;
-      const delta = Number(candidate.measuredEffect?.priorityDelta);
-      if (!Number.isFinite(delta) || Math.abs(delta) < 0.01) continue;
-      if (
-        candidate.adoptionState === "shadow" &&
-        observationCount >= EVOLUTION_SHADOW_MIN_OBSERVATIONS &&
-        consistentSignalCount >= EVOLUTION_SHADOW_MIN_OBSERVATIONS
-      ) {
-        candidate.adoptionState = "candidate";
-        candidate.updatedAt = nowTs();
-        promoted.push(candidate.id);
-        evolutionChanged = true;
-        continue;
-      }
-      if (candidate.adoptionState !== "candidate") continue;
-      if (observationCount < EVOLUTION_AUTO_ADOPT_MIN_OBSERVATIONS || consistentSignalCount < EVOLUTION_AUTO_ADOPT_MIN_OBSERVATIONS) continue;
-      source.priority = Math.max(0.1, Math.min(3, Number(source.priority || 0.5) + delta));
-      candidate.adoptionState = "adopted";
-      candidate.updatedAt = nowTs();
-      adopted.push(candidate.id);
-      evolutionChanged = true;
-      intelChanged = true;
+      changed = true;
       continue;
     }
-    if (!["route_default_lane", "route_skill_bundle"].includes(candidate.candidateType)) continue;
-    const sampleCount = clampInt(candidate.measuredEffect?.sampleCount, observationCount, 0, 100000);
-    const successCount = clampInt(candidate.measuredEffect?.successCount, 0, 0, 100000);
-    const blockedCount = clampInt(candidate.measuredEffect?.blockedCount, 0, 0, 100000);
-    const waitingUserCount = clampInt(candidate.measuredEffect?.waitingUserCount ?? candidate.measuredEffect?.waitingHumanCount, 0, 0, 100000);
-    const avgCompletionScore = Number(candidate.measuredEffect?.avgCompletionScore || 0);
-    const successRate = sampleCount > 0 ? successCount / sampleCount : 0;
-    if (
-      candidate.adoptionState === "shadow" &&
-      observationCount >= EVOLUTION_SHADOW_MIN_OBSERVATIONS &&
-      consistentSignalCount >= EVOLUTION_SHADOW_MIN_OBSERVATIONS &&
-      successRate >= 0.5
-    ) {
-      candidate.adoptionState = "candidate";
-      candidate.updatedAt = nowTs();
-      promoted.push(candidate.id);
-      evolutionChanged = true;
+    if (!delivery) {
+      nextMetadata = writeManagedIntelDomainMetadata(nextMetadata, domainId, {
+        lastDigestAttemptAt: nowValue,
+        lastDigestError: "delivery_unavailable"
+      });
+      changed = true;
       continue;
     }
-    if (candidate.adoptionState !== "candidate") continue;
-    if (observationCount < EVOLUTION_AUTO_ADOPT_MIN_OBSERVATIONS || consistentSignalCount < EVOLUTION_AUTO_ADOPT_MIN_OBSERVATIONS) continue;
-    if (successRate < EVOLUTION_ROUTE_SUCCESS_RATE_MIN) continue;
-    if (avgCompletionScore < EVOLUTION_ROUTE_COMPLETION_MIN) continue;
-    if (blockedCount + waitingUserCount >= successCount) continue;
-    candidate.adoptionState = "adopted";
-    candidate.updatedAt = nowTs();
-    adopted.push(candidate.id);
-    evolutionChanged = true;
-  }
-  if (intelChanged) await saveIntelStore(intelStore);
-  if (evolutionChanged) await saveEvolutionStore(store);
-  if (promoted.length) {
-    await appendSystemEvent("evolution_candidate_promoted", {
-      candidateIds: promoted
+    const domainLabel =
+      nextIntelStore.sourceProfiles.find((entry) => entry.domain === domainId)?.label ||
+      (domainId === "ai" ? "AI" : domainId === "github" ? "GitHub" : domainId === "business" ? "Business" : "Tech");
+    const message = formatManagedIntelDigestMessage(domainLabel, digest);
+    const deliveryResult = await notifyTaskTarget({
+      id: digest.id,
+      title: `${domainLabel} 情报日报`,
+      delivery
+    }, "proactive", message);
+    nextMetadata = writeManagedIntelDomainMetadata(nextMetadata, domainId, {
+      lastDigestAttemptAt: nowValue,
+      lastDigestDate: todayKey,
+      lastDigestError: deliveryResult.ok ? "" : String(deliveryResult.error || "digest_delivery_failed"),
+      lastDeliveredDigestDate: deliveryResult.ok ? todayKey : normalizeString(domainMeta.lastDeliveredDigestDate) || undefined,
+      nextDigestDate: deliveryResult.ok ? buildRelativeLocalDateKey(1) : normalizeString(domainMeta.nextDigestDate) || computeInitialDigestDateKey(clampInt(nextIntelStore.metadata?.digestHourLocal, 9, 0, 23))
     });
+    changed = true;
+    if (deliveryResult.ok && typeof storeCore.appendRuntimeEvent === "function") {
+      storeCore.appendRuntimeEvent("runtime_intel_digest_sent", {
+        domainId,
+        digestId: digest.id,
+        digestDate: todayKey,
+        delivery
+      }, opts);
+    }
   }
-  if (adopted.length) {
-    await appendSystemEvent("evolution_candidate_adopted", {
-      candidateIds: adopted
-    });
+  if (changed) {
+    nextIntelStore.metadata = nextMetadata;
+    storeCore.saveRuntimeIntelStore(nextIntelStore, opts);
   }
-  return evolutionChanged || intelChanged;
+  return await buildManagedIntelStatus();
 }
 
 async function runEvolutionReview(options = {}) {
-  const store = await loadEvolutionStore();
-  if (!store.config.enabled) return buildEvolutionStatus(store);
-  const reviewIntervalMs = store.config.reviewIntervalHours * 60 * 60 * 1000;
-  if (!Boolean(options.force) && store.scheduler.lastReviewAt && nowTs() - store.scheduler.lastReviewAt < reviewIntervalMs) {
-    return buildEvolutionStatus(store);
+  const nowValue = nowTs();
+  const opts = managedRuntimeStoreOptions(nowValue);
+  const [storeCore, mutations] = await Promise.all([
+    loadManagedRuntimeStoreCore(),
+    loadManagedRuntimeMutationsCore()
+  ]);
+  const governanceStore = storeCore.loadRuntimeGovernanceStore(opts);
+  const metadata = isRecord(governanceStore.metadata) ? governanceStore.metadata : {};
+  const enabled = metadata.enabled !== false;
+  const reviewIntervalHours = clampInt(metadata.reviewIntervalHours, 12, 1, 168);
+  const lastReviewAt = Number(metadata.lastReviewAt || 0) || 0;
+  if (!enabled) {
+    return await buildManagedEvolutionStatus();
+  }
+  if (!Boolean(options.force) && lastReviewAt && nowValue - lastReviewAt < reviewIntervalHours * 60 * 60 * 1000) {
+    return await buildManagedEvolutionStatus();
   }
   evolutionRuntime.active = true;
   try {
-    const [events, memoryStore, intelStore, autopilotStore] = await Promise.all([
-      readRecentSystemEvents(EVENT_LOG_TAIL_LIMIT),
-      loadMemoryStore(),
-      loadIntelStore(),
-      loadAutopilotStore()
-    ]);
-    const routeCounts = new Map();
-    for (const task of autopilotStore.tasks) {
-      const route = normalizeString(task.route || task.taskKind || "general", "general");
-      const current = routeCounts.get(route) || { success: 0, blocked: 0, remoteCalls: [] };
-      if (task.status === "completed") current.success += 1;
-      if (task.status === "blocked" || task.status === "waiting_user") current.blocked += 1;
-      current.remoteCalls.push(task.runState?.remoteCallCount || 0);
-      routeCounts.set(route, current);
+    if (typeof mutations.reviewRuntimeEvolution !== "function") {
+      throw new Error("Managed runtime evolution review is unavailable.");
     }
-    for (const [route, stats] of routeCounts.entries()) {
-      const routeTaskIds = autopilotStore.tasks
-        .filter((task) => normalizeString(task.route || task.taskKind || "general", "general") === route)
-        .slice(0, 12)
-        .map((task) => task.id);
-      if (stats.blocked >= 2) {
-        upsertEvolutionCandidate(store, {
-          id: `evo_${hashText(`route-fallback|${route}`, 16)}`,
-          targetLayer: "task",
-          candidateType: "retry_policy_review",
-          candidateRef: route,
-          expectedEffect: {
-            reduceBlocked: true
-          },
-          measuredEffect: {
-            blockedCount: stats.blocked,
-            successCount: stats.success,
-            avgRemoteCalls: averageNumber(stats.remoteCalls)
-          },
-          shadowMetrics: {
-            route,
-            blockedCount: stats.blocked,
-            successCount: stats.success
-          },
-          adoptionState: "shadow",
-          notes: `${route} 路由近期阻塞偏多，建议在影子模式下评估新的 fallback 顺序。`,
-          sourceEventIds: events.slice(0, 6).map((entry) => entry.eventId),
-          sourceTaskIds: routeTaskIds
-        });
-      }
-    }
-    for (const domain of intelStore.domains) {
-      for (const source of domain.sources) {
-        const stats = domain.sourceStats[source.id];
-        if (!stats) continue;
-        if (stats.failureCount >= 3 || stats.avgScore <= 30 || stats.avgScore >= 82) {
-          const delta = stats.avgScore >= 82 ? 0.05 : -0.05;
-          const sourceIntelIds = intelStore.items
-            .filter((entry) => entry.domain === domain.id && entry.sourceId === source.id)
-            .slice(0, 12)
-            .map((entry) => entry.id);
-          upsertEvolutionCandidate(store, {
-            id: `evo_${hashText(`intel-source|${domain.id}|${source.id}`, 16)}`,
-            targetLayer: "intel",
-            candidateType: "intel_source_reweight",
-            candidateRef: `${domain.id}:${source.id}`,
-            expectedEffect: {
-              reduceNoise: delta < 0,
-              increaseSignal: delta > 0
-            },
-            measuredEffect: {
-              avgScore: stats.avgScore,
-              failureCount: stats.failureCount,
-              successCount: stats.successCount,
-              priorityDelta: delta
-            },
-            shadowMetrics: {
-              avgScore: stats.avgScore,
-              failureCount: stats.failureCount,
-              successCount: stats.successCount
-            },
-            adoptionState: "shadow",
-            notes: `${domain.label}/${source.id} 来源表现已偏离基线，先在影子模式下评估调权。`
-            ,
-            sourceIntelIds
-          });
-        }
-      }
-    }
-    const lowConfidenceStrategies = memoryStore.strategies.filter((entry) => entry.confidence <= 45).slice(0, 8);
-    for (const strategy of lowConfidenceStrategies) {
-      upsertEvolutionCandidate(store, {
-        id: `evo_${hashText(`strategy-refresh|${strategy.id}`, 16)}`,
-        targetLayer: "strategy",
-        candidateType: "strategy_refresh",
-        candidateRef: strategy.id,
-        expectedEffect: {
-          improveConfidence: true
-        },
-        measuredEffect: {
-          confidence: strategy.confidence
-        },
-        shadowMetrics: {
-          route: strategy.route,
-          thinkingLane: strategy.thinkingLane
-        },
-        adoptionState: "shadow",
-        notes: `策略 ${strategy.id} 置信度偏低，应在影子模式下重新评估是否继续保留。`,
-        sourceEventIds: strategy.sourceEventIds,
-        sourceTaskIds: strategy.sourceTaskIds,
-        sourceIntelIds: strategy.sourceIntelIds,
-        derivedFromMemoryIds: strategy.derivedFromMemoryIds
-      });
-    }
-    store.scheduler.lastReviewAt = nowTs();
-    await rollbackPrematureEvolutionAdoptions(store, intelStore);
-    await maybeAutoApplyLowRiskEvolution(store, intelStore);
-    const memoryChanged = await materializeAdoptedEvolutionStrategies(store, memoryStore);
-    if (memoryChanged) {
-      memoryStore.scheduler.lastDistilledAt = nowTs();
-      await saveMemoryStore(memoryStore);
-    }
-    await saveEvolutionStore(store);
-    await appendSystemEvent("evolution_reviewed", {
-      candidateCount: store.candidates.length,
-      lastReviewAt: store.scheduler.lastReviewAt
-    });
-    evolutionRuntime.lastReviewAt = store.scheduler.lastReviewAt;
-    return buildEvolutionStatus(store);
+    mutations.reviewRuntimeEvolution(opts);
+    evolutionRuntime.lastReviewAt = nowValue;
+    return await buildManagedEvolutionStatus();
   } finally {
     evolutionRuntime.active = false;
     evolutionRuntime.lastTickAt = nowTs();
   }
-}
-
-async function saveAutopilotStore(store) {
-  const normalized = normalizeAutopilotStore(store);
-  normalized.scheduler.lastPersistedAt = nowTs();
-  await writeJsonAtomicSecure(AUTOPILOT_STORE_PATH, normalized);
-  return normalized;
 }
 
 function buildAutopilotTaskView(task, config) {
@@ -4300,57 +2113,6 @@ function buildAutopilotTaskView(task, config) {
   };
 }
 
-function buildAutopilotStatus(store) {
-  const normalized = normalizeAutopilotStore(store);
-  const tasks = normalized.tasks.map((task) => buildAutopilotTaskView(task, normalized.config));
-  const counts = {
-    total: tasks.length,
-    queued: 0,
-    planning: 0,
-    ready: 0,
-    running: 0,
-    blocked: 0,
-    waitingExternal: 0,
-    waitingUser: 0,
-    completed: 0,
-    cancelled: 0,
-    due: 0
-  };
-  let nextDueTask = null;
-  for (const task of tasks) {
-    if (task.status === "queued") counts.queued += 1;
-    else if (task.status === "planning") counts.planning += 1;
-    else if (task.status === "ready") counts.ready += 1;
-    else if (task.status === "running") counts.running += 1;
-    else if (task.status === "blocked") counts.blocked += 1;
-    else if (task.status === "waiting_external") counts.waitingExternal += 1;
-    else if (task.status === "waiting_user") counts.waitingUser += 1;
-    else if (task.status === "completed") counts.completed += 1;
-    else if (task.status === "cancelled") counts.cancelled += 1;
-    if (task.isDue) {
-      counts.due += 1;
-      if (!nextDueTask || (task.nextRunAt || 0) < (nextDueTask.nextRunAt || 0)) nextDueTask = task;
-    }
-  }
-  return {
-    config: normalized.config,
-    scheduler: {
-      startedIso: toIso(autopilotRuntime.startedAt),
-      lastTickIso: toIso(autopilotRuntime.lastTickAt),
-      lastError: autopilotRuntime.lastError || null,
-      nextDueTaskId: nextDueTask ? nextDueTask.id : null,
-      activeTaskId: autopilotRuntime.activeTaskId || null,
-      activeTaskStartedIso: toIso(autopilotRuntime.activeTaskStartedAt)
-    },
-    stats: {
-      ...counts,
-      waitingHuman: counts.waitingUser,
-      done: counts.completed
-    },
-    tasks
-  };
-}
-
 function findContinuationTask(store, sessionKey) {
   const active = store.tasks
     .filter((task) => !isAutopilotTerminalStatus(task.status) && task.sourceMeta?.sessionKey === sessionKey)
@@ -4397,8 +2159,6 @@ function buildCapturedTaskPayload(params) {
 
 async function captureAutopilotTaskFromSession(ctx) {
   if (!ctx?.sessionKey) return null;
-  const store = await loadAutopilotStore();
-  if (!store.config.enabled) return null;
   const agentId = normalizeString(ctx.agentId, "main");
   const sessionKey = normalizeString(ctx.sessionKey);
   const sessionEntry = await resolveSessionEntry(agentId, sessionKey);
@@ -4411,15 +2171,17 @@ async function captureAutopilotTaskFromSession(ctx) {
   const cleanText = normalizeTaskGoal(messageMeta.body);
   if (!isLikelyTaskText(cleanText)) return null;
   if (!messageMeta.delivery.channel || !messageMeta.delivery.target) return null;
-  const duplicate = store.tasks.find((task) => (
+  const status = await buildManagedAutopilotStatus();
+  if (!status.config.enabled) return null;
+  const duplicate = status.tasks.find((task) => (
     task?.sourceMeta?.sessionKey === sessionKey &&
     task?.sourceMeta?.messageId &&
     task.sourceMeta.messageId === messageMeta.sourceMeta.messageId
   ));
-  if (duplicate) return buildAutopilotTaskView(duplicate, store.config);
+  if (duplicate) return duplicate;
   const routeInfo = classifyTaskRoute(cleanText);
   const payload = buildCapturedTaskPayload({
-    store,
+    store: status,
     sessionKey,
     cleanText,
     sourceMeta: messageMeta.sourceMeta,
@@ -4427,7 +2189,7 @@ async function captureAutopilotTaskFromSession(ctx) {
     route: routeInfo.route,
     assignee: routeInfo.assignee
   });
-  const saved = await upsertAutopilotTask(payload);
+  const saved = await upsertManagedAutopilotTask(payload);
   return saved.tasks.find((task) => task.id === payload.id) || payload;
 }
 
@@ -4542,7 +2304,7 @@ function formatMemoryTaskLine(task, status) {
   return `- [autopilot][${status}][${task.id}] ${task.title} | route=${route} | ${shownSummary}`;
 }
 
-async function appendAutopilotMemoryLine(task, status) {
+async function appendAutopilotMemoryLineWithTransition(task, status, transitionFn) {
   const runState = normalizeAutopilotRunState(task.runState);
   const normalizedStatus = normalizeAutopilotStatusValue(status, status);
   if (runState.memoryLoggedStatuses.includes(normalizedStatus)) return false;
@@ -4554,7 +2316,7 @@ async function appendAutopilotMemoryLine(task, status) {
   const existing = await readTextFile(memoryFile, "");
   const markers = getAutopilotStatusAliases(normalizedStatus).map((entry) => `[autopilot][${entry}][${task.id}]`);
   if (markers.some((marker) => existing.includes(marker))) {
-    await transitionAutopilotTask(task.id, {
+    await transitionFn(task.id, {
       runState: {
         memoryLoggedStatuses: [...runState.memoryLoggedStatuses, normalizedStatus]
       }
@@ -4565,12 +2327,16 @@ async function appendAutopilotMemoryLine(task, status) {
   const line = formatMemoryTaskLine(task, normalizedStatus);
   const prefix = existing && !existing.endsWith("\n") ? "\n" : "";
   await fsp.appendFile(memoryFile, `${prefix}${line}\n`, "utf8");
-  await transitionAutopilotTask(task.id, {
+  await transitionFn(task.id, {
     runState: {
       memoryLoggedStatuses: [...runState.memoryLoggedStatuses, normalizedStatus]
     }
   });
   return true;
+}
+
+async function appendManagedAutopilotMemoryLine(task, status) {
+  return await appendAutopilotMemoryLineWithTransition(task, status, transitionManagedAutopilotTask);
 }
 
 function buildPlanningSummary(task) {
@@ -4666,13 +2432,15 @@ function formatDoneNotification(task, result) {
     .trim();
 }
 
-async function maybeNotifyForTask(task) {
+async function maybeNotifyForTaskWithTransition(task, handlers) {
+  const transition = handlers.transition;
+  const appendMemoryLine = handlers.appendMemoryLine;
   const status = task.status;
   const runState = normalizeAutopilotRunState(task.runState);
   const ts = nowTs();
   if (task.reportPolicy === "silent") return false;
   if (status === "completed") {
-    await appendAutopilotMemoryLine(task, "completed");
+    await appendMemoryLine(task, "completed");
     if (runState.lastNotifiedStatus === "completed") return false;
     const result = buildAutopilotResultEnvelope({
       status,
@@ -4682,7 +2450,7 @@ async function maybeNotifyForTask(task) {
     const message = formatDoneNotification(task, result);
     const notified = await notifyTaskTarget(task, "reply", message);
     if (notified.ok) {
-      await transitionAutopilotTask(task.id, {
+      await transition(task.id, {
         runState: {
           lastNotifyAt: ts,
           lastNotifiedStatus: "completed"
@@ -4693,7 +2461,7 @@ async function maybeNotifyForTask(task) {
     return false;
   }
   if (status === "waiting_user") {
-    await appendAutopilotMemoryLine(task, "waiting_user");
+    await appendMemoryLine(task, "waiting_user");
     if (runState.lastNotifiedStatus === "waiting_user" && runState.lastNotifyAt && ts - runState.lastNotifyAt < AUTOPILOT_MIN_NOTIFY_GAP_MS) {
       return false;
     }
@@ -4706,7 +2474,7 @@ async function maybeNotifyForTask(task) {
     const message = formatBlockedNotification(task, result);
     const notified = await notifyTaskTarget(task, "reply", message);
     if (notified.ok) {
-      await transitionAutopilotTask(task.id, {
+      await transition(task.id, {
         runState: {
           lastNotifyAt: ts,
           lastNotifiedStatus: "waiting_user"
@@ -4717,7 +2485,7 @@ async function maybeNotifyForTask(task) {
     return false;
   }
   if (status === "blocked") {
-    await appendAutopilotMemoryLine(task, "blocked");
+    await appendMemoryLine(task, "blocked");
     const blockedAt = runState.blockedAt || task.updatedAt || ts;
     if (ts - blockedAt < AUTOPILOT_BLOCK_NOTIFY_AFTER_MS) return false;
     if (runState.lastNotifiedStatus === "blocked" && runState.lastNotifyAt && ts - runState.lastNotifyAt < AUTOPILOT_MIN_NOTIFY_GAP_MS) {
@@ -4732,7 +2500,7 @@ async function maybeNotifyForTask(task) {
     const message = formatBlockedNotification(task, result);
     const notified = await notifyTaskTarget(task, "proactive", message);
     if (notified.ok) {
-      await transitionAutopilotTask(task.id, {
+      await transition(task.id, {
         runState: {
           lastNotifyAt: ts,
           lastNotifiedStatus: "blocked"
@@ -4744,108 +2512,57 @@ async function maybeNotifyForTask(task) {
   return false;
 }
 
-async function runAutopilotTask(task, config) {
-  if ((task.runState?.remoteCallCount || 0) >= config.maxRemoteCallsPerTask) {
-    return await transitionAutopilotTask(task.id, {
-      status: "blocked",
-      lastError: "已达到单任务远程调用上限，暂停继续调用远程推理。",
-      blockedReason: "已达到单任务远程调用上限，等待新策略或外部介入。",
-      planSummary: "达到远程调用预算上限，停止继续消耗额度。",
-      nextAction: "等待墨水介入，或由后续策略刷新后再恢复。"
-    });
+async function maybeNotifyForManagedTask(task) {
+  return await maybeNotifyForTaskWithTransition(task, {
+    transition: transitionManagedAutopilotTask,
+    appendMemoryLine: appendManagedAutopilotMemoryLine
+  });
+}
+
+function buildManagedAutopilotRunMaps(taskStore) {
+  const latestRunByTaskId = new Map();
+  const runCountByTaskId = new Map();
+  for (const run of [...(taskStore?.runs || [])].sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))) {
+    if (!latestRunByTaskId.has(run.taskId)) latestRunByTaskId.set(run.taskId, run);
+    runCountByTaskId.set(run.taskId, Number(runCountByTaskId.get(run.taskId) || 0) + 1);
   }
-  const decision = await buildTaskDecision(task, config);
-  const backgroundSessionId = task.runState?.backgroundSessionId || buildBackgroundSessionId(task);
-  const effectiveBudgetMode = decision.thinkingLane === "system2"
-    ? bumpBudgetMode(task.budgetMode || config.defaultBudgetMode)
-    : (task.budgetMode || config.defaultBudgetMode);
-  const effectiveRetrievalMode = decision.thinkingLane === "system2"
-    ? bumpRetrievalMode(task.retrievalMode || config.defaultRetrievalMode)
-    : (task.retrievalMode || config.defaultRetrievalMode);
-  const mergedSkills = mergeUniqueStrings(task.skillHints, decision.recommendedSkills).slice(0, 16);
-  const planningTask = {
-    ...task,
-    assignee: decision.recommendedWorker || task.assignee,
-    skillHints: mergedSkills
-  };
-  const replanMarker = normalizeString(task.nextAction).includes("相关记忆已失效")
-    || normalizeString(task.planSummary).includes("相关记忆已失效")
-    || Boolean(task.optimizationState?.needsReplan);
-  await transitionAutopilotTask(task.id, {
-    status: "running",
-    assignee: decision.recommendedWorker || task.assignee,
-    skillHints: mergedSkills,
-    budgetMode: effectiveBudgetMode,
-    retrievalMode: effectiveRetrievalMode,
-    memoryRefs: decision.relevantMemoryIds,
-    intelRefs: decision.relevantIntelIds,
-    optimizationState: {
-      ...(isRecord(task.optimizationState) ? task.optimizationState : {}),
-      needsReplan: false,
-      lastReplannedAt: nowTs(),
-      decision
-    },
-    nextRunAt: null,
-    lastError: "",
-    blockedReason: "",
-    planSummary: !task.planSummary || replanMarker ? buildPlanningSummary(planningTask) : task.planSummary,
-    nextAction: !task.nextAction || replanMarker ? buildNextActionSummary(planningTask) : task.nextAction,
+  return { latestRunByTaskId, runCountByTaskId };
+}
+
+async function runManagedPlannedAutopilotTask(plan, config) {
+  const nowValue = nowTs();
+  const opts = managedRuntimeStoreOptions(nowValue);
+  const storeCore = await loadManagedRuntimeStoreCore();
+  const taskStore = storeCore.loadRuntimeTaskStore(opts);
+  const { latestRunByTaskId, runCountByTaskId } = buildManagedAutopilotRunMaps(taskStore);
+  const currentTask = taskStore.tasks.find((entry) => entry.id === plan.task.id) || plan.task;
+  const currentRun = latestRunByTaskId.get(plan.task.id) || plan.run || null;
+  const taskView = buildManagedAutopilotTaskView(
+    currentTask,
+    currentRun,
+    Number(runCountByTaskId.get(plan.task.id) || 0),
+    config,
+    nowValue
+  );
+  const backgroundSessionId = taskView.runState?.backgroundSessionId || buildBackgroundSessionId(taskView);
+  await transitionManagedAutopilotTask(taskView.id, {
     runState: {
-      backgroundSessionId,
-      triedAssignees: dedupe([...(task.runState?.triedAssignees || []), decision.recommendedWorker || task.assignee || "main"]),
-      lastDecisionAt: decision.builtAt,
-      lastThinkingLane: decision.thinkingLane,
-      lastDecisionSummary: decision.decisionSummary,
-      lastRecommendedWorker: decision.recommendedWorker,
-      lastRecommendedSkills: decision.recommendedSkills,
-      lastRelevantMemoryIds: decision.relevantMemoryIds,
-      lastRelevantIntelIds: decision.relevantIntelIds,
-      lastFallbackOrder: decision.fallbackOrder,
-      remoteCallCount: (task.runState?.remoteCallCount || 0) + 1
+      backgroundSessionId
     }
   });
-  await appendSystemEvent("task_decision", {
-    taskId: task.id,
-    route: task.route,
-    thinkingLane: decision.thinkingLane,
-    recommendedWorker: decision.recommendedWorker,
-    recommendedSkills: decision.recommendedSkills,
-    memoryRefs: decision.relevantMemoryIds,
-    intelRefs: decision.relevantIntelIds,
-    fallbackOrder: decision.fallbackOrder
-  });
   const executionTask = normalizeAutopilotTask({
-    ...task,
-    assignee: decision.recommendedWorker || task.assignee,
-    skillHints: mergedSkills,
-    budgetMode: effectiveBudgetMode,
-    retrievalMode: effectiveRetrievalMode,
-    memoryRefs: decision.relevantMemoryIds,
-    intelRefs: decision.relevantIntelIds,
-    optimizationState: {
-      ...(isRecord(task.optimizationState) ? task.optimizationState : {}),
-      decision
-    },
+    ...taskView,
     runState: {
-      ...(task.runState || {}),
-      backgroundSessionId,
-      lastDecisionAt: decision.builtAt,
-      lastThinkingLane: decision.thinkingLane,
-      lastDecisionSummary: decision.decisionSummary,
-      lastRecommendedWorker: decision.recommendedWorker,
-      lastRecommendedSkills: decision.recommendedSkills,
-      lastRelevantMemoryIds: decision.relevantMemoryIds,
-      lastRelevantIntelIds: decision.relevantIntelIds,
-      lastFallbackOrder: decision.fallbackOrder,
-      remoteCallCount: (task.runState?.remoteCallCount || 0) + 1
+      ...(isRecord(taskView.runState) ? taskView.runState : {}),
+      backgroundSessionId
     }
   }, config);
   const prompt = buildAutopilotWorkerPrompt(executionTask, config);
-  const thinking = resolveThinkingLevelForBudget(effectiveBudgetMode);
+  const thinking = resolveThinkingLevelForBudget(executionTask.effectiveBudgetMode || executionTask.budgetMode || config.defaultBudgetMode);
   const args = [
     "agent",
     "--agent",
-    decision.recommendedWorker || task.assignee || "main",
+    plan.decision?.recommendedWorker || executionTask.assignee || "main",
     "--session-id",
     backgroundSessionId,
     "--thinking",
@@ -4862,10 +2579,12 @@ async function runAutopilotTask(task, config) {
   const patch = {
     lastError: "",
     nextRunAt: null,
-    planSummary: parsed.planSummary || task.planSummary || "",
+    planSummary: parsed.planSummary || executionTask.planSummary || "",
     nextAction: parsed.nextAction || "",
     blockedReason: parsed.blockedReason || "",
     lastResult: parsed.lastResult || parsed.summary || "",
+    workerOutput: combinedOutput.slice(-6000),
+    cliExitCode: cliResult.code,
     runState: {
       lastResultStatus: parsed.status,
       lastResultSummary: parsed.summary,
@@ -4876,254 +2595,669 @@ async function runAutopilotTask(task, config) {
     }
   };
   if (!cliResult.ok) {
-    return await transitionAutopilotTask(
-      task.id,
-      {
-        ...patch,
-        ...buildRetryStrategy(task, normalizeString(cliResult.stderr || cliResult.stdout || "Autopilot worker failed."), "cli_error")
-      }
-    );
+    return await transitionManagedAutopilotTask(taskView.id, {
+      ...patch,
+      ...buildRetryStrategy(
+        executionTask,
+        normalizeString(cliResult.stderr || cliResult.stdout || "Autopilot worker failed."),
+        "cli_error"
+      )
+    });
   }
   if (parsed.status === "completed") {
-    patch.status = "completed";
-    return await transitionAutopilotTask(task.id, patch);
+    return await transitionManagedAutopilotTask(taskView.id, {
+      ...patch,
+      status: "completed"
+    });
   }
   if (parsed.status === "waiting_user") {
-    patch.status = "waiting_user";
-    patch.lastError = parsed.needsUser || parsed.summary;
-    patch.blockedReason = parsed.blockedReason || patch.lastError;
-    return await transitionAutopilotTask(task.id, patch);
+    return await transitionManagedAutopilotTask(taskView.id, {
+      ...patch,
+      status: "waiting_user",
+      lastError: parsed.needsUser || parsed.summary,
+      blockedReason: parsed.blockedReason || parsed.needsUser || parsed.summary
+    });
   }
   if (parsed.status === "blocked") {
     const failureText = normalizeString(parsed.blockedReason || parsed.needsUser || parsed.summary || "Autopilot worker returned blocked.");
-    return await transitionAutopilotTask(task.id, {
+    return await transitionManagedAutopilotTask(taskView.id, {
       ...patch,
-      ...buildRetryStrategy(task, failureText, "worker_blocked")
+      ...buildRetryStrategy(executionTask, failureText, "worker_blocked")
     });
   }
   if (parsed.status === "waiting_external") {
-    patch.status = "waiting_external";
-    patch.nextRunAt = nowTs() + parsed.nextRunInMinutes * 60 * 1000;
-    return await transitionAutopilotTask(task.id, patch);
+    return await transitionManagedAutopilotTask(taskView.id, {
+      ...patch,
+      status: "waiting_external",
+      nextRunAt: nowTs() + parsed.nextRunInMinutes * 60 * 1000
+    });
   }
-  patch.status = "queued";
-  patch.nextRunAt = nowTs() + parsed.nextRunInMinutes * 60 * 1000;
-  return await transitionAutopilotTask(task.id, patch);
+  return await transitionManagedAutopilotTask(taskView.id, {
+    ...patch,
+    status: "queued",
+    nextRunAt: nowTs() + parsed.nextRunInMinutes * 60 * 1000
+  });
 }
 
 async function tickAutopilotExecution() {
-  const store = await loadAutopilotStore();
-  if (!store.config.enabled) return buildAutopilotStatus(store);
-  let taskLoopCore = null;
-  try {
-    taskLoopCore = await loadManagedRuntimeTaskLoopCore();
-  } catch (error) {
-    if (!managedRuntimeTaskLoopWarned && pluginApi?.logger) {
-      managedRuntimeTaskLoopWarned = true;
-      pluginApi.logger.warn(`[openclaw-codex-control] managed runtime task loop unavailable, using legacy scheduler: ${error?.message || error}`);
-    }
+  const opts = managedRuntimeStoreOptions();
+  const [taskEngine, status] = await Promise.all([
+    loadManagedRuntimeTaskEngineCore(),
+    buildManagedAutopilotStatus()
+  ]);
+  if (!status.config.enabled) return status;
+  for (const task of status.tasks) {
+    await maybeNotifyForManagedTask(task);
   }
-  const compareTasks = taskLoopCore?.compareTaskQueueOrder || compareAutopilotTasks;
-  const shouldRunTask = taskLoopCore?.shouldTaskRun || shouldAutopilotTaskRun;
-  store.tasks.sort((left, right) => compareTasks(left, right));
-  for (const task of store.tasks) {
-    await maybeNotifyForTask(task);
+  if (autopilotRuntime.activeTaskId) return await buildManagedAutopilotStatus();
+  const tickResult = taskEngine.tickRuntimeTaskLoop(opts);
+  if (tickResult.kind !== "planned") {
+    return await buildManagedAutopilotStatus();
   }
-  if (autopilotRuntime.activeTaskId) return buildAutopilotStatus(await loadAutopilotStore());
-  const dueTask = store.tasks.find((task) => shouldRunTask(task, nowTs()));
-  if (!dueTask) return buildAutopilotStatus(await loadAutopilotStore());
+  const dueTask = tickResult.task;
   autopilotRuntime.activeTaskId = dueTask.id;
   autopilotRuntime.activeTaskStartedAt = nowTs();
   try {
-    await transitionAutopilotTask(dueTask.id, {
-      status: "planning",
-      planSummary: dueTask.planSummary || buildPlanningSummary(dueTask),
-      nextAction: dueTask.nextAction || buildNextActionSummary(dueTask)
-    });
-    const updated = await runAutopilotTask(dueTask, store.config);
-    return updated;
+    return await runManagedPlannedAutopilotTask(tickResult, status.config);
   } finally {
     autopilotRuntime.activeTaskId = null;
     autopilotRuntime.activeTaskStartedAt = null;
   }
 }
 
-async function upsertAutopilotTask(inputTask) {
-  const store = await loadAutopilotStore();
-  const payload = isRecord(inputTask) ? inputTask : {};
-  const taskId = normalizeString(payload.id) || `task_${crypto.randomUUID()}`;
-  const index = store.tasks.findIndex((task) => task.id === taskId);
-  const base = index >= 0 ? store.tasks[index] : null;
-  const merged = normalizeAutopilotTask(
-    {
-      ...base,
-      ...payload,
-      id: taskId,
-      createdAt: base ? base.createdAt : nowTs(),
-      updatedAt: nowTs()
-    },
-    store.config
-  );
-  if (index >= 0) store.tasks[index] = merged;
-  else store.tasks.push(merged);
-  const saved = await saveAutopilotStore(store);
-  await appendSystemEvent(index >= 0 ? "task_updated" : "task_created", {
-    taskId: merged.id,
-    route: merged.route,
-    status: merged.status,
-    assignee: merged.assignee,
-    tags: merged.tags,
-    delivery: merged.delivery
-  });
-  return buildAutopilotStatus(saved);
-}
-
-async function transitionAutopilotTask(taskId, patch) {
-  const store = await loadAutopilotStore();
-  const index = store.tasks.findIndex((task) => task.id === taskId);
-  if (index < 0) throw new Error(`Unknown task: ${taskId}`);
-  const current = store.tasks[index];
-  const patchValue = isRecord(patch) ? patch : {};
-  const nextStatus = patchValue.status ? normalizeAutopilotStatusValue(patchValue.status, current.status) : current.status;
-  const runState = normalizeAutopilotRunState({
-    ...current.runState,
-    ...patchValue.runState
-  });
-  const nextTask = {
-    ...current,
-    updatedAt: nowTs(),
-    status: nextStatus,
-    runState
-  };
-  if (hasDefinedOwn(patchValue, "notes")) nextTask.notes = patchValue.notes;
-  if (hasDefinedOwn(patchValue, "nextRunAt")) nextTask.nextRunAt = patchValue.nextRunAt;
-  if (hasDefinedOwn(patchValue, "lastError")) nextTask.lastError = patchValue.lastError;
-  if (hasDefinedOwn(patchValue, "planSummary")) nextTask.planSummary = patchValue.planSummary;
-  if (hasDefinedOwn(patchValue, "nextAction")) nextTask.nextAction = patchValue.nextAction;
-  if (hasDefinedOwn(patchValue, "blockedReason")) nextTask.blockedReason = patchValue.blockedReason;
-  if (hasDefinedOwn(patchValue, "lastResult")) nextTask.lastResult = patchValue.lastResult;
-  if (hasDefinedOwn(patchValue, "assignee")) nextTask.assignee = patchValue.assignee;
-  if (hasDefinedOwn(patchValue, "route")) nextTask.route = patchValue.route;
-  if (hasDefinedOwn(patchValue, "workspace")) nextTask.workspace = patchValue.workspace;
-  if (hasDefinedOwn(patchValue, "priority")) nextTask.priority = patchValue.priority;
-  if (hasDefinedOwn(patchValue, "budgetMode")) nextTask.budgetMode = patchValue.budgetMode;
-  if (hasDefinedOwn(patchValue, "retrievalMode")) nextTask.retrievalMode = patchValue.retrievalMode;
-  if (hasDefinedOwn(patchValue, "reportPolicy")) nextTask.reportPolicy = patchValue.reportPolicy;
-  if (hasDefinedOwn(patchValue, "successCriteria")) nextTask.successCriteria = patchValue.successCriteria;
-  if (hasDefinedOwn(patchValue, "doneCriteria")) nextTask.doneCriteria = patchValue.doneCriteria;
-  if (hasDefinedOwn(patchValue, "skillHints")) nextTask.skillHints = patchValue.skillHints;
-  if (hasDefinedOwn(patchValue, "memoryRefs")) nextTask.memoryRefs = normalizeStringArray(patchValue.memoryRefs).slice(0, 24);
-  if (hasDefinedOwn(patchValue, "intelRefs")) nextTask.intelRefs = normalizeStringArray(patchValue.intelRefs).slice(0, 24);
-  if (hasDefinedOwn(patchValue, "optimizationState")) nextTask.optimizationState = normalizeOptionalRecord(patchValue.optimizationState);
-  if (nextStatus === "running") {
-    nextTask.lastRunAt = nowTs();
-    nextTask.runCount = (current.runCount || 0) + 1;
-    nextTask.runState.blockedAt = null;
-    nextTask.runState.triedAssignees = dedupe([...(current.runState?.triedAssignees || []), nextTask.assignee || current.assignee || "main"]);
-  }
-  if (nextStatus === "blocked" || nextStatus === "waiting_user") {
-    nextTask.runState.blockedAt = nextTask.runState.blockedAt || nowTs();
-  } else if (nextStatus !== "blocked") {
-    nextTask.runState.blockedAt = null;
-  }
-  if (nextStatus === "completed") {
-    nextTask.runState.completedAt = nowTs();
-    nextTask.runState.consecutiveFailures = 0;
-  }
-  if (nextStatus === "queued" || nextStatus === "planning" || nextStatus === "ready" || nextStatus === "running" || nextStatus === "waiting_external") {
-    if (!nextTask.lastError) nextTask.runState.lastFailureSummary = nextTask.runState.lastFailureSummary;
-  }
-  store.tasks[index] = normalizeAutopilotTask(
-    nextTask,
-    store.config
-  );
-  let saved = await saveAutopilotStore(store);
-  let savedTask = saved.tasks.find((task) => task.id === taskId) || store.tasks[index];
-  const transitionArtifacts = await buildManagedRuntimeTaskArtifacts(savedTask, {
-    fromStatus: current.status
-  });
-  const lifecycleEvent = await appendSystemEvent("task_transition", {
-    taskId,
-    fromStatus: current.status,
-    toStatus: savedTask.status,
-    assignee: savedTask.assignee,
-    route: savedTask.route,
-    lastError: truncateText(savedTask.lastError, 180),
-    lastResult: truncateText(savedTask.lastResult, 180),
-    nextAction: truncateText(savedTask.nextAction, 180),
-    memoryRefs: savedTask.memoryRefs,
-    intelRefs: savedTask.intelRefs,
-    thinkingLane: savedTask.runState?.lastThinkingLane || null,
-    taskRecord: transitionArtifacts?.taskRecord || null,
-    taskRun: transitionArtifacts?.taskRun || null,
-    taskStep: transitionArtifacts?.taskStep || null
-  });
-  const changedOutcome = (
-    current.status !== savedTask.status ||
-    current.lastResult !== savedTask.lastResult ||
-    current.lastError !== savedTask.lastError ||
-    current.blockedReason !== savedTask.blockedReason
-  );
-  if (changedOutcome) {
-    const distilled = await distillTaskOutcomeToMemory(savedTask, lifecycleEvent);
-    if (distilled?.memoryIds?.length) {
-      const refreshedStore = await loadAutopilotStore();
-      const refreshedIndex = refreshedStore.tasks.findIndex((task) => task.id === taskId);
-      if (refreshedIndex >= 0) {
-        refreshedStore.tasks[refreshedIndex] = normalizeAutopilotTask({
-          ...refreshedStore.tasks[refreshedIndex],
-          memoryRefs: mergeUniqueStrings(refreshedStore.tasks[refreshedIndex].memoryRefs, distilled.memoryIds).slice(0, 24),
-          updatedAt: nowTs()
-        }, refreshedStore.config);
-        saved = await saveAutopilotStore(refreshedStore);
-        savedTask = saved.tasks.find((task) => task.id === taskId) || refreshedStore.tasks[refreshedIndex];
-      }
-    }
-    if (["completed", "blocked", "waiting_user", "cancelled"].includes(savedTask.status)) {
-      const reviewArtifacts = await buildManagedRuntimeTaskArtifacts(savedTask, {
-        fromStatus: current.status,
-        transitionEventId: lifecycleEvent.eventId,
-        includeReview: true,
-        generatedAt: lifecycleEvent.ts,
-        memoryIds: distilled?.memoryIds || [],
-        strategyIds: distilled?.strategyIds || []
-      });
-      if (reviewArtifacts?.taskReview) {
-        await appendSystemEvent("task_review_built", {
-          taskId: savedTask.id,
-          runId: reviewArtifacts.taskRun?.id || null,
-          reviewId: reviewArtifacts.taskReview.id,
-          outcome: reviewArtifacts.taskReview.outcome,
-          extractedMemoryIds: reviewArtifacts.taskReview.extractedMemoryIds,
-          strategyCandidateIds: reviewArtifacts.taskReview.strategyCandidateIds,
-          taskRecord: reviewArtifacts.taskRecord || null,
-          taskRun: reviewArtifacts.taskRun || null,
-          taskStep: reviewArtifacts.taskStep || null,
-          taskReview: reviewArtifacts.taskReview,
-          shareableReview: reviewArtifacts.shareableReview || null
-        });
-      }
-    }
-    await observeTaskOutcomeForEvolution(savedTask, lifecycleEvent);
-  }
-  return buildAutopilotStatus(saved);
-}
-
-async function deleteAutopilotTask(taskId) {
-  const store = await loadAutopilotStore();
-  store.tasks = store.tasks.filter((task) => task.id !== taskId);
-  return buildAutopilotStatus(await saveAutopilotStore(store));
-}
-
 async function updateAutopilotConfig(patch) {
-  const store = await loadAutopilotStore();
-  store.config = normalizeAutopilotConfig({ ...store.config, ...(isRecord(patch) ? patch : {}) });
-  store.tasks = store.tasks.map((task) => normalizeAutopilotTask(task, store.config));
-  return buildAutopilotStatus(await saveAutopilotStore(store));
+  const patchValue = isRecord(patch) ? patch : {};
+  const nowValue = nowTs();
+  const opts = managedRuntimeStoreOptions(nowValue);
+  const storeCore = await loadManagedRuntimeStoreCore();
+  const taskStore = storeCore.loadRuntimeTaskStore(opts);
+  const currentConfig = readManagedAutopilotCompatibilityConfig(taskStore);
+  const nextConfig = normalizeAutopilotConfig({
+    ...currentConfig,
+    ...patchValue
+  });
+  taskStore.defaults = {
+    ...taskStore.defaults,
+    defaultBudgetMode: nextConfig.defaultBudgetMode,
+    defaultRetrievalMode: nextConfig.defaultRetrievalMode,
+    maxInputTokensPerTurn: nextConfig.maxInputTokensPerTurn,
+    maxContextChars: nextConfig.maxContextChars,
+    maxRemoteCallsPerTask: nextConfig.maxRemoteCallsPerTask
+  };
+  taskStore.metadata = {
+    ...(isRecord(taskStore.metadata) ? taskStore.metadata : {}),
+    autopilot: {
+      enabled: nextConfig.enabled,
+      localFirst: nextConfig.localFirst,
+      heartbeatEnabled: nextConfig.heartbeatEnabled,
+      dailyRemoteTokenBudget: nextConfig.dailyRemoteTokenBudget
+    },
+    updatedAt: nowValue
+  };
+  storeCore.saveRuntimeTaskStore(taskStore, opts);
+  if (typeof storeCore.appendRuntimeEvent === "function") {
+    storeCore.appendRuntimeEvent("runtime_autopilot_config_updated", {
+      enabled: nextConfig.enabled,
+      localFirst: nextConfig.localFirst,
+      heartbeatEnabled: nextConfig.heartbeatEnabled,
+      defaultBudgetMode: nextConfig.defaultBudgetMode,
+      defaultRetrievalMode: nextConfig.defaultRetrievalMode
+    }, opts);
+  }
+  return await buildManagedAutopilotStatus();
+}
+
+function mapLegacyReportPolicyToManaged(value) {
+  const normalized = normalizeString(value);
+  if (normalized === "reply_only") return "reply";
+  if (normalized === "proactive_only") return "proactive";
+  if (normalized === "reply_and_proactive" || normalized === "reply" || normalized === "proactive" || normalized === "silent") {
+    return normalized;
+  }
+  return undefined;
+}
+
+function readManagedAutopilotCompatibilityConfig(taskStore, fallback = DEFAULT_AUTOPILOT_CONFIG) {
+  const metadata = isRecord(taskStore?.metadata) ? taskStore.metadata : {};
+  const autopilot = isRecord(metadata.autopilot) ? metadata.autopilot : {};
+  return normalizeAutopilotConfig({
+    enabled: autopilot.enabled,
+    localFirst: autopilot.localFirst,
+    heartbeatEnabled: autopilot.heartbeatEnabled,
+    defaultBudgetMode: taskStore?.defaults?.defaultBudgetMode || fallback.defaultBudgetMode,
+    defaultRetrievalMode: taskStore?.defaults?.defaultRetrievalMode || fallback.defaultRetrievalMode,
+    maxInputTokensPerTurn: taskStore?.defaults?.maxInputTokensPerTurn || fallback.maxInputTokensPerTurn,
+    maxContextChars: taskStore?.defaults?.maxContextChars || fallback.maxContextChars,
+    maxRemoteCallsPerTask: taskStore?.defaults?.maxRemoteCallsPerTask || fallback.maxRemoteCallsPerTask,
+    dailyRemoteTokenBudget: autopilot.dailyRemoteTokenBudget
+  });
+}
+
+function readManagedAutopilotTaskContext(task) {
+  return isRecord(task?.metadata?.taskContext) ? task.metadata.taskContext : {};
+}
+
+function buildManagedAutopilotMetadataPatch(patchValue) {
+  const runtimeTask = {};
+  if (hasDefinedOwn(patchValue, "runState")) {
+    runtimeTask.runState = normalizeOptionalRecord(patchValue.runState) || {};
+  }
+  if (hasDefinedOwn(patchValue, "optimizationState")) {
+    runtimeTask.optimizationState = normalizeOptionalRecord(patchValue.optimizationState) || {};
+  }
+  const taskContext = {};
+  if (hasDefinedOwn(patchValue, "notes")) taskContext.notes = normalizeString(patchValue.notes) || undefined;
+  if (hasDefinedOwn(patchValue, "workspace")) taskContext.workspace = normalizeString(patchValue.workspace) || undefined;
+  if (hasDefinedOwn(patchValue, "source")) taskContext.source = normalizeString(patchValue.source) || undefined;
+  if (hasDefinedOwn(patchValue, "delivery")) taskContext.delivery = normalizeOptionalRecord(patchValue.delivery) || undefined;
+  if (hasDefinedOwn(patchValue, "sourceMeta")) taskContext.sourceMeta = normalizeOptionalRecord(patchValue.sourceMeta) || undefined;
+  if (hasDefinedOwn(patchValue, "intakeText")) taskContext.intakeText = normalizeString(patchValue.intakeText) || undefined;
+  const metadata = {};
+  if (Object.keys(runtimeTask).length > 0) metadata.runtimeTask = runtimeTask;
+  if (Object.keys(taskContext).length > 0) metadata.taskContext = taskContext;
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
+function buildManagedAutopilotTaskView(task, latestRun, runCount, config, nowValue) {
+  const taskContext = readManagedAutopilotTaskContext(task);
+  const runState = isRecord(task.metadata?.runtimeTask?.runState) ? task.metadata.runtimeTask.runState : {};
+  const optimizationState = isRecord(task.metadata?.runtimeTask?.optimizationState)
+    ? task.metadata.runtimeTask.optimizationState
+    : {};
+  const nextRunAt = Number(task.nextRunAt || 0) || null;
+  const lastRunAt = Number(
+    latestRun?.completedAt || latestRun?.blockedAt || latestRun?.updatedAt || latestRun?.startedAt || 0
+  ) || null;
+  const isDone = task.status === "completed" || task.status === "cancelled";
+  const isRunnable = !isDone && task.status !== "waiting_user";
+  const isDue = Boolean(
+    isRunnable && (
+      (nextRunAt && nextRunAt <= nowValue) ||
+      (!nextRunAt && ["queued", "planning", "ready"].includes(task.status))
+    )
+  );
+  return buildAutopilotTaskView({
+    id: task.id,
+    title: task.title,
+    goal: task.goal,
+    successCriteria: task.successCriteria,
+    doneCriteria: task.successCriteria,
+    planSummary: task.planSummary,
+    nextAction: task.nextAction,
+    blockedReason: task.blockedReason,
+    lastResult: normalizeString(runState.lastResultSummary),
+    notes: normalizeString(taskContext.notes) || null,
+    source: normalizeString(taskContext.source, "runtime-store"),
+    assignee: task.worker || "main",
+    workspace: normalizeString(taskContext.workspace) || INSTANCE_PATHS.workspaceRoot,
+    route: task.route,
+    taskKind: task.route,
+    reportPolicy: task.reportPolicy,
+    skillHints: Array.isArray(task.skillIds) ? task.skillIds : [],
+    tags: Array.isArray(task.tags) ? task.tags : [],
+    memoryRefs: Array.isArray(task.memoryRefs) ? task.memoryRefs : [],
+    intelRefs: Array.isArray(task.intelRefs) ? task.intelRefs : [],
+    optimizationState,
+    intakeText: normalizeString(taskContext.intakeText) || null,
+    sourceMeta: normalizeOptionalRecord(taskContext.sourceMeta),
+    delivery: normalizeOptionalRecord(taskContext.delivery),
+    runState,
+    status: task.status,
+    priority: task.priority,
+    budgetMode: task.budgetMode || config.defaultBudgetMode,
+    retrievalMode: task.retrievalMode || config.defaultRetrievalMode,
+    localOnly: false,
+    localFirst: config.localFirst !== false,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    nextRunAt,
+    lastRunAt,
+    runCount,
+    lastError: task.lastError || null,
+    isDue
+  }, config);
+}
+
+async function buildManagedAutopilotStatus() {
+  const nowValue = nowTs();
+  const opts = managedRuntimeStoreOptions(nowValue);
+  const storeCore = await loadManagedRuntimeStoreCore();
+  const taskStore = storeCore.loadRuntimeTaskStore(opts);
+  const config = readManagedAutopilotCompatibilityConfig(taskStore);
+  const latestRunByTaskId = new Map();
+  const runCountByTaskId = new Map();
+  for (const run of [...taskStore.runs].sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))) {
+    if (!latestRunByTaskId.has(run.taskId)) latestRunByTaskId.set(run.taskId, run);
+    runCountByTaskId.set(run.taskId, Number(runCountByTaskId.get(run.taskId) || 0) + 1);
+  }
+  const tasks = taskStore.tasks
+    .map((task) =>
+      buildManagedAutopilotTaskView(
+        task,
+        latestRunByTaskId.get(task.id) || null,
+        Number(runCountByTaskId.get(task.id) || 0),
+        config,
+        nowValue
+      )
+    )
+    .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
+  const counts = {
+    total: tasks.length,
+    queued: 0,
+    planning: 0,
+    ready: 0,
+    running: 0,
+    blocked: 0,
+    waitingExternal: 0,
+    waitingUser: 0,
+    completed: 0,
+    cancelled: 0,
+    due: 0
+  };
+  let nextDueTask = null;
+  for (const task of tasks) {
+    if (task.status === "queued") counts.queued += 1;
+    else if (task.status === "planning") counts.planning += 1;
+    else if (task.status === "ready") counts.ready += 1;
+    else if (task.status === "running") counts.running += 1;
+    else if (task.status === "blocked") counts.blocked += 1;
+    else if (task.status === "waiting_external") counts.waitingExternal += 1;
+    else if (task.status === "waiting_user") counts.waitingUser += 1;
+    else if (task.status === "completed") counts.completed += 1;
+    else if (task.status === "cancelled") counts.cancelled += 1;
+    if (task.isDue) {
+      counts.due += 1;
+      if (!nextDueTask || (task.nextRunAt || 0) < (nextDueTask.nextRunAt || 0)) nextDueTask = task;
+    }
+  }
+  return {
+    config,
+    scheduler: {
+      startedIso: toIso(autopilotRuntime.startedAt),
+      lastTickIso: toIso(autopilotRuntime.lastTickAt),
+      lastError: autopilotRuntime.lastError || null,
+      nextDueTaskId: nextDueTask ? nextDueTask.id : null,
+      activeTaskId: autopilotRuntime.activeTaskId || null,
+      activeTaskStartedIso: toIso(autopilotRuntime.activeTaskStartedAt)
+    },
+    stats: {
+      ...counts,
+      waitingHuman: counts.waitingUser,
+      done: counts.completed
+    },
+    tasks
+  };
+}
+
+async function buildManagedIntelStatus() {
+  const opts = managedRuntimeStoreOptions();
+  const storeCore = await loadManagedRuntimeStoreCore();
+  const intelStore = storeCore.loadRuntimeIntelStore(opts);
+    const sourceProfiles = Array.isArray(intelStore.sourceProfiles) ? intelStore.sourceProfiles : [];
+    const groupedDigests = new Map();
+    for (const digestItem of intelStore.digestItems) {
+      const digestDate = normalizeString(digestItem.metadata?.digestDate) || new Date(digestItem.createdAt || nowTs()).toISOString().slice(0, 10);
+      const key = `${digestItem.domain}|${digestDate}`;
+      const current = groupedDigests.get(key) || {
+        id: `digest_${hashText(key, 16)}`,
+        domain: digestItem.domain,
+        digestDate,
+        createdAt: digestItem.createdAt || nowTs(),
+        status: "sent",
+        delivery: null,
+        items: []
+      };
+      current.createdAt = Math.max(current.createdAt, digestItem.createdAt || 0);
+      current.items.push({
+        title: digestItem.title,
+        itemId: digestItem.id,
+        rank: current.items.length + 1
+      });
+      groupedDigests.set(key, current);
+    }
+    const digests = [...groupedDigests.values()]
+      .sort((left, right) => (right.createdAt || 0) - (left.createdAt || 0))
+      .slice(0, 9);
+    const domainsById = new Map();
+    for (const candidate of intelStore.candidates) domainsById.set(candidate.domain, true);
+    for (const digest of intelStore.digestItems) domainsById.set(digest.domain, true);
+    for (const sourceProfile of sourceProfiles) domainsById.set(sourceProfile.domain, true);
+    const domainIds = [...domainsById.keys()].length
+      ? [...domainsById.keys()]
+      : ["tech", "ai", "business", "github"];
+    const metadata = isRecord(intelStore.metadata) ? intelStore.metadata : {};
+    const latestFetchAt = sourceProfiles.reduce((latest, profile) => {
+      const profileMeta = isRecord(profile?.metadata) ? profile.metadata : {};
+      return Math.max(latest, Number(profileMeta.latestFetchAt || profileMeta.lastFetchedAt || 0) || 0);
+    }, 0);
+  return {
+    config: {
+      enabled: intelStore.enabled,
+      digestEnabled: intelStore.digestEnabled,
+      refreshMinutes: clampInt(metadata.refreshMinutes, 180, 1, 10080),
+      digestHourLocal: clampInt(metadata.digestHourLocal, 9, 0, 23),
+      candidateLimitPerDomain: intelStore.candidateLimitPerDomain,
+      digestItemLimitPerDomain: intelStore.digestItemLimitPerDomain,
+      exploitItemsPerDigest: intelStore.exploitItemsPerDigest,
+      exploreItemsPerDigest: intelStore.exploreItemsPerDigest,
+      maxItemsPerSourceInDigest: clampInt(metadata.maxItemsPerSourceInDigest, 2, 1, 10),
+      recentDigestTopicWindowDays: clampInt(metadata.recentDigestTopicWindowDays, 5, 1, 30),
+      llmJudgeEnabled: metadata.llmJudgeEnabled === true,
+      llmAgent: normalizeString(metadata.llmAgent) || null
+    },
+    scheduler: {
+      lastTickIso: toIso(intelRuntime.lastTickAt),
+      lastError: intelRuntime.lastError || null,
+      activeDomainId: intelRuntime.activeDomainId || null,
+      activeDigestDomainId: intelRuntime.activeDigestDomainId || null,
+      lastRefreshIso: toIso(latestFetchAt),
+      lastDigestSweepIso: toIso(Number(metadata.lastDigestSweepAt || 0) || 0)
+    },
+    stats: {
+      itemCount: intelStore.candidates.length,
+      digestCount: digests.length,
+      deliveredDigestCount: digests.filter((digest) => digest.status === "sent").length
+    },
+    domains: domainIds.map((domainId) => {
+      const candidates = intelStore.candidates
+        .filter((entry) => entry.domain === domainId)
+        .sort((left, right) => (right.score || 0) - (left.score || 0));
+      const latestDigest = digests.find((entry) => entry.domain === domainId) || null;
+      const domainSources = sourceProfiles.filter((entry) => entry.domain === domainId);
+      const domainMeta = readManagedIntelDomainMetadata(metadata, domainId);
+      return {
+        id: domainId,
+        label:
+          domainSources[0]?.label ||
+          (domainId === "ai" ? "AI" : domainId === "github" ? "GitHub" : domainId === "business" ? "Business" : "Tech"),
+        keywords: [],
+        sourceCount: domainSources.length,
+        itemCount: candidates.length,
+        lastFetchedIso: toIso(domainSources.reduce((latest, entry) => {
+          const profileMeta = isRecord(entry?.metadata) ? entry.metadata : {};
+          return Math.max(latest, Number(profileMeta.latestFetchAt || profileMeta.lastFetchedAt || 0) || 0);
+        }, 0)),
+        lastDigestIso: toIso(latestDigest?.createdAt || 0),
+        lastDigestAttemptIso: toIso(Number(domainMeta.lastDigestAttemptAt || latestDigest?.createdAt || 0) || 0),
+        lastDigestError: normalizeString(domainMeta.lastDigestError) || null,
+        nextDigestDate: normalizeString(domainMeta.nextDigestDate) || null,
+        latestDigestId: latestDigest?.id || null,
+        latestDigestDate: latestDigest?.digestDate || null,
+        topItems: candidates.slice(0, 5).map((item) => ({
+          id: item.id,
+          title: item.title,
+          overallScore: clampPercent(item.score || 0),
+          noveltyScore: clampPercent(item.metadata?.noveltyScore || 0),
+          relevanceScore: clampPercent(item.metadata?.relevanceScore || item.score || 0),
+          judgement: normalizeString(item.summary),
+          url: item.url
+        })),
+        sources: domainSources.map((source) => {
+          const profileMeta = isRecord(source?.metadata) ? source.metadata : {};
+          return {
+            id: source.id,
+            url: normalizeString(profileMeta.url) || normalizeString(profileMeta.sourceUrl) || null,
+            priority: source.priority,
+            stats: {
+              successCount: clampInt(profileMeta.successCount, 0, 0, 100000),
+              failureCount: clampInt(profileMeta.failureCount, 0, 0, 100000),
+              lastSeenAt: Number(profileMeta.lastSeenAt || profileMeta.latestFetchAt || profileMeta.lastFetchedAt || 0) || null,
+              lastFailureAt: Number(profileMeta.lastFailureAt || 0) || null,
+              avgScore: clampPercent(profileMeta.avgScore || source.trustScore || 0)
+            }
+          };
+        })
+      };
+    }),
+    digests: digests.map((digest) => ({
+      id: digest.id,
+      domain: digest.domain,
+      digestDate: digest.digestDate,
+      createdIso: toIso(digest.createdAt),
+      status: digest.status,
+      delivery: digest.delivery,
+      itemCount: digest.items.length,
+      topTitles: digest.items.slice(0, 3).map((item) => item.title)
+    }))
+  };
+}
+
+async function buildManagedMemoryStatus() {
+  const opts = managedRuntimeStoreOptions();
+  const storeCore = await loadManagedRuntimeStoreCore();
+  const memoryStore = storeCore.loadRuntimeMemoryStore(opts);
+  return {
+    scheduler: {
+      lastDistilledIso: toIso(memoryStore.memories.reduce((latest, entry) => Math.max(latest, entry.updatedAt || 0), 0)),
+      lastPersistedIso: toIso(Math.max(
+        memoryStore.memories.reduce((latest, entry) => Math.max(latest, entry.updatedAt || 0), 0),
+        memoryStore.strategies.reduce((latest, entry) => Math.max(latest, entry.updatedAt || 0), 0),
+        memoryStore.metaLearning.reduce((latest, entry) => Math.max(latest, entry.updatedAt || 0), 0)
+      ))
+    },
+    stats: {
+      memoryCount: memoryStore.memories.length,
+      strategyCount: memoryStore.strategies.length,
+      learningCount: memoryStore.metaLearning.length,
+      highConfidenceMemories: memoryStore.memories.filter((entry) => entry.confidence >= 75 && (!entry.invalidatedBy || entry.invalidatedBy.length === 0)).length,
+      invalidatedMemories: memoryStore.memories.filter((entry) => Array.isArray(entry.invalidatedBy) && entry.invalidatedBy.length > 0).length
+    },
+    recentMemories: [...memoryStore.memories]
+      .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
+      .slice(0, 12)
+      .map((entry) => ({
+        id: entry.id,
+        memoryType: entry.memoryType,
+        route: entry.route,
+        scope: entry.scope,
+        summary: truncateText(entry.summary, 180),
+        confidence: entry.confidence,
+        tags: entry.tags,
+        invalidated: Array.isArray(entry.invalidatedBy) && entry.invalidatedBy.length > 0,
+        updatedIso: toIso(entry.updatedAt)
+      })),
+    recentStrategies: [...memoryStore.strategies]
+      .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
+      .slice(0, 10)
+      .map((entry) => ({
+        id: entry.id,
+        route: entry.route,
+        thinkingLane: entry.thinkingLane,
+        recommendedWorker: entry.worker,
+        recommendedSkills: entry.skillIds,
+        confidence: entry.confidence,
+        invalidated: Array.isArray(entry.invalidatedBy) && entry.invalidatedBy.length > 0,
+        triggerConditions: truncateText(entry.triggerConditions, 160),
+        updatedIso: toIso(entry.updatedAt)
+      })),
+    recentLearnings: [...memoryStore.metaLearning]
+      .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
+      .slice(0, 10)
+      .map((entry) => {
+        const meta = isRecord(entry.metadata) ? entry.metadata : {};
+        return {
+          id: entry.id,
+          observedPattern: truncateText(entry.summary || entry.hypothesis || "", 180),
+          effectOnSuccessRate: Number(meta.effectOnSuccessRate || meta.successDelta || 0) || 0,
+          effectOnTokenCost: Number(meta.effectOnTokenCost || meta.tokenDelta || 0) || 0,
+          effectOnCompletionQuality: Number(meta.effectOnCompletionQuality || meta.qualityDelta || 0) || 0,
+          adoptedAs: entry.adoptedAs,
+          updatedIso: toIso(entry.updatedAt)
+        };
+      })
+  };
+}
+
+async function buildManagedEvolutionStatus() {
+  const opts = managedRuntimeStoreOptions();
+  const storeCore = await loadManagedRuntimeStoreCore();
+  const memoryStore = storeCore.loadRuntimeMemoryStore(opts);
+  const governanceStore = storeCore.loadRuntimeGovernanceStore(opts);
+  const metadata = isRecord(governanceStore.metadata) ? governanceStore.metadata : {};
+  return {
+    config: {
+      enabled: metadata.enabled !== false,
+      autoApplyLowRisk: metadata.autoApplyLowRisk !== false,
+      reviewIntervalHours: clampInt(metadata.reviewIntervalHours, 12, 1, 168)
+    },
+    scheduler: {
+      lastTickIso: toIso(evolutionRuntime.lastTickAt),
+      lastError: evolutionRuntime.lastError || null,
+      active: Boolean(evolutionRuntime.active),
+      lastReviewIso: toIso(Number(metadata.lastReviewAt || evolutionRuntime.lastReviewAt || 0) || 0)
+    },
+    stats: {
+      candidateCount: memoryStore.evolutionMemory.length,
+      shadowCount: memoryStore.evolutionMemory.filter((entry) => entry.adoptionState === "shadow").length,
+      candidateStageCount: memoryStore.evolutionMemory.filter((entry) => entry.adoptionState === "candidate").length,
+      adoptedCount: memoryStore.evolutionMemory.filter((entry) => entry.adoptionState === "adopted").length
+    },
+    candidates: [...memoryStore.evolutionMemory]
+      .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
+      .slice(0, 20)
+      .map((entry) => {
+        const linkedShadow = governanceStore.shadowEvaluations.find((shadow) =>
+          shadow.candidateRef === entry.id || shadow.candidateRef === entry.candidateRef
+        );
+        return {
+          id: entry.id,
+          targetLayer: entry.targetLayer,
+          candidateType: entry.candidateType,
+          candidateRef: entry.candidateRef,
+          adoptionState: entry.adoptionState,
+          invalidated: false,
+          notes: truncateText(entry.summary, 180),
+          shadowMetrics: isRecord(linkedShadow?.metadata) ? linkedShadow.metadata : null,
+          expectedEffect: linkedShadow?.expectedEffect || null,
+          measuredEffect: linkedShadow?.measuredEffect || null,
+          updatedIso: toIso(entry.updatedAt)
+        };
+      })
+  };
+}
+
+async function upsertManagedAutopilotTask(inputTask) {
+  const payload = isRecord(inputTask) ? inputTask : {};
+  const nowValue = nowTs();
+  const opts = managedRuntimeStoreOptions(nowValue);
+  const taskEngine = await loadManagedRuntimeTaskEngineCore();
+  taskEngine.upsertRuntimeTask({
+    id: normalizeString(payload.id) || undefined,
+    title: normalizeString(payload.title) || normalizeString(payload.goal) || "Untitled task",
+    route: normalizeString(payload.route || payload.taskKind, "general"),
+    status: normalizeString(payload.status) || "queued",
+    priority: normalizeString(payload.priority) || undefined,
+    budgetMode: normalizeString(payload.budgetMode) || undefined,
+    retrievalMode: normalizeString(payload.retrievalMode) || undefined,
+    goal: normalizeString(payload.goal) || undefined,
+    successCriteria: normalizeString(payload.successCriteria || payload.doneCriteria) || undefined,
+    tags: normalizeStringArray(payload.tags),
+    worker: normalizeString(payload.assignee) || undefined,
+    skillIds: normalizeStringArray(payload.skillHints),
+    memoryRefs: normalizeStringArray(payload.memoryRefs),
+    intelRefs: normalizeStringArray(payload.intelRefs),
+    recurring: payload.recurring === true,
+    maintenance: payload.maintenance === true,
+    planSummary: normalizeString(payload.planSummary) || undefined,
+    nextAction: normalizeString(payload.nextAction) || undefined,
+    blockedReason: normalizeString(payload.blockedReason) || undefined,
+    lastError: normalizeString(payload.lastError) || undefined,
+    reportPolicy: mapLegacyReportPolicyToManaged(payload.reportPolicy),
+    nextRunAt: parseOptionalTimestamp(payload.nextRunAt) || undefined,
+    metadata: buildManagedAutopilotMetadataPatch(payload)
+  }, opts);
+  return await buildManagedAutopilotStatus();
+}
+
+async function transitionManagedAutopilotTask(taskId, patch) {
+  const patchValue = isRecord(patch) ? patch : {};
+  const nowValue = nowTs();
+  const opts = managedRuntimeStoreOptions(nowValue);
+  const [taskEngine, storeCore] = await Promise.all([
+    loadManagedRuntimeTaskEngineCore(),
+    loadManagedRuntimeStoreCore()
+  ]);
+  const currentTask = storeCore.loadRuntimeTaskStore(opts).tasks.find((task) => task.id === taskId) || null;
+  const metadataPatch = buildManagedAutopilotMetadataPatch(patchValue);
+  const nextStatus = normalizeAutopilotStatusValue(patchValue.status, currentTask?.status || "queued");
+  if (["completed", "blocked", "waiting_user", "waiting_external", "cancelled"].includes(nextStatus)) {
+    const nextRunAt = parseOptionalTimestamp(patchValue.nextRunAt);
+    taskEngine.applyRuntimeTaskResult({
+      taskId,
+      status: nextStatus,
+      summary: normalizeString(patchValue.summary || patchValue.lastResult || patchValue.notes) || undefined,
+      lastResult: normalizeString(patchValue.lastResult || patchValue.summary) || undefined,
+      lastError: normalizeString(patchValue.lastError) || undefined,
+      blockedReason: normalizeString(patchValue.blockedReason) || undefined,
+      needsUser: nextStatus === "waiting_user" ? normalizeString(patchValue.summary || patchValue.blockedReason) || undefined : undefined,
+      nextRunInMinutes: nextRunAt ? Math.max(1, Math.round((nextRunAt - nowValue) / 60000)) : undefined,
+      planSummary: normalizeString(patchValue.planSummary) || undefined,
+      nextAction: normalizeString(patchValue.nextAction) || undefined,
+      workerOutput: normalizeString(patchValue.workerOutput) || undefined,
+      cliExitCode: Number.isFinite(Number(patchValue.cliExitCode)) ? Number(patchValue.cliExitCode) : undefined,
+      now: nowValue
+    }, opts);
+    taskEngine.upsertRuntimeTask({
+      id: taskId,
+      route: normalizeString(patchValue.route) || undefined,
+      worker: normalizeString(patchValue.assignee) || undefined,
+      priority: normalizeString(patchValue.priority) || undefined,
+      budgetMode: normalizeString(patchValue.budgetMode) || undefined,
+      retrievalMode: normalizeString(patchValue.retrievalMode) || undefined,
+      successCriteria: normalizeString(patchValue.successCriteria || patchValue.doneCriteria) || undefined,
+      skillIds: hasDefinedOwn(patchValue, "skillHints")
+        ? normalizeStringArray(patchValue.skillHints)
+        : undefined,
+      memoryRefs: hasDefinedOwn(patchValue, "memoryRefs") ? normalizeStringArray(patchValue.memoryRefs) : undefined,
+      intelRefs: hasDefinedOwn(patchValue, "intelRefs") ? normalizeStringArray(patchValue.intelRefs) : undefined,
+      reportPolicy: mapLegacyReportPolicyToManaged(patchValue.reportPolicy),
+      metadata: metadataPatch
+    }, opts);
+  } else {
+    taskEngine.upsertRuntimeTask({
+      id: taskId,
+      status: nextStatus,
+      route: normalizeString(patchValue.route) || undefined,
+      worker: normalizeString(patchValue.assignee) || undefined,
+      priority: normalizeString(patchValue.priority) || undefined,
+      budgetMode: normalizeString(patchValue.budgetMode) || undefined,
+      retrievalMode: normalizeString(patchValue.retrievalMode) || undefined,
+      successCriteria: normalizeString(patchValue.successCriteria || patchValue.doneCriteria) || undefined,
+      skillIds: hasDefinedOwn(patchValue, "skillHints")
+        ? normalizeStringArray(patchValue.skillHints)
+        : undefined,
+      memoryRefs: hasDefinedOwn(patchValue, "memoryRefs") ? normalizeStringArray(patchValue.memoryRefs) : undefined,
+      intelRefs: hasDefinedOwn(patchValue, "intelRefs") ? normalizeStringArray(patchValue.intelRefs) : undefined,
+      planSummary: normalizeString(patchValue.planSummary) || undefined,
+      nextAction: normalizeString(patchValue.nextAction) || undefined,
+      blockedReason: normalizeString(patchValue.blockedReason) || undefined,
+      lastError: normalizeString(patchValue.lastError) || undefined,
+      reportPolicy: mapLegacyReportPolicyToManaged(patchValue.reportPolicy),
+      nextRunAt: parseOptionalTimestamp(patchValue.nextRunAt) || undefined,
+      metadata: metadataPatch
+    }, opts);
+  }
+  return await buildManagedAutopilotStatus();
+}
+
+async function deleteManagedAutopilotTask(taskId) {
+  const nowValue = nowTs();
+  const opts = managedRuntimeStoreOptions(nowValue);
+  const storeCore = await loadManagedRuntimeStoreCore();
+  const taskStore = storeCore.loadRuntimeTaskStore(opts);
+  taskStore.tasks = taskStore.tasks.filter((task) => task.id !== taskId);
+  taskStore.runs = taskStore.runs.filter((run) => run.taskId !== taskId);
+  taskStore.steps = taskStore.steps.filter((step) => step.taskId !== taskId);
+  taskStore.reviews = taskStore.reviews.filter((review) => review.taskId !== taskId);
+  storeCore.saveRuntimeTaskStore(taskStore, opts);
+  if (typeof storeCore.appendRuntimeEvent === "function") {
+    storeCore.appendRuntimeEvent("runtime_task_deleted", { taskId }, opts);
+  }
+  return await buildManagedAutopilotStatus();
 }
 
 async function loadAutopilotStatus() {
-  return buildAutopilotStatus(await loadAutopilotStore());
+  return await buildManagedAutopilotStatus();
 }
 
 function startAutopilotTicker() {
@@ -5995,14 +4129,14 @@ function buildProfileView(profileId, profile, store, config, effectiveOrder, usa
 }
 
 async function loadStatus(includeUsage = true) {
-  const [config, store, codexCli, autopilot, intelStore, memoryStore, evolutionStore, recentEvents] = await Promise.all([
+  const [config, store, codexCli, autopilot, intel, memory, evolution, recentEvents] = await Promise.all([
     loadConfig(),
     loadStore(),
     loadCodexCliStatus(),
     loadAutopilotStatus(),
-    loadIntelStore(),
-    loadMemoryStore(),
-    loadEvolutionStore(),
+    buildManagedIntelStatus(),
+    buildManagedMemoryStatus(),
+    buildManagedEvolutionStatus(),
     readRecentSystemEvents(24)
   ]);
   const profileIds = listProviderProfileIds(store);
@@ -6030,9 +4164,9 @@ async function loadStatus(includeUsage = true) {
     },
     codexCli,
     autopilot,
-    intel: buildIntelStatus(intelStore),
-    memory: buildMemoryStatus(memoryStore),
-    evolution: buildEvolutionStatus(evolutionStore),
+    intel,
+    memory,
+    evolution,
     recentEvents,
     login: summarizeLoginSession(),
     profiles: profileIds.map((profileId) =>
@@ -6215,7 +4349,7 @@ module.exports = {
           }
 
           if (pathname === `${apiBase}/intel/status` && req.method === "GET") {
-            sendJson(res, 200, buildIntelStatus(await loadIntelStore()));
+            sendJson(res, 200, await buildManagedIntelStatus());
             return true;
           }
 
@@ -6230,7 +4364,7 @@ module.exports = {
           }
 
           if (pathname === `${apiBase}/memory/status` && req.method === "GET") {
-            sendJson(res, 200, buildMemoryStatus(await loadMemoryStore()));
+            sendJson(res, 200, await buildManagedMemoryStatus());
             return true;
           }
 
@@ -6240,16 +4374,22 @@ module.exports = {
               memoryIds: normalizeStringArray(body.memoryIds || []),
               reason: normalizeString(body.reason)
             });
+            const mutations = await loadManagedRuntimeMutationsCore();
+            const opts = managedRuntimeStoreOptions(nowTs());
             sendJson(
               res,
               200,
-              await invalidateMemoryLineage(normalizeStringArray(body.memoryIds || []), reasonEvent.eventId)
+              mutations.invalidateMemoryLineage({
+                memoryIds: normalizeStringArray(body.memoryIds || []),
+                reasonEventId: reasonEvent.eventId,
+                now: opts.now
+              }, opts)
             );
             return true;
           }
 
           if (pathname === `${apiBase}/evolution/status` && req.method === "GET") {
-            sendJson(res, 200, buildEvolutionStatus(await loadEvolutionStore()));
+            sendJson(res, 200, await buildManagedEvolutionStatus());
             return true;
           }
 
@@ -6273,7 +4413,7 @@ module.exports = {
 
           if (pathname === `${apiBase}/autopilot/task/upsert` && req.method === "POST") {
             const body = await readJsonBody(req);
-            sendJson(res, 200, await upsertAutopilotTask(isRecord(body.task) ? body.task : body));
+            sendJson(res, 200, await upsertManagedAutopilotTask(isRecord(body.task) ? body.task : body));
             return true;
           }
 
@@ -6314,17 +4454,13 @@ module.exports = {
             if (body.lastResult !== undefined || body.summary !== undefined) {
               transitionPatch.lastResult = body.lastResult !== undefined ? body.lastResult : body.summary;
             }
-            sendJson(
-              res,
-              200,
-              await transitionAutopilotTask(String(body.taskId || "").trim(), transitionPatch)
-            );
+            sendJson(res, 200, await transitionManagedAutopilotTask(String(body.taskId || "").trim(), transitionPatch));
             return true;
           }
 
           if (pathname === `${apiBase}/autopilot/task/delete` && req.method === "POST") {
             const body = await readJsonBody(req);
-            sendJson(res, 200, await deleteAutopilotTask(String(body.taskId || "").trim()));
+            sendJson(res, 200, await deleteManagedAutopilotTask(String(body.taskId || "").trim()));
             return true;
           }
 
@@ -6431,9 +4567,9 @@ module.exports = {
         const sessionKey = normalizeString(ctx?.sessionKey);
         if (!sessionKey) return;
         const agentId = normalizeString(ctx?.agentId, "main");
-        const store = await loadAutopilotStore();
-        if (store.config.heartbeatEnabled && await isHeartbeatSession(agentId, sessionKey)) {
-          const heartbeatBlock = buildHeartbeatAutopilotContext(buildAutopilotStatus(store));
+        const autopilotStatus = await loadAutopilotStatus();
+        if (autopilotStatus?.config?.heartbeatEnabled && await isHeartbeatSession(agentId, sessionKey)) {
+          const heartbeatBlock = buildHeartbeatAutopilotContext(autopilotStatus);
           if (heartbeatBlock) {
             return {
               prependContext: heartbeatBlock
@@ -6442,7 +4578,7 @@ module.exports = {
         }
         const task = await captureAutopilotTaskFromSession(ctx);
         if (!task) return;
-        const block = buildAutopilotPromptBlock(task, store.config);
+        const block = buildAutopilotPromptBlock(task, autopilotStatus?.config || DEFAULT_AUTOPILOT_CONFIG);
         if (!block) return;
         return {
           prependContext: block

@@ -4,6 +4,7 @@ import type {
   RuntimeMetadata,
   ShareableReviewRecord,
   TaskPriority,
+  TaskReportPolicy,
   TaskRecord,
   TaskReview,
   TaskRun,
@@ -21,12 +22,21 @@ export type TaskRecordSnapshotInput = {
   priority?: TaskPriority | string | null;
   budgetMode?: BudgetMode | string | null;
   retrievalMode?: RetrievalMode | string | null;
+  goal?: string | null;
+  successCriteria?: string | null;
+  tags?: Array<string | null | undefined> | null;
   worker?: string | null;
   skillIds?: Array<string | null | undefined> | null;
   memoryRefs?: Array<string | null | undefined> | null;
   intelRefs?: Array<string | null | undefined> | null;
   recurring?: boolean | null;
   maintenance?: boolean | null;
+  planSummary?: string | null;
+  nextAction?: string | null;
+  blockedReason?: string | null;
+  lastError?: string | null;
+  reportPolicy?: TaskReportPolicy | string | null;
+  nextRunAt?: number | null;
   leaseOwner?: string | null;
   leaseExpiresAt?: number | null;
   activeRunId?: string | null;
@@ -199,6 +209,22 @@ function normalizeRetrievalMode(
   return fallback;
 }
 
+function normalizeReportPolicy(
+  value: TaskReportPolicy | string | null | undefined,
+  fallback: TaskReportPolicy = "reply_and_proactive",
+): TaskReportPolicy {
+  const normalized = normalizeText(value).toLowerCase();
+  if (
+    normalized === "silent" ||
+    normalized === "reply" ||
+    normalized === "proactive" ||
+    normalized === "reply_and_proactive"
+  ) {
+    return normalized;
+  }
+  return fallback;
+}
+
 function normalizeThinkingLane(
   value: ThinkingLane | string | null | undefined,
   fallback: ThinkingLane = "system1",
@@ -266,12 +292,21 @@ export function buildTaskRecordSnapshot(
     priority: normalizePriority(input.priority),
     budgetMode: normalizeBudgetMode(input.budgetMode),
     retrievalMode: normalizeRetrievalMode(input.retrievalMode),
+    goal: normalizeText(input.goal) || undefined,
+    successCriteria: normalizeText(input.successCriteria) || undefined,
+    tags: uniqueStrings(input.tags),
     worker: normalizeText(input.worker) || undefined,
     skillIds: uniqueStrings(input.skillIds),
     memoryRefs: uniqueStrings(input.memoryRefs),
     intelRefs: uniqueStrings(input.intelRefs),
     recurring: input.recurring === true,
     maintenance: input.maintenance === true,
+    planSummary: normalizeText(input.planSummary) || undefined,
+    nextAction: normalizeText(input.nextAction) || undefined,
+    blockedReason: normalizeText(input.blockedReason) || undefined,
+    lastError: normalizeText(input.lastError) || undefined,
+    reportPolicy: normalizeReportPolicy(input.reportPolicy),
+    nextRunAt: Number.isFinite(input.nextRunAt) ? Number(input.nextRunAt) : undefined,
     leaseOwner: normalizeText(input.leaseOwner) || undefined,
     leaseExpiresAt: Number.isFinite(input.leaseExpiresAt)
       ? Number(input.leaseExpiresAt)

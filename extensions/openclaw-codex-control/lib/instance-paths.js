@@ -74,17 +74,12 @@ function resolveOverridePath(value, fallback, homeDir) {
   return resolvePathWithHome(trimmed, { homeDir });
 }
 
-function chooseExistingPath(primaryPath, legacyPath, existsSync) {
-  if (pathExists(primaryPath, existsSync)) return primaryPath;
-  if (pathExists(legacyPath, existsSync)) return legacyPath;
-  return primaryPath;
-}
-
 function resolveInstanceManifest(opts = {}) {
   const env = opts.env || process.env;
   const existsSync = opts.existsSync || fs.existsSync;
   const homeDir = resolveHomeDirFromEnv(env, opts.homedir || os.homedir);
-  const profile = env.OPENCLAW_PROFILE && env.OPENCLAW_PROFILE.trim() ? env.OPENCLAW_PROFILE.trim() : undefined;
+  const profile =
+    env.OPENCLAW_PROFILE && env.OPENCLAW_PROFILE.trim() ? env.OPENCLAW_PROFILE.trim() : undefined;
   const explicitInstanceRoot = pickFirstDefined([env.OPENCLAW_INSTANCE_ROOT, env.OPENCLAW_HOME]);
   const stateOverride = pickFirstDefined([
     env.OPENCLAW_STATE_ROOT,
@@ -106,7 +101,7 @@ function resolveInstanceManifest(opts = {}) {
       stateRoot = defaultStateRoot;
     } else {
       const legacyStateRoot = resolveLegacyStateDirs(homeDir).find((candidate) =>
-        pathExists(candidate, existsSync)
+        pathExists(candidate, existsSync),
       );
       stateRoot = legacyStateRoot || defaultStateRoot;
     }
@@ -121,62 +116,62 @@ function resolveInstanceManifest(opts = {}) {
   const runtimeRoot = resolveOverridePath(
     env.OPENCLAW_RUNTIME_ROOT,
     joinResolvedPath(instanceRoot, "runtime"),
-    homeDir
+    homeDir,
   );
   const dataRoot = resolveOverridePath(
     env.OPENCLAW_DATA_ROOT,
     joinResolvedPath(instanceRoot, "data"),
-    homeDir
+    homeDir,
   );
   const cacheRoot = resolveOverridePath(
     env.OPENCLAW_CACHE_ROOT,
     joinResolvedPath(runtimeRoot, "cache"),
-    homeDir
+    homeDir,
   );
   const logRoot = resolveOverridePath(
     pickFirstDefined([env.OPENCLAW_LOG_ROOT, env.OPENCLAW_LOG_DIR]),
     joinResolvedPath(runtimeRoot, "logs"),
-    homeDir
+    homeDir,
   );
   const workspaceRoot = resolveOverridePath(
     pickFirstDefined([env.OPENCLAW_WORKSPACE_ROOT, env.OPENCLAW_WORKSPACE_DIR]),
     joinResolvedPath(stateRoot, "workspace"),
-    homeDir
+    homeDir,
   );
   const agentsRoot = resolveOverridePath(
     pickFirstDefined([env.OPENCLAW_AGENTS_ROOT, env.OPENCLAW_AGENTS_DIR]),
     joinResolvedPath(stateRoot, "agents"),
-    homeDir
+    homeDir,
   );
   const skillsRoot = resolveOverridePath(
     pickFirstDefined([env.OPENCLAW_SKILLS_ROOT, env.OPENCLAW_SKILLS_DIR]),
     joinResolvedPath(stateRoot, "skills"),
-    homeDir
+    homeDir,
   );
   const extensionsRoot = resolveOverridePath(
     pickFirstDefined([env.OPENCLAW_EXTENSIONS_ROOT, env.OPENCLAW_EXTENSIONS_DIR]),
     joinResolvedPath(configRoot, "extensions"),
-    homeDir
+    homeDir,
   );
   const codexRoot = resolveOverridePath(
     pickFirstDefined([env.OPENCLAW_CODEX_ROOT, env.OPENCLAW_CODEX_DIR]),
     joinResolvedPath(homeDir || instanceRoot, ".codex"),
-    homeDir
+    homeDir,
   );
   const archiveRoot = resolveOverridePath(
     pickFirstDefined([env.OPENCLAW_ARCHIVE_ROOT, env.OPENCLAW_ARCHIVE_DIR]),
     joinResolvedPath(stateRoot, "archive"),
-    homeDir
+    homeDir,
   );
   const oauthDir = resolveOverridePath(
     env.OPENCLAW_OAUTH_DIR,
     joinResolvedPath(stateRoot, "credentials"),
-    homeDir
+    homeDir,
   );
   const configPath = resolveOverridePath(
     pickFirstDefined([env.OPENCLAW_CONFIG_PATH, env.CLAWDBOT_CONFIG_PATH]),
     joinResolvedPath(configRoot, DEFAULT_CONFIG_FILENAME),
-    homeDir
+    homeDir,
   );
 
   return {
@@ -236,25 +231,23 @@ function resolveControlExtensionPaths(opts = {}) {
   const env = opts.env || process.env;
   const existsSync = opts.existsSync || fs.existsSync;
   const homeDir = resolveHomeDirFromEnv(env, opts.homedir || os.homedir);
-  const pluginId = String(opts.pluginId || "openclaw-codex-control").trim() || "openclaw-codex-control";
-  const resolver = resolvePathResolver({ ...opts, env, existsSync, homedir: opts.homedir || os.homedir });
+  const pluginId =
+    String(opts.pluginId || "openclaw-codex-control").trim() || "openclaw-codex-control";
+  const resolver = resolvePathResolver({
+    ...opts,
+    env,
+    existsSync,
+    homedir: opts.homedir || os.homedir,
+  });
   const manifest = resolver.manifest;
   const legacyRuntimeRoot = manifest.stateRoot;
-  const effectiveRuntimeRoot = pickFirstDefined([env.OPENCLAW_RUNTIME_ROOT])
-    ? manifest.runtimeRoot
-    : chooseExistingPath(
-        joinResolvedPath(manifest.runtimeRoot, "bin", "openclaw"),
-        joinResolvedPath(legacyRuntimeRoot, "bin", "openclaw"),
-        existsSync
-      ) === joinResolvedPath(legacyRuntimeRoot, "bin", "openclaw")
-      ? legacyRuntimeRoot
-      : manifest.runtimeRoot;
+  const effectiveRuntimeRoot = manifest.runtimeRoot;
   const legacyControlStateDir = joinResolvedPath(manifest.stateRoot, "state", pluginId);
   const defaultControlStateDir = joinResolvedPath(manifest.dataRoot, "extensions", pluginId);
   const controlStateDir = resolveOverridePath(
     pickFirstDefined([env.OPENCLAW_CODEX_CONTROL_STATE_ROOT, env.OPENCLAW_EXTENSION_STATE_ROOT]),
-    chooseExistingPath(defaultControlStateDir, legacyControlStateDir, existsSync),
-    homeDir
+    defaultControlStateDir,
+    homeDir,
   );
 
   return {
@@ -276,7 +269,7 @@ function resolveControlExtensionPaths(opts = {}) {
       "dist",
       "utils",
       "oauth",
-      "openai-codex.js"
+      "openai-codex.js",
     ),
     controlUiIndexPath: joinResolvedPath(
       effectiveRuntimeRoot,
@@ -285,7 +278,7 @@ function resolveControlExtensionPaths(opts = {}) {
       "openclaw",
       "dist",
       "control-ui",
-      "index.html"
+      "index.html",
     ),
     root: resolver.root,
     join: resolver.join,
@@ -299,7 +292,10 @@ function resolveControlExtensionPaths(opts = {}) {
   };
 }
 
-function buildManagedRuntimeEnv(baseEnv = process.env, instancePaths = resolveControlExtensionPaths({ env: baseEnv })) {
+function buildManagedRuntimeEnv(
+  baseEnv = process.env,
+  instancePaths = resolveControlExtensionPaths({ env: baseEnv }),
+) {
   const env = {
     ...baseEnv,
     OPENCLAW_INSTANCE_ROOT: instancePaths.manifest.instanceRoot,

@@ -22,6 +22,11 @@ type RuntimeProps = {
   onImportApply: () => void;
 };
 
+function formatConfidencePercent(value: number) {
+  if (!Number.isFinite(value)) return "0%";
+  return `${Math.round(value <= 1 ? value * 100 : value)}%`;
+}
+
 function renderStat(label: string, value: string | number, hint?: string) {
   return html`
     <div class="stat">
@@ -52,7 +57,7 @@ function renderRecentTasks(snapshot: RuntimeDashboardSnapshot) {
   const tasks = snapshot.tasks.tasks.slice(0, 5);
   return tasks.length === 0
     ? html`
-        <div class="muted">No task history imported yet.</div>
+        <div class="muted">No task history in the authoritative store yet.</div>
       `
     : html`${tasks.map(
         (task) => html`
@@ -73,7 +78,7 @@ function renderRecentMemories(snapshot: RuntimeDashboardSnapshot) {
   const memories = snapshot.memory.memories.slice(0, 5);
   return memories.length === 0
     ? html`
-        <div class="muted">No formal memories imported yet.</div>
+        <div class="muted">No formal memories in the authoritative store yet.</div>
       `
     : html`${memories.map(
         (memory) => html`
@@ -85,7 +90,7 @@ function renderRecentMemories(snapshot: RuntimeDashboardSnapshot) {
                 ${formatRelativeTimestamp(memory.updatedAt)}
               </div>
             </div>
-            <div class="pill">${Math.round(memory.confidence * 100)}%</div>
+            <div class="pill">${formatConfidencePercent(memory.confidence)}</div>
           </div>
         `,
       )}`;
@@ -118,7 +123,7 @@ function renderImportPreview(
 ) {
   if (!preview) {
     return html`
-      <div class="muted">Legacy runtime preview unavailable.</div>
+      <div class="muted">Migration source preview unavailable.</div>
     `;
   }
   return html`
@@ -129,7 +134,7 @@ function renderImportPreview(
       ${renderStat("Intel digests", preview.counts.intelDigests)}
     </div>
     <div style="margin-top: 16px;">
-      <div class="muted" style="font-size: 12px;">Legacy root</div>
+      <div class="muted" style="font-size: 12px;">Migration source root</div>
       <div class="mono">${preview.legacyRoot}</div>
     </div>
     <div style="margin-top: 12px;">
@@ -145,10 +150,10 @@ function renderImportPreview(
     }
     <div class="row" style="gap: 12px; margin-top: 16px; align-items: center;">
       <button class="btn" ?disabled=${importBusy || !preview.detected} @click=${onImportApply}>
-        ${importBusy ? "Importing..." : "Import Legacy Runtime"}
+        ${importBusy ? "Importing..." : "Import Runtime Snapshot"}
       </button>
       <div class="muted" style="font-size: 12px;">
-        Preview only reads legacy files. Apply writes only under the new instance data root.
+        Preview only reads the source snapshot. Apply archives it and writes normalized data under the new instance data root.
       </div>
     </div>
     ${
@@ -169,6 +174,7 @@ function renderFederation(snapshot: FederationRuntimeSnapshot | null, error: str
   }
   return html`
     <div class="stat-grid stat-grid--4">
+      ${renderStat("Enabled", snapshot.enabled ? "Yes" : "No")}
       ${renderStat("Remote configured", snapshot.remoteConfigured ? "Yes" : "No")}
       ${renderStat("Pending assignments", snapshot.pendingAssignments)}
       ${renderStat("Strategy outbox", snapshot.outboxEnvelopeCounts.strategyDigest)}
@@ -245,7 +251,7 @@ export function renderRuntime(props: RuntimeProps) {
 
       <div class="card">
         <div class="card-title">Recent Tasks</div>
-        <div class="card-sub">Latest managed tasks imported from the legacy runtime state.</div>
+        <div class="card-sub">Latest managed tasks from the authoritative runtime store.</div>
         ${
           snapshot
             ? renderRecentTasks(snapshot)
@@ -298,7 +304,7 @@ export function renderRuntime(props: RuntimeProps) {
       <div class="card">
         <div class="card-title">Federation Hooks</div>
         <div class="card-sub">
-          Local envelopes, assignment inbox, and push boundaries reserved for future federation.
+          Local envelopes, assignment inbox, and push policy derived from the current runtime configuration.
         </div>
         ${
           props.federationLoading && !federation
@@ -310,10 +316,9 @@ export function renderRuntime(props: RuntimeProps) {
       </div>
 
       <div class="card">
-        <div class="card-title">Legacy Import</div>
+        <div class="card-title">Runtime Migration</div>
         <div class="card-sub">
-          Preview and import the existing runtime without modifying the old
-          <span class="mono">~/.openclaw</span> tree.
+          One-time migration from an older runtime snapshot into this instance root without mutating the source files.
         </div>
         ${renderImportPreview(preview, props.importApplyResult, props.importBusy, props.onImportApply)}
       </div>
