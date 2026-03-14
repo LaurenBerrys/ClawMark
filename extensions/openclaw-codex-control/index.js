@@ -4,10 +4,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 const { pathToFileURL } = require("url");
-const {
-  buildManagedRuntimeEnv,
-  resolveControlExtensionPaths
-} = require("./lib/instance-paths.js");
+const { buildManagedRuntimeEnv, resolveControlExtensionPaths } = require("./lib/instance-paths.js");
 
 const INSTANCE_PATHS = resolveControlExtensionPaths();
 
@@ -42,12 +39,17 @@ const AUTOPILOT_TASK_STATUSES = new Set([
   "waiting_external",
   "waiting_user",
   "completed",
-  "cancelled"
+  "cancelled",
 ]);
 const AUTOPILOT_PRIORITIES = new Set(["low", "normal", "high"]);
 const AUTOPILOT_BUDGET_MODES = new Set(["strict", "balanced", "deep"]);
 const AUTOPILOT_RETRIEVAL_MODES = new Set(["off", "light", "deep"]);
-const AUTOPILOT_REPORT_POLICIES = new Set(["reply_and_proactive", "reply_only", "proactive_only", "silent"]);
+const AUTOPILOT_REPORT_POLICIES = new Set([
+  "reply_and_proactive",
+  "reply_only",
+  "proactive_only",
+  "silent",
+]);
 const SKILL_GOVERNANCE_ALLOWED_DECISION_STATES = new Set(["candidate", "adopted", "core"]);
 const OPENCLAW_BIN = INSTANCE_PATHS.openclawBin;
 const DEFAULT_AUTOPILOT_SESSION_PREFIX = "autopilot-task";
@@ -65,7 +67,7 @@ const DEFAULT_AUTOPILOT_CONFIG = Object.freeze({
   maxInputTokensPerTurn: 6000,
   maxContextChars: 9000,
   maxRemoteCallsPerTask: 6,
-  dailyRemoteTokenBudget: 250000
+  dailyRemoteTokenBudget: 250000,
 });
 
 let activeLogin = null;
@@ -76,24 +78,24 @@ const autopilotRuntime = {
   lastError: null,
   lastSnapshot: null,
   activeTaskId: null,
-  activeTaskStartedAt: null
+  activeTaskStartedAt: null,
 };
 const intelRuntime = {
   activeDomainId: null,
   activeDigestDomainId: null,
   lastTickAt: null,
-  lastError: null
+  lastError: null,
 };
 const evolutionRuntime = {
   active: false,
   lastTickAt: null,
   lastError: null,
-  lastReviewAt: null
+  lastReviewAt: null,
 };
 
 const skillGovernanceRuntime = {
   mtimeMs: 0,
-  store: null
+  store: null,
 };
 let pluginApi = null;
 
@@ -135,7 +137,11 @@ function safeParseJson(text, fallback = null) {
 }
 
 function hashText(value, size = 12) {
-  return crypto.createHash("sha1").update(String(value || "")).digest("hex").slice(0, size);
+  return crypto
+    .createHash("sha1")
+    .update(String(value || ""))
+    .digest("hex")
+    .slice(0, size);
 }
 
 function slugify(value) {
@@ -149,7 +155,7 @@ function slugify(value) {
 
 function decodeBase64Url(value) {
   const normalized = String(value).replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
   return Buffer.from(padded, "base64").toString("utf8");
 }
 
@@ -177,7 +183,7 @@ function formatDuration(ms) {
   const units = [
     ["d", 24 * 60 * 60 * 1000],
     ["h", 60 * 60 * 1000],
-    ["m", 60 * 1000]
+    ["m", 60 * 1000],
   ];
   for (const [label, size] of units) {
     if (abs >= size) return `${sign}${Math.round(abs / size)}${label}`;
@@ -275,14 +281,16 @@ function decodeHtmlEntities(text) {
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
+    .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&#x27;/gi, "'")
     .replace(/&#x2F;/gi, "/");
 }
 
 function stripHtml(text) {
-  return decodeHtmlEntities(String(text || "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  return decodeHtmlEntities(String(text || "").replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 async function loadConfig() {
@@ -308,7 +316,7 @@ let managedRuntimeTaskArtifactsWarned = false;
 async function loadManagedRuntimeDecisionCore() {
   if (!managedRuntimeDecisionCorePromise) {
     const modulePath = pathToFileURL(
-      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "decision-core.js")
+      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "decision-core.js"),
     ).href;
     managedRuntimeDecisionCorePromise = import(modulePath).catch((error) => {
       managedRuntimeDecisionCorePromise = null;
@@ -321,7 +329,7 @@ async function loadManagedRuntimeDecisionCore() {
 async function loadManagedRuntimeTaskArtifactsCore() {
   if (!managedRuntimeTaskArtifactsPromise) {
     const modulePath = pathToFileURL(
-      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "task-artifacts.js")
+      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "task-artifacts.js"),
     ).href;
     managedRuntimeTaskArtifactsPromise = import(modulePath).catch((error) => {
       managedRuntimeTaskArtifactsPromise = null;
@@ -334,7 +342,7 @@ async function loadManagedRuntimeTaskArtifactsCore() {
 async function loadManagedRuntimeStoreCore() {
   if (!managedRuntimeStorePromise) {
     const modulePath = pathToFileURL(
-      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "store.js")
+      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "store.js"),
     ).href;
     managedRuntimeStorePromise = import(modulePath).catch((error) => {
       managedRuntimeStorePromise = null;
@@ -347,7 +355,7 @@ async function loadManagedRuntimeStoreCore() {
 async function loadManagedRuntimeTaskEngineCore() {
   if (!managedRuntimeTaskEnginePromise) {
     const modulePath = pathToFileURL(
-      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "task-engine.js")
+      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "task-engine.js"),
     ).href;
     managedRuntimeTaskEnginePromise = import(modulePath).catch((error) => {
       managedRuntimeTaskEnginePromise = null;
@@ -360,7 +368,7 @@ async function loadManagedRuntimeTaskEngineCore() {
 async function loadManagedRuntimeIntelRefreshCore() {
   if (!managedRuntimeIntelRefreshPromise) {
     const modulePath = pathToFileURL(
-      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "intel-refresh.js")
+      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "intel-refresh.js"),
     ).href;
     managedRuntimeIntelRefreshPromise = import(modulePath).catch((error) => {
       managedRuntimeIntelRefreshPromise = null;
@@ -373,7 +381,7 @@ async function loadManagedRuntimeIntelRefreshCore() {
 async function loadManagedRuntimeMutationsCore() {
   if (!managedRuntimeMutationsPromise) {
     const modulePath = pathToFileURL(
-      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "mutations.js")
+      path.join(__dirname, "..", "..", "dist", "shared", "runtime", "mutations.js"),
     ).href;
     managedRuntimeMutationsPromise = import(modulePath).catch((error) => {
       managedRuntimeMutationsPromise = null;
@@ -386,7 +394,7 @@ async function loadManagedRuntimeMutationsCore() {
 function managedRuntimeStoreOptions(nowValue = nowTs()) {
   return {
     env: buildManagedRuntimeEnv(process.env, INSTANCE_PATHS),
-    now: nowValue
+    now: nowValue,
   };
 }
 
@@ -395,7 +403,7 @@ function resolveAgentSessionsStorePath(agentId = "main") {
     INSTANCE_PATHS.agentsRoot,
     normalizeString(agentId, "main"),
     "sessions",
-    "sessions.json"
+    "sessions.json",
   );
 }
 
@@ -457,7 +465,7 @@ function buildSourceMetaFromTranscript(entry, sessionEntry, sessionKey) {
     target: sessionEntry?.deliveryContext?.to || sessionEntry?.lastTo,
     accountId: sessionEntry?.deliveryContext?.accountId || sessionEntry?.lastAccountId,
     threadId: sessionEntry?.deliveryContext?.threadId || sessionEntry?.lastThreadId,
-    replyTo: conversationInfo.message_id || null
+    replyTo: conversationInfo.message_id || null,
   });
   return {
     body: extractMessageBody(contentText),
@@ -474,9 +482,9 @@ function buildSourceMetaFromTranscript(entry, sessionEntry, sessionKey) {
       target: delivery.target,
       threadId: delivery.threadId,
       originLabel: sessionEntry?.origin?.label || null,
-      transcriptTimestamp: entry?.timestamp || null
+      transcriptTimestamp: entry?.timestamp || null,
     }),
-    delivery
+    delivery,
   };
 }
 
@@ -495,7 +503,7 @@ async function runOpenClawCli(args, options = {}) {
   return await new Promise((resolve) => {
     const child = spawn(OPENCLAW_BIN, args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env
+      env,
     });
     let stdout = "";
     let stderr = "";
@@ -508,7 +516,7 @@ async function runOpenClawCli(args, options = {}) {
         ok: false,
         code: null,
         stdout,
-        stderr: `${stderr}\nTimed out after ${timeoutMs}ms`.trim()
+        stderr: `${stderr}\nTimed out after ${timeoutMs}ms`.trim(),
       });
     }, timeoutMs);
     child.stdout.on("data", (chunk) => {
@@ -525,7 +533,7 @@ async function runOpenClawCli(args, options = {}) {
         ok: false,
         code: null,
         stdout,
-        stderr: `${stderr}\n${String(error?.message || error)}`.trim()
+        stderr: `${stderr}\n${String(error?.message || error)}`.trim(),
       });
     });
     child.on("close", (code) => {
@@ -536,7 +544,7 @@ async function runOpenClawCli(args, options = {}) {
         ok: code === 0,
         code,
         stdout,
-        stderr
+        stderr,
       });
     });
   });
@@ -567,11 +575,7 @@ function clampInt(value, fallback, min, max) {
 
 function normalizeStringArray(value) {
   if (!Array.isArray(value)) return [];
-  return dedupe(
-    value
-      .map((entry) => normalizeString(entry))
-      .filter(Boolean)
-  );
+  return dedupe(value.map((entry) => normalizeString(entry)).filter(Boolean));
 }
 
 function normalizeOptionalRecord(value) {
@@ -605,7 +609,13 @@ function isAutopilotTerminalStatus(status) {
 function shouldAutopilotTaskRun(task, ts = nowTs()) {
   if (!task || isAutopilotTerminalStatus(task.status)) return false;
   if (task.status === "waiting_user") return false;
-  if (!task.nextRunAt) return task.status === "queued" || task.status === "planning" || task.status === "ready" || task.status === "blocked";
+  if (!task.nextRunAt)
+    return (
+      task.status === "queued" ||
+      task.status === "planning" ||
+      task.status === "ready" ||
+      task.status === "blocked"
+    );
   return task.nextRunAt <= ts;
 }
 
@@ -613,7 +623,7 @@ function compareAutopilotTasks(left, right) {
   const priorityRank = {
     high: 0,
     normal: 1,
-    low: 2
+    low: 2,
   };
   const statusRank = {
     blocked: 0,
@@ -624,7 +634,7 @@ function compareAutopilotTasks(left, right) {
     running: 5,
     waiting_user: 6,
     completed: 7,
-    cancelled: 8
+    cancelled: 8,
   };
   const leftPriority = priorityRank[left.priority] ?? 9;
   const rightPriority = priorityRank[right.priority] ?? 9;
@@ -645,7 +655,7 @@ function normalizeAutopilotDelivery(value) {
     target: normalizeString(source.target || source.to) || null,
     accountId: normalizeString(source.accountId) || null,
     threadId: normalizeString(source.threadId) || null,
-    replyTo: normalizeString(source.replyTo) || null
+    replyTo: normalizeString(source.replyTo) || null,
   };
 }
 
@@ -661,7 +671,7 @@ function normalizeAutopilotSourceMeta(value) {
     target: normalizeString(source.target) || null,
     threadId: normalizeString(source.threadId) || null,
     originLabel: normalizeString(source.originLabel) || null,
-    transcriptTimestamp: normalizeString(source.transcriptTimestamp) || null
+    transcriptTimestamp: normalizeString(source.transcriptTimestamp) || null,
   };
 }
 
@@ -671,7 +681,9 @@ function normalizeAutopilotRunState(value) {
     lastResultStatus: normalizeOptionalAutopilotStatusValue(source.lastResultStatus),
     lastResultSummary: normalizeString(source.lastResultSummary) || null,
     lastWorkerOutput: normalizeString(source.lastWorkerOutput) || null,
-    lastCliExitCode: Number.isFinite(Number(source.lastCliExitCode)) ? Number(source.lastCliExitCode) : null,
+    lastCliExitCode: Number.isFinite(Number(source.lastCliExitCode))
+      ? Number(source.lastCliExitCode)
+      : null,
     backgroundSessionId: normalizeString(source.backgroundSessionId) || null,
     blockedAt: parseOptionalTimestamp(source.blockedAt),
     completedAt: parseOptionalTimestamp(source.completedAt),
@@ -680,7 +692,7 @@ function normalizeAutopilotRunState(value) {
     memoryLoggedStatuses: dedupe(
       normalizeStringArray(source.memoryLoggedStatuses)
         .map((entry) => normalizeOptionalAutopilotStatusValue(entry))
-        .filter(Boolean)
+        .filter(Boolean),
     ),
     consecutiveFailures: clampInt(source.consecutiveFailures, 0, 0, 1000),
     totalFailures: clampInt(source.totalFailures, 0, 0, 100000),
@@ -696,7 +708,7 @@ function normalizeAutopilotRunState(value) {
     lastRelevantMemoryIds: normalizeStringArray(source.lastRelevantMemoryIds),
     lastRelevantIntelIds: normalizeStringArray(source.lastRelevantIntelIds),
     lastFallbackOrder: normalizeStringArray(source.lastFallbackOrder),
-    remoteCallCount: clampInt(source.remoteCallCount, 0, 0, 100000)
+    remoteCallCount: clampInt(source.remoteCallCount, 0, 0, 100000),
   };
 }
 
@@ -719,7 +731,7 @@ function normalizeSkillGovernanceEntry(entry) {
     notes: normalizeString(source.notes),
     findings: normalizeStringArray(source.findings).slice(0, 32),
     lastAuditedAt: parseOptionalTimestamp(source.lastAuditedAt),
-    updatedAt: parseOptionalTimestamp(source.updatedAt)
+    updatedAt: parseOptionalTimestamp(source.updatedAt),
   };
 }
 
@@ -729,9 +741,9 @@ function buildDefaultSkillGovernanceStore() {
     scannedAt: null,
     rules: {
       enforceDecisionFilter: false,
-      allowedDecisionStates: [...SKILL_GOVERNANCE_ALLOWED_DECISION_STATES]
+      allowedDecisionStates: [...SKILL_GOVERNANCE_ALLOWED_DECISION_STATES],
     },
-    skills: []
+    skills: [],
   };
 }
 
@@ -745,11 +757,11 @@ function normalizeSkillGovernanceStore(store) {
       enforceDecisionFilter: rules.enforceDecisionFilter === true,
       allowedDecisionStates: normalizeStringArray(rules.allowedDecisionStates).length
         ? normalizeStringArray(rules.allowedDecisionStates)
-        : [...SKILL_GOVERNANCE_ALLOWED_DECISION_STATES]
+        : [...SKILL_GOVERNANCE_ALLOWED_DECISION_STATES],
     },
     skills: (Array.isArray(source.skills) ? source.skills : [])
       .map((entry) => normalizeSkillGovernanceEntry(entry))
-      .filter((entry) => entry.id)
+      .filter((entry) => entry.id),
   };
 }
 
@@ -759,10 +771,7 @@ function loadSkillGovernanceStoreSync() {
       return buildDefaultSkillGovernanceStore();
     }
     const stat = fs.statSync(SKILL_GOVERNANCE_STORE_PATH);
-    if (
-      skillGovernanceRuntime.store &&
-      skillGovernanceRuntime.mtimeMs === stat.mtimeMs
-    ) {
+    if (skillGovernanceRuntime.store && skillGovernanceRuntime.mtimeMs === stat.mtimeMs) {
       return skillGovernanceRuntime.store;
     }
     const parsed = safeParseJson(fs.readFileSync(SKILL_GOVERNANCE_STORE_PATH, "utf8"), null);
@@ -780,7 +789,7 @@ function skillLooksInstalledLocally(skillId) {
   return [
     path.join(OPENCLAW_SKILLS_DIR, skillId, "SKILL.md"),
     path.join(CODEX_SKILLS_DIR, skillId, "SKILL.md"),
-    path.join(CODEX_SKILLS_DIR, ".system", skillId, "SKILL.md")
+    path.join(CODEX_SKILLS_DIR, ".system", skillId, "SKILL.md"),
   ].some((candidate) => fs.existsSync(candidate));
 }
 
@@ -792,7 +801,7 @@ function filterGovernedSkillHints(value) {
   const allowedStates = new Set(
     normalizeStringArray(store.rules.allowedDecisionStates).length
       ? normalizeStringArray(store.rules.allowedDecisionStates)
-      : [...SKILL_GOVERNANCE_ALLOWED_DECISION_STATES]
+      : [...SKILL_GOVERNANCE_ALLOWED_DECISION_STATES],
   );
   const byId = new Map(store.skills.map((entry) => [entry.id, entry]));
   return hints
@@ -816,7 +825,11 @@ function extractKeywordTags(text, extra = []) {
   const chinese = source.match(/[\u4e00-\u9fff]{2,6}/g) || [];
   const filtered = [...english, ...chinese]
     .map((entry) => entry.trim())
-    .filter((entry) => entry.length >= 2 && !/^(please|thanks|task|agent|with|from|that|this|have|will)$/.test(entry));
+    .filter(
+      (entry) =>
+        entry.length >= 2 &&
+        !/^(please|thanks|task|agent|with|from|that|this|have|will)$/.test(entry),
+    );
   return normalizeKeywordTags(filtered);
 }
 
@@ -849,7 +862,7 @@ function isLikelyHumanAck(text) {
     "在么",
     "好的呀",
     "行",
-    "行的"
+    "行的",
   ]).has(normalized);
 }
 
@@ -897,7 +910,7 @@ function hasTaskVerb(text) {
     /summari[sz]e/,
     /compare/,
     /deploy/,
-    /notify/
+    /notify/,
   ];
   return patterns.some((pattern) => pattern.test(normalized));
 }
@@ -906,7 +919,9 @@ function isLikelyTaskText(text) {
   const normalized = normalizeString(text);
   if (!normalized) return false;
   if (isLikelyHumanAck(normalized)) return false;
-  const inboundMediaPrefix = path.join(INSTANCE_PATHS.stateRoot, "media", "inbound").replace(/\\/g, "/");
+  const inboundMediaPrefix = path
+    .join(INSTANCE_PATHS.stateRoot, "media", "inbound")
+    .replace(/\\/g, "/");
   if (normalized.includes(inboundMediaPrefix)) return true;
   if (normalized.length >= 24) return true;
   if (/[？?]/.test(normalized) && hasTaskVerb(normalized)) return true;
@@ -937,23 +952,91 @@ function looksLikeContinuation(text) {
     /^and /,
     /^also /,
     /^next /,
-    /^continue /
+    /^continue /,
   ];
   return normalized.length <= 120 && patterns.some((pattern) => pattern.test(normalized));
 }
 
 function classifyTaskRoute(text) {
   const normalized = normalizeString(text).toLowerCase();
-  const mediaPatterns = [/ocr/, /图片/, /截图/, /长图/, /视频/, /音频/, /表格/, /文档整理/, /识别/, /提取/];
-  const officePatterns = [/飞书/, /企微/, /微信/, /文档/, /多维表格/, /bitable/, /日历/, /任务/, /待办/, /提醒/, /通知/];
-  const coderPatterns = [/代码/, /repo/, /git/, /commit/, /pull request/, /pr/, /接口/, /api/, /服务开发/, /编程/, /写代码/, /开发/, /实现/];
-  const opsPatterns = [/日志/, /端口/, /服务/, /重启/, /部署/, /nginx/, /docker/, /cloudflared/, /故障/, /排障/, /监控/, /修复/, /运维/];
-  const researchPatterns = [/调研/, /研究/, /咨询/, /对比/, /比较/, /搜索/, /搜集/, /资料/, /信息/, /知识库/, /方案/];
-  if (mediaPatterns.some((pattern) => pattern.test(normalized))) return { route: "media", assignee: "media" };
-  if (coderPatterns.some((pattern) => pattern.test(normalized))) return { route: "coder", assignee: "coder" };
-  if (opsPatterns.some((pattern) => pattern.test(normalized))) return { route: "ops", assignee: "ops" };
-  if (officePatterns.some((pattern) => pattern.test(normalized))) return { route: "office", assignee: "office" };
-  if (researchPatterns.some((pattern) => pattern.test(normalized))) return { route: "research", assignee: "research" };
+  const mediaPatterns = [
+    /ocr/,
+    /图片/,
+    /截图/,
+    /长图/,
+    /视频/,
+    /音频/,
+    /表格/,
+    /文档整理/,
+    /识别/,
+    /提取/,
+  ];
+  const officePatterns = [
+    /飞书/,
+    /企微/,
+    /微信/,
+    /文档/,
+    /多维表格/,
+    /bitable/,
+    /日历/,
+    /任务/,
+    /待办/,
+    /提醒/,
+    /通知/,
+  ];
+  const coderPatterns = [
+    /代码/,
+    /repo/,
+    /git/,
+    /commit/,
+    /pull request/,
+    /pr/,
+    /接口/,
+    /api/,
+    /服务开发/,
+    /编程/,
+    /写代码/,
+    /开发/,
+    /实现/,
+  ];
+  const opsPatterns = [
+    /日志/,
+    /端口/,
+    /服务/,
+    /重启/,
+    /部署/,
+    /nginx/,
+    /docker/,
+    /cloudflared/,
+    /故障/,
+    /排障/,
+    /监控/,
+    /修复/,
+    /运维/,
+  ];
+  const researchPatterns = [
+    /调研/,
+    /研究/,
+    /咨询/,
+    /对比/,
+    /比较/,
+    /搜索/,
+    /搜集/,
+    /资料/,
+    /信息/,
+    /知识库/,
+    /方案/,
+  ];
+  if (mediaPatterns.some((pattern) => pattern.test(normalized)))
+    return { route: "media", assignee: "media" };
+  if (coderPatterns.some((pattern) => pattern.test(normalized)))
+    return { route: "coder", assignee: "coder" };
+  if (opsPatterns.some((pattern) => pattern.test(normalized)))
+    return { route: "ops", assignee: "ops" };
+  if (officePatterns.some((pattern) => pattern.test(normalized)))
+    return { route: "office", assignee: "office" };
+  if (researchPatterns.some((pattern) => pattern.test(normalized)))
+    return { route: "research", assignee: "research" };
   return { route: "general", assignee: "main" };
 }
 
@@ -961,10 +1044,24 @@ function buildSkillHintsForTask(route, text) {
   const normalized = normalizeString(text).toLowerCase();
   const hints = ["personal-superintelligence", "personal-memory-maintainer"];
   if (route === "office") {
-    hints.push("personal-office-executor", "feishu-task", "feishu-bitable", "feishu-create-doc", "feishu-update-doc", "feishu-im-read");
-    if (/表格|图片|ocr|截图|多维表格/.test(normalized)) hints.push("image-to-feishu-table", "image-ocr");
+    hints.push(
+      "personal-office-executor",
+      "feishu-task",
+      "feishu-bitable",
+      "feishu-create-doc",
+      "feishu-update-doc",
+      "feishu-im-read",
+    );
+    if (/表格|图片|ocr|截图|多维表格/.test(normalized))
+      hints.push("image-to-feishu-table", "image-ocr");
   } else if (route === "media") {
-    hints.push("personal-media-executor", "image-ocr", "image-to-feishu-table", "word-docx", "video-frames");
+    hints.push(
+      "personal-media-executor",
+      "image-ocr",
+      "image-to-feishu-table",
+      "word-docx",
+      "video-frames",
+    );
   } else if (route === "coder") {
     hints.push("personal-coder-executor", "coding-agent", "github", "tmux");
   } else if (route === "ops") {
@@ -1019,12 +1116,16 @@ function stripMetadataBlocks(rawText) {
 }
 
 function extractMessageInfoJson(rawText) {
-  const match = String(rawText || "").match(/Conversation info \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```/i);
+  const match = String(rawText || "").match(
+    /Conversation info \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```/i,
+  );
   return safeParseJson(match?.[1] || "", {});
 }
 
 function extractSenderInfoJson(rawText) {
-  const match = String(rawText || "").match(/Sender \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```/i);
+  const match = String(rawText || "").match(
+    /Sender \(untrusted metadata\):\s*```json\s*([\s\S]*?)\s*```/i,
+  );
   return safeParseJson(match?.[1] || "", {});
 }
 
@@ -1070,8 +1171,10 @@ function buildAutopilotResultEnvelope(raw) {
     lastResult: normalizeString(source.lastResult),
     nextRunInMinutes: nextRunMinutes,
     needsUser: normalizeString(source.needsUser),
-    shouldNotify: source.shouldNotify !== false && (status === "completed" || status === "blocked" || status === "waiting_user"),
-    notes: normalizeString(source.notes)
+    shouldNotify:
+      source.shouldNotify !== false &&
+      (status === "completed" || status === "blocked" || status === "waiting_user"),
+    notes: normalizeString(source.notes),
   };
 }
 
@@ -1086,7 +1189,7 @@ function extractAutopilotResultFromText(rawText) {
   }
   return buildAutopilotResultEnvelope({
     status: "running",
-    summary: text.trim().slice(-1000)
+    summary: text.trim().slice(-1000),
   });
 }
 
@@ -1095,32 +1198,44 @@ function normalizeAutopilotConfig(config) {
   return {
     enabled: source.enabled == null ? DEFAULT_AUTOPILOT_CONFIG.enabled : Boolean(source.enabled),
     localFirst: source.localFirst !== false,
-    heartbeatEnabled: source.heartbeatEnabled == null ? DEFAULT_AUTOPILOT_CONFIG.heartbeatEnabled : Boolean(source.heartbeatEnabled),
-    defaultBudgetMode: pickEnum(source.defaultBudgetMode, AUTOPILOT_BUDGET_MODES, DEFAULT_AUTOPILOT_CONFIG.defaultBudgetMode),
+    heartbeatEnabled:
+      source.heartbeatEnabled == null
+        ? DEFAULT_AUTOPILOT_CONFIG.heartbeatEnabled
+        : Boolean(source.heartbeatEnabled),
+    defaultBudgetMode: pickEnum(
+      source.defaultBudgetMode,
+      AUTOPILOT_BUDGET_MODES,
+      DEFAULT_AUTOPILOT_CONFIG.defaultBudgetMode,
+    ),
     defaultRetrievalMode: pickEnum(
       source.defaultRetrievalMode,
       AUTOPILOT_RETRIEVAL_MODES,
-      DEFAULT_AUTOPILOT_CONFIG.defaultRetrievalMode
+      DEFAULT_AUTOPILOT_CONFIG.defaultRetrievalMode,
     ),
     maxInputTokensPerTurn: clampInt(
       source.maxInputTokensPerTurn,
       DEFAULT_AUTOPILOT_CONFIG.maxInputTokensPerTurn,
       500,
-      50000
+      50000,
     ),
-    maxContextChars: clampInt(source.maxContextChars, DEFAULT_AUTOPILOT_CONFIG.maxContextChars, 1000, 100000),
+    maxContextChars: clampInt(
+      source.maxContextChars,
+      DEFAULT_AUTOPILOT_CONFIG.maxContextChars,
+      1000,
+      100000,
+    ),
     maxRemoteCallsPerTask: clampInt(
       source.maxRemoteCallsPerTask,
       DEFAULT_AUTOPILOT_CONFIG.maxRemoteCallsPerTask,
       1,
-      50
+      50,
     ),
     dailyRemoteTokenBudget: clampInt(
       source.dailyRemoteTokenBudget,
       DEFAULT_AUTOPILOT_CONFIG.dailyRemoteTokenBudget,
       10000,
-      10000000
-    )
+      10000000,
+    ),
   };
 }
 
@@ -1134,9 +1249,10 @@ function normalizeAutopilotTask(task, defaults = DEFAULT_AUTOPILOT_CONFIG) {
   const runState = normalizeAutopilotRunState(source.runState);
   const derivedTags = extractKeywordTags(
     `${normalizeString(source.title)} ${normalizeString(source.goal)} ${normalizeString(source.lastResult)} ${normalizeString(source.blockedReason)} ${normalizeString(source.lastError)}`,
-    source.skillHints
+    source.skillHints,
   );
-  if ((status === "blocked" || status === "waiting_user") && !runState.blockedAt) runState.blockedAt = updatedAt;
+  if ((status === "blocked" || status === "waiting_user") && !runState.blockedAt)
+    runState.blockedAt = updatedAt;
   if (status === "completed" && !runState.completedAt) runState.completedAt = updatedAt;
   return {
     id: normalizeString(source.id) || `task_${crypto.randomUUID()}`,
@@ -1156,7 +1272,9 @@ function normalizeAutopilotTask(task, defaults = DEFAULT_AUTOPILOT_CONFIG) {
     taskKind: normalizeString(source.taskKind) || "general",
     reportPolicy: pickEnum(source.reportPolicy, AUTOPILOT_REPORT_POLICIES, "reply_and_proactive"),
     skillHints: normalizeAutopilotTaskHintSet(source.skillHints),
-    tags: normalizeKeywordTags(Array.isArray(source.tags) && source.tags.length ? source.tags : derivedTags),
+    tags: normalizeKeywordTags(
+      Array.isArray(source.tags) && source.tags.length ? source.tags : derivedTags,
+    ),
     memoryRefs: normalizeStringArray(source.memoryRefs).slice(0, 24),
     intelRefs: normalizeStringArray(source.intelRefs).slice(0, 24),
     optimizationState: normalizeOptionalRecord(source.optimizationState),
@@ -1167,7 +1285,11 @@ function normalizeAutopilotTask(task, defaults = DEFAULT_AUTOPILOT_CONFIG) {
     status,
     priority: pickEnum(source.priority, AUTOPILOT_PRIORITIES, "normal"),
     budgetMode: pickEnum(source.budgetMode, AUTOPILOT_BUDGET_MODES, defaults.defaultBudgetMode),
-    retrievalMode: pickEnum(source.retrievalMode, AUTOPILOT_RETRIEVAL_MODES, defaults.defaultRetrievalMode),
+    retrievalMode: pickEnum(
+      source.retrievalMode,
+      AUTOPILOT_RETRIEVAL_MODES,
+      defaults.defaultRetrievalMode,
+    ),
     localOnly: Boolean(source.localOnly),
     localFirst: source.localFirst !== false,
     createdAt,
@@ -1175,7 +1297,7 @@ function normalizeAutopilotTask(task, defaults = DEFAULT_AUTOPILOT_CONFIG) {
     nextRunAt,
     lastRunAt,
     runCount: clampInt(source.runCount, 0, 0, 100000),
-    lastError: normalizeString(source.lastError)
+    lastError: normalizeString(source.lastError),
   };
 }
 
@@ -1189,7 +1311,7 @@ async function appendSystemEvent(type, payload = {}) {
   const runtimeEvent = storeCore.appendRuntimeEvent(
     normalizeString(type, "unknown"),
     isRecord(payload) ? payload : {},
-    opts
+    opts,
   );
   const ts = Number(runtimeEvent?.createdAt || opts.now || nowTs()) || nowTs();
   return {
@@ -1197,7 +1319,7 @@ async function appendSystemEvent(type, payload = {}) {
     type: normalizeString(runtimeEvent?.type, normalizeString(type, "unknown")),
     ts,
     iso: toIso(ts),
-    payload: isRecord(runtimeEvent?.payload) ? runtimeEvent.payload : {}
+    payload: isRecord(runtimeEvent?.payload) ? runtimeEvent.payload : {},
   };
 }
 
@@ -1210,7 +1332,7 @@ async function readRecentSystemEvents(limit = EVENT_LOG_TAIL_LIMIT) {
       type: normalizeString(event?.type),
       ts,
       iso: toIso(ts),
-      payload: isRecord(event?.payload) ? event.payload : {}
+      payload: isRecord(event?.payload) ? event.payload : {},
     };
   });
 }
@@ -1223,9 +1345,7 @@ function truncateText(value, limit = 160) {
 }
 
 function mergeUniqueStrings(...lists) {
-  return dedupe(
-    lists.flatMap((list) => normalizeStringArray(list))
-  );
+  return dedupe(lists.flatMap((list) => normalizeStringArray(list)));
 }
 
 function buildLocalDateKey(ts = nowTs()) {
@@ -1269,9 +1389,7 @@ function removeStringsFromSet(values, blocked) {
 }
 
 function averageNumber(values) {
-  const filtered = values
-    .map((value) => Number(value))
-    .filter((value) => Number.isFinite(value));
+  const filtered = values.map((value) => Number(value)).filter((value) => Number.isFinite(value));
   if (filtered.length === 0) return 0;
   return filtered.reduce((sum, value) => sum + value, 0) / filtered.length;
 }
@@ -1294,12 +1412,12 @@ function buildIntelStatus(store) {
       activeDomainId: intelRuntime.activeDomainId || null,
       activeDigestDomainId: intelRuntime.activeDigestDomainId || null,
       lastRefreshIso: toIso(normalized.scheduler.lastTickAt),
-      lastDigestSweepIso: toIso(normalized.scheduler.lastDigestSweepAt)
+      lastDigestSweepIso: toIso(normalized.scheduler.lastDigestSweepAt),
     },
     stats: {
       itemCount: normalized.items.length,
       digestCount: normalized.digests.length,
-      deliveredDigestCount: normalized.digests.filter((digest) => digest.status === "sent").length
+      deliveredDigestCount: normalized.digests.filter((digest) => digest.status === "sent").length,
     },
     domains: normalized.domains.map((domain) => {
       const items = normalized.items
@@ -1326,7 +1444,7 @@ function buildIntelStatus(store) {
           noveltyScore: item.noveltyScore,
           relevanceScore: item.relevanceScore,
           judgement: item.judgement,
-          url: item.url
+          url: item.url,
         })),
         sources: domain.sources.map((source) => ({
           id: source.id,
@@ -1337,9 +1455,9 @@ function buildIntelStatus(store) {
             failureCount: 0,
             lastSeenAt: null,
             lastFailureAt: null,
-            avgScore: 0
-          }
-        }))
+            avgScore: 0,
+          },
+        })),
       };
     }),
     digests: normalized.digests.slice(0, 9).map((digest) => ({
@@ -1350,8 +1468,8 @@ function buildIntelStatus(store) {
       status: digest.status,
       delivery: digest.delivery,
       itemCount: digest.items.length,
-      topTitles: digest.items.slice(0, 3).map((item) => item.title)
-    }))
+      topTitles: digest.items.slice(0, 3).map((item) => item.title),
+    })),
   };
 }
 
@@ -1360,14 +1478,17 @@ function buildMemoryStatus(store) {
   return {
     scheduler: {
       lastDistilledIso: toIso(normalized.scheduler.lastDistilledAt),
-      lastPersistedIso: toIso(normalized.scheduler.lastPersistedAt)
+      lastPersistedIso: toIso(normalized.scheduler.lastPersistedAt),
     },
     stats: {
       memoryCount: normalized.memories.length,
       strategyCount: normalized.strategies.length,
       learningCount: normalized.learnings.length,
-      highConfidenceMemories: normalized.memories.filter((entry) => entry.confidence >= 75 && entry.invalidatedBy.length === 0).length,
-      invalidatedMemories: normalized.memories.filter((entry) => entry.invalidatedBy.length > 0).length
+      highConfidenceMemories: normalized.memories.filter(
+        (entry) => entry.confidence >= 75 && entry.invalidatedBy.length === 0,
+      ).length,
+      invalidatedMemories: normalized.memories.filter((entry) => entry.invalidatedBy.length > 0)
+        .length,
     },
     recentMemories: normalized.memories.slice(0, 12).map((entry) => ({
       id: entry.id,
@@ -1378,7 +1499,7 @@ function buildMemoryStatus(store) {
       confidence: entry.confidence,
       tags: entry.tags,
       invalidated: entry.invalidatedBy.length > 0,
-      updatedIso: toIso(entry.updatedAt)
+      updatedIso: toIso(entry.updatedAt),
     })),
     recentStrategies: normalized.strategies.slice(0, 10).map((entry) => ({
       id: entry.id,
@@ -1389,7 +1510,7 @@ function buildMemoryStatus(store) {
       confidence: entry.confidence,
       invalidated: entry.invalidatedBy.length > 0,
       triggerConditions: truncateText(entry.triggerConditions, 160),
-      updatedIso: toIso(entry.updatedAt)
+      updatedIso: toIso(entry.updatedAt),
     })),
     recentLearnings: normalized.learnings.slice(0, 10).map((entry) => ({
       id: entry.id,
@@ -1398,8 +1519,8 @@ function buildMemoryStatus(store) {
       effectOnTokenCost: entry.effectOnTokenCost,
       effectOnCompletionQuality: entry.effectOnCompletionQuality,
       adoptedAs: entry.adoptedAs,
-      updatedIso: toIso(entry.updatedAt)
-    }))
+      updatedIso: toIso(entry.updatedAt),
+    })),
   };
 }
 
@@ -1411,13 +1532,16 @@ function buildEvolutionStatus(store) {
       lastTickIso: toIso(evolutionRuntime.lastTickAt),
       lastError: evolutionRuntime.lastError || null,
       active: Boolean(evolutionRuntime.active),
-      lastReviewIso: toIso(evolutionRuntime.lastReviewAt || normalized.scheduler.lastReviewAt)
+      lastReviewIso: toIso(evolutionRuntime.lastReviewAt || normalized.scheduler.lastReviewAt),
     },
     stats: {
       candidateCount: normalized.candidates.length,
       shadowCount: normalized.candidates.filter((entry) => entry.adoptionState === "shadow").length,
-      candidateStageCount: normalized.candidates.filter((entry) => entry.adoptionState === "candidate").length,
-      adoptedCount: normalized.candidates.filter((entry) => entry.adoptionState === "adopted").length
+      candidateStageCount: normalized.candidates.filter(
+        (entry) => entry.adoptionState === "candidate",
+      ).length,
+      adoptedCount: normalized.candidates.filter((entry) => entry.adoptionState === "adopted")
+        .length,
     },
     candidates: normalized.candidates.slice(0, 20).map((entry) => ({
       id: entry.id,
@@ -1430,8 +1554,8 @@ function buildEvolutionStatus(store) {
       shadowMetrics: entry.shadowMetrics,
       expectedEffect: entry.expectedEffect,
       measuredEffect: entry.measuredEffect,
-      updatedIso: toIso(entry.updatedAt)
-    }))
+      updatedIso: toIso(entry.updatedAt),
+    })),
   };
 }
 
@@ -1445,17 +1569,21 @@ function normalizeDeliveryCandidate(value) {
 async function resolvePreferredDigestDelivery() {
   const [autopilot, sessions] = await Promise.all([
     loadAutopilotStatus(),
-    loadAgentSessionsStore("main")
+    loadAgentSessionsStore("main"),
   ]);
   const candidates = [];
-  for (const task of [...(autopilot?.tasks || [])].sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))) {
+  for (const task of [...(autopilot?.tasks || [])].sort(
+    (left, right) => (right.updatedAt || 0) - (left.updatedAt || 0),
+  )) {
     const delivery = normalizeDeliveryCandidate(task.delivery);
     if (!delivery) continue;
     candidates.push({
       delivery,
       updatedAt: task.updatedAt || 0,
-      direct: !String(task.delivery?.target || "").includes("group:") && !String(task.delivery?.target || "").includes("wrSH"),
-      source: "autopilot-task"
+      direct:
+        !String(task.delivery?.target || "").includes("group:") &&
+        !String(task.delivery?.target || "").includes("wrSH"),
+      source: "autopilot-task",
     });
   }
   for (const entry of Object.values(sessions || {})) {
@@ -1463,15 +1591,17 @@ async function resolvePreferredDigestDelivery() {
       channel: entry?.deliveryContext?.channel || entry?.lastChannel,
       target: entry?.deliveryContext?.to || entry?.lastTo,
       accountId: entry?.deliveryContext?.accountId || entry?.lastAccountId,
-      threadId: entry?.deliveryContext?.threadId || entry?.lastThreadId
+      threadId: entry?.deliveryContext?.threadId || entry?.lastThreadId,
     });
     if (!delivery) continue;
-    const direct = normalizeString(entry?.origin?.chatType) === "direct" || /^user:|^wecom:/i.test(delivery.target);
+    const direct =
+      normalizeString(entry?.origin?.chatType) === "direct" ||
+      /^user:|^wecom:/i.test(delivery.target);
     candidates.push({
       delivery,
       updatedAt: Number(entry?.updatedAt || 0),
       direct,
-      source: "recent-session"
+      source: "recent-session",
     });
   }
   candidates.sort((left, right) => {
@@ -1492,7 +1622,9 @@ function buildRouteDomains(route) {
 
 function scoreMemoryForTask(entry, task) {
   if (!entry || entry.invalidatedBy?.length) return -1000;
-  const tags = normalizeKeywordTags(task.tags || extractKeywordTags(`${task.title} ${task.goal}`, task.skillHints));
+  const tags = normalizeKeywordTags(
+    task.tags || extractKeywordTags(`${task.title} ${task.goal}`, task.skillHints),
+  );
   const routeDomains = buildRouteDomains(task.route);
   let score = entry.confidence - entry.decayScore * 0.6;
   if (entry.route && entry.route === task.route) score += 22;
@@ -1507,7 +1639,9 @@ function scoreMemoryForTask(entry, task) {
 
 function scoreStrategyForTask(entry, task) {
   if (!entry || entry.invalidatedBy?.length) return -1000;
-  const tags = normalizeKeywordTags(task.tags || extractKeywordTags(`${task.title} ${task.goal}`, task.skillHints));
+  const tags = normalizeKeywordTags(
+    task.tags || extractKeywordTags(`${task.title} ${task.goal}`, task.skillHints),
+  );
   let score = entry.confidence;
   if (entry.route && entry.route === task.route) score += 25;
   score += intersectionSize(entry.tags, tags) * 10;
@@ -1519,7 +1653,9 @@ function scoreStrategyForTask(entry, task) {
 
 function scoreIntelForTask(item, task) {
   if (!item) return -1000;
-  const tags = normalizeKeywordTags(task.tags || extractKeywordTags(`${task.title} ${task.goal}`, task.skillHints));
+  const tags = normalizeKeywordTags(
+    task.tags || extractKeywordTags(`${task.title} ${task.goal}`, task.skillHints),
+  );
   let score = item.overallScore;
   score += intersectionSize(item.tags, tags) * 8;
   if (buildRouteDomains(task.route).includes(item.domain)) score += 12;
@@ -1566,7 +1702,8 @@ function buildLocalFirstPlan(task, lane) {
 
 function buildRemoteModelPlan(task, lane) {
   if (lane === "system1") return "只有本地路径和稳定 skill 不足时才升级到远程模型。";
-  if (task.route === "coder" || task.route === "ops") return "允许更深推理，但先带入最少必要记忆和情报，不做长上下文裸跑。";
+  if (task.route === "coder" || task.route === "ops")
+    return "允许更深推理，但先带入最少必要记忆和情报，不做长上下文裸跑。";
   return "只把最相关的记忆、情报和当前状态送入远程推理链。";
 }
 
@@ -1577,20 +1714,26 @@ function buildFallbackOrder(task, worker, skills, lane) {
     skills.length ? `skill:${skills[0]}` : null,
     worker ? `worker:${worker}` : null,
     lane === "system2" ? "route-replan" : "system2-escalation",
-    route !== "general" ? "worker:main" : null
+    route !== "general" ? "worker:main" : null,
   ].filter(Boolean);
   return dedupe(base);
 }
 
 function shouldUseSystem2(task, topStrategy, relevantMemories, relevantIntel) {
-  const stableSkillCount = mergeUniqueStrings(task?.skillHints, topStrategy?.recommendedSkills).length;
-  const highConfidenceExecutionMemories = relevantMemories.filter((entry) => (
-    ["execution", "efficiency"].includes(entry.entry.memoryType) &&
-    entry.entry.confidence >= 68
-  )).length;
+  const stableSkillCount = mergeUniqueStrings(
+    task?.skillHints,
+    topStrategy?.recommendedSkills,
+  ).length;
+  const highConfidenceExecutionMemories = relevantMemories.filter(
+    (entry) =>
+      ["execution", "efficiency"].includes(entry.entry.memoryType) && entry.entry.confidence >= 68,
+  ).length;
   if (topStrategy?.thinkingLane === "system2") return true;
   if (topStrategy?.thinkingLane === "system1" && topStrategy.confidence >= 68) {
-    if ((task.runState?.consecutiveFailures || 0) === 0 && (task.runState?.remoteCallCount || 0) < 2) {
+    if (
+      (task.runState?.consecutiveFailures || 0) === 0 &&
+      (task.runState?.remoteCallCount || 0) < 2
+    ) {
       return false;
     }
   }
@@ -1608,7 +1751,8 @@ function shouldUseSystem2(task, topStrategy, relevantMemories, relevantIntel) {
   if (!topStrategy) return true;
   if ((task.runState?.consecutiveFailures || 0) > 0) return true;
   if ((task.runState?.remoteCallCount || 0) >= 2) return true;
-  if (task.route === "general" && highConfidenceExecutionMemories < 2 && stableSkillCount < 2) return true;
+  if (task.route === "general" && highConfidenceExecutionMemories < 2 && stableSkillCount < 2)
+    return true;
   if (normalizeString(task.goal).length > 220) return true;
   if (task.priority === "high" && relevantMemories.length < 2) return true;
   if (relevantIntel.length >= 2 && relevantMemories.length === 0) return true;
@@ -1630,24 +1774,39 @@ function buildManagedRuntimeDecisionTask(task, config) {
     worker: normalizeString(task.assignee || "main"),
     skillIds: mergeUniqueStrings(
       task.skillHints,
-      buildSkillHintsForTask(route, taskGoalText)
+      buildSkillHintsForTask(route, taskGoalText),
     ).slice(0, 16),
     tags: normalizeKeywordTags(task.tags || extractKeywordTags(taskGoalText, task.skillHints)),
     blockedReason: normalizeString(task.blockedReason),
     lastError: normalizeString(task.lastError),
     runState: {
       consecutiveFailures: clampInt(task.runState?.consecutiveFailures, 0, 0, 1000),
-      remoteCallCount: clampInt(task.runState?.remoteCallCount, 0, 0, 100000)
-    }
+      remoteCallCount: clampInt(task.runState?.remoteCallCount, 0, 0, 100000),
+    },
   };
 }
 
 function buildManagedRuntimeDecisionConfig(config) {
   return {
-    maxInputTokensPerTurn: clampInt(config.maxInputTokensPerTurn, DEFAULT_AUTOPILOT_CONFIG.maxInputTokensPerTurn, 512, 500000),
-    maxRemoteCallsPerTask: clampInt(config.maxRemoteCallsPerTask, DEFAULT_AUTOPILOT_CONFIG.maxRemoteCallsPerTask, 1, 100000),
+    maxInputTokensPerTurn: clampInt(
+      config.maxInputTokensPerTurn,
+      DEFAULT_AUTOPILOT_CONFIG.maxInputTokensPerTurn,
+      512,
+      500000,
+    ),
+    maxRemoteCallsPerTask: clampInt(
+      config.maxRemoteCallsPerTask,
+      DEFAULT_AUTOPILOT_CONFIG.maxRemoteCallsPerTask,
+      1,
+      100000,
+    ),
     maxCandidatesPerPlane: 4,
-    maxContextChars: clampInt(config.maxContextChars, DEFAULT_AUTOPILOT_CONFIG.maxContextChars, 1200, 100000)
+    maxContextChars: clampInt(
+      config.maxContextChars,
+      DEFAULT_AUTOPILOT_CONFIG.maxContextChars,
+      1200,
+      100000,
+    ),
   };
 }
 
@@ -1655,13 +1814,18 @@ function buildManagedRuntimeContextPackText(decision) {
   const strategyLine = decision?.contextPack?.strategyCandidates?.[0]?.title
     ? `命中策略：${truncateText(decision.contextPack.strategyCandidates[0].title, 160)}`
     : "命中策略：无高置信固定策略，本轮需要显式规划。";
-  const memoryLines = (decision?.contextPack?.memoryCandidates || []).slice(0, 5).map((entry) => (
-    `- [memory] ${truncateText(entry.title || entry.excerpt, 160)}`
-  ));
-  const intelLines = (decision?.contextPack?.intelCandidates || []).slice(0, 4).map((entry) => (
-    `- [intel] ${truncateText(entry.title, 90)} | ${truncateText(entry.excerpt || "", 120)}`
-  ));
-  const synthesisLines = (decision?.contextPack?.synthesis || []).slice(0, 6).map((line) => `- ${line}`);
+  const memoryLines = (decision?.contextPack?.memoryCandidates || [])
+    .slice(0, 5)
+    .map((entry) => `- [memory] ${truncateText(entry.title || entry.excerpt, 160)}`);
+  const intelLines = (decision?.contextPack?.intelCandidates || [])
+    .slice(0, 4)
+    .map(
+      (entry) =>
+        `- [intel] ${truncateText(entry.title, 90)} | ${truncateText(entry.excerpt || "", 120)}`,
+    );
+  const synthesisLines = (decision?.contextPack?.synthesis || [])
+    .slice(0, 6)
+    .map((line) => `- ${line}`);
   return [
     `决策通道：${decision?.thinkingLane || "system1"}`,
     strategyLine,
@@ -1673,8 +1837,10 @@ function buildManagedRuntimeContextPackText(decision) {
     intelLines.length ? "相关情报：" : "",
     ...intelLines,
     synthesisLines.length ? "综合上下文：" : "",
-    ...synthesisLines
-  ].filter(Boolean).join("\n");
+    ...synthesisLines,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function adaptManagedRuntimeDecision(decision) {
@@ -1703,7 +1869,7 @@ function adaptManagedRuntimeDecision(decision) {
     budgetLimit: decision.budgetLimit,
     contextPack: buildManagedRuntimeContextPackText(decision),
     contextPackRecord: decision.contextPack,
-    coreDecision: decision
+    coreDecision: decision,
   };
 }
 
@@ -1713,15 +1879,15 @@ function normalizeManagedRuntimeThinkingLane(value) {
 
 function buildManagedRuntimeTaskReviewSummary(task) {
   return truncateText(
-    task?.lastResult
-      || task?.runState?.lastResultSummary
-      || task?.blockedReason
-      || task?.lastError
-      || task?.planSummary
-      || task?.nextAction
-      || task?.goal
-      || task?.title,
-    220
+    task?.lastResult ||
+      task?.runState?.lastResultSummary ||
+      task?.blockedReason ||
+      task?.lastError ||
+      task?.planSummary ||
+      task?.nextAction ||
+      task?.goal ||
+      task?.title,
+    220,
   );
 }
 
@@ -1747,8 +1913,8 @@ async function buildManagedRuntimeTaskArtifacts(task, options = {}) {
         source: "openclaw-codex-control",
         route,
         worker,
-        backgroundSessionId: normalizeString(task?.runState?.backgroundSessionId) || null
-      }
+        backgroundSessionId: normalizeString(task?.runState?.backgroundSessionId) || null,
+      },
     });
     const taskStep = core.buildTaskTransitionStep({
       taskId: normalizeString(task?.id),
@@ -1763,8 +1929,8 @@ async function buildManagedRuntimeTaskArtifacts(task, options = {}) {
       metadata: {
         source: "openclaw-codex-control",
         fromStatus: normalizeString(options.fromStatus) || null,
-        transitionEventId: normalizeString(options.transitionEventId) || null
-      }
+        transitionEventId: normalizeString(options.transitionEventId) || null,
+      },
     });
     let taskReview = null;
     let shareableReview = null;
@@ -1783,8 +1949,8 @@ async function buildManagedRuntimeTaskArtifacts(task, options = {}) {
           transitionEventId: normalizeString(options.transitionEventId) || null,
           route,
           worker,
-          thinkingLane
-        }
+          thinkingLane,
+        },
       });
       shareableReview = core.buildShareableReviewEnvelope(taskReview, {
         generatedAt: parseOptionalTimestamp(options.generatedAt) || updatedAt,
@@ -1792,8 +1958,8 @@ async function buildManagedRuntimeTaskArtifacts(task, options = {}) {
           source: "openclaw-codex-control",
           route,
           worker,
-          thinkingLane
-        }
+          thinkingLane,
+        },
       });
     }
     const taskRecord = core.buildTaskRecordSnapshot({
@@ -1803,7 +1969,8 @@ async function buildManagedRuntimeTaskArtifacts(task, options = {}) {
       status,
       priority: normalizeString(task?.priority) || "normal",
       budgetMode: normalizeString(task?.budgetMode) || DEFAULT_AUTOPILOT_CONFIG.defaultBudgetMode,
-      retrievalMode: normalizeString(task?.retrievalMode) || DEFAULT_AUTOPILOT_CONFIG.defaultRetrievalMode,
+      retrievalMode:
+        normalizeString(task?.retrievalMode) || DEFAULT_AUTOPILOT_CONFIG.defaultRetrievalMode,
       worker,
       skillIds: normalizeStringArray(task?.skillHints),
       memoryRefs: normalizeStringArray(task?.memoryRefs),
@@ -1823,20 +1990,22 @@ async function buildManagedRuntimeTaskArtifacts(task, options = {}) {
         planSummary: normalizeString(task?.planSummary) || null,
         nextAction: normalizeString(task?.nextAction) || null,
         blockedReason: normalizeString(task?.blockedReason) || null,
-        lastError: normalizeString(task?.lastError) || null
-      }
+        lastError: normalizeString(task?.lastError) || null,
+      },
     });
     return {
       taskRecord,
       taskRun,
       taskStep,
       taskReview,
-      shareableReview
+      shareableReview,
     };
   } catch (error) {
     if (!managedRuntimeTaskArtifactsWarned && pluginApi?.logger) {
       managedRuntimeTaskArtifactsWarned = true;
-      pluginApi.logger.warn(`[openclaw-codex-control] managed runtime task artifacts unavailable, runtime event snapshots will be partial: ${error?.message || error}`);
+      pluginApi.logger.warn(
+        `[openclaw-codex-control] managed runtime task artifacts unavailable, runtime event snapshots will be partial: ${error?.message || error}`,
+      );
     }
     return null;
   }
@@ -1845,7 +2014,7 @@ async function buildManagedRuntimeTaskArtifacts(task, options = {}) {
 async function buildTaskDecision(task, config) {
   const [core, storeCore] = await Promise.all([
     loadManagedRuntimeDecisionCore(),
-    loadManagedRuntimeStoreCore()
+    loadManagedRuntimeStoreCore(),
   ]);
   if (!core?.buildDecisionRecord) {
     throw new Error("Managed runtime decision core is unavailable.");
@@ -1860,9 +2029,9 @@ async function buildTaskDecision(task, config) {
       strategies: memoryStore.strategies,
       memories: memoryStore.memories,
       intel: intelStore.candidates,
-      archive: []
+      archive: [],
     },
-    now: nowTs()
+    now: nowTs(),
   });
   return adaptManagedRuntimeDecision(coreDecision);
 }
@@ -1873,33 +2042,37 @@ function buildDecisionPromptBlock(decision) {
     "决策内核输出：",
     `- 决策通道：${decision.thinkingLane || "system1"}`,
     `- 推荐执行者：${decision.recommendedWorker || "main"}`,
-    decision.recommendedSkills?.length ? `- 推荐 skills：${decision.recommendedSkills.join(", ")}` : "",
+    decision.recommendedSkills?.length
+      ? `- 推荐 skills：${decision.recommendedSkills.join(", ")}`
+      : "",
     decision.fallbackOrder?.length ? `- fallback 顺序：${decision.fallbackOrder.join(" -> ")}` : "",
     decision.localFirstPlan ? `- 本地优先：${decision.localFirstPlan}` : "",
     decision.remoteModelPlan ? `- 远程推理：${decision.remoteModelPlan}` : "",
-    decision.contextPack ? decision.contextPack : ""
+    decision.contextPack ? decision.contextPack : "",
   ].filter(Boolean);
   return lines.join("\n");
 }
 
-function buildManagedIntelDigest(domainId, intelStore, digestDate) {
+function buildManagedIntelDigest(intelStore, digestDate) {
   const items = intelStore.digestItems
-    .filter((entry) => entry.domain === domainId && normalizeString(entry.metadata?.digestDate) === digestDate)
+    .filter((entry) => normalizeString(entry.metadata?.digestDate) === digestDate)
     .sort((left, right) => (right.createdAt || 0) - (left.createdAt || 0));
   return {
-    id: `runtime-digest-${domainId}-${digestDate}`,
-    domain: domainId,
+    id: `runtime-digest-${digestDate}`,
     digestDate,
     createdAt: items.reduce((latest, entry) => Math.max(latest, entry.createdAt || 0), 0),
-    items
+    items,
   };
 }
 
-function formatManagedIntelDigestMessage(domainLabel, digest) {
-  const header = `${domainLabel} 情报日报 (${digest.digestDate})`;
-  const body = digest.items.map((item, index) => (
-    `${index + 1}. ${item.title}\n结论：${item.conclusion}\n判断：${item.whyItMatters}\n行动：${item.recommendedAction}`
-  )).join("\n\n");
+function formatManagedIntelDigestMessage(digest) {
+  const header = `情报面板日报 (${digest.digestDate})`;
+  const body = digest.items
+    .map((item, index) => {
+      const domain = normalizeString(item.domain).toUpperCase() || "INFO";
+      return `${index + 1}. [${domain}] ${item.title}\n结论：${item.conclusion}\n判断：${item.whyItMatters}\n行动：${item.recommendedAction}`;
+    })
+    .join("\n\n");
   return `${header}\n\n${body}`.trim();
 }
 
@@ -1908,112 +2081,105 @@ async function runIntelMaintenance(options = {}) {
   const opts = managedRuntimeStoreOptions(nowValue);
   const [storeCore, intelRefresh] = await Promise.all([
     loadManagedRuntimeStoreCore(),
-    loadManagedRuntimeIntelRefreshCore()
+    loadManagedRuntimeIntelRefreshCore(),
   ]);
   const initialIntelStore = storeCore.loadRuntimeIntelStore(opts);
   if (!initialIntelStore.enabled) return await buildManagedIntelStatus();
   const domainIds = normalizeString(options.domainId)
     ? [normalizeString(options.domainId)]
-    : [...new Set([
-        ...initialIntelStore.candidates.map((entry) => entry.domain),
-        ...initialIntelStore.digestItems.map((entry) => entry.domain),
-        ...initialIntelStore.sourceProfiles.map((entry) => entry.domain),
-        "tech",
-        "ai",
-        "business",
-        "github"
-      ])];
+    : [
+        ...new Set([
+          ...initialIntelStore.candidates.map((entry) => entry.domain),
+          ...initialIntelStore.digestItems.map((entry) => entry.domain),
+          ...initialIntelStore.sourceProfiles.map((entry) => entry.domain),
+          "tech",
+          "ai",
+          "business",
+          "github",
+        ]),
+      ];
   await intelRefresh.refreshRuntimeIntelPipeline({
     ...opts,
     domains: domainIds,
     force: Boolean(options.forceRefresh),
-    githubToken: normalizeString(options.githubToken) || undefined
+    githubToken: normalizeString(options.githubToken) || undefined,
   });
   const refreshedIntelStore = storeCore.loadRuntimeIntelStore(opts);
-  if (!refreshedIntelStore.digestEnabled) return await buildManagedIntelStatus();
-  const currentHour = new Date().getHours();
+  const metadata = isRecord(refreshedIntelStore.metadata) ? refreshedIntelStore.metadata : {};
+  if (metadata.dailyPushEnabled === false) return await buildManagedIntelStatus();
+  const nowDate = new Date();
+  const currentHour = nowDate.getHours();
+  const currentMinute = nowDate.getMinutes();
   const todayKey = buildLocalDateKey();
-  let metadata = isRecord(refreshedIntelStore.metadata) ? refreshedIntelStore.metadata : {};
-  for (const domainId of domainIds) {
-    const domainMeta = readManagedIntelDomainMetadata(metadata, domainId);
-    if (!domainMeta.nextDigestDate) {
-      metadata = writeManagedIntelDomainMetadata(metadata, domainId, {
-        nextDigestDate: computeInitialDigestDateKey(clampInt(metadata.digestHourLocal, 9, 0, 23))
-      });
-    }
-  }
-  refreshedIntelStore.metadata = metadata;
-  storeCore.saveRuntimeIntelStore(refreshedIntelStore, opts);
-  const delivery = normalizeDeliveryCandidate(options.delivery) || await resolvePreferredDigestDelivery();
+  const delivery =
+    normalizeDeliveryCandidate(options.delivery) || (await resolvePreferredDigestDelivery());
   const nextIntelStore = storeCore.loadRuntimeIntelStore(opts);
   let changed = false;
   let nextMetadata = isRecord(nextIntelStore.metadata) ? nextIntelStore.metadata : {};
-  for (const domainId of domainIds) {
-    const domainMeta = readManagedIntelDomainMetadata(nextMetadata, domainId);
-    const latestDeliveredDigestDate = normalizeString(domainMeta.lastDeliveredDigestDate);
-    if (!Boolean(options.forceDigest) && latestDeliveredDigestDate === todayKey) {
-      const tomorrowKey = buildRelativeLocalDateKey(1);
-      if (domainMeta.nextDigestDate !== tomorrowKey) {
-        nextMetadata = writeManagedIntelDomainMetadata(nextMetadata, domainId, {
-          nextDigestDate: tomorrowKey
-        });
-        changed = true;
-      }
-      continue;
-    }
-    const backoffActive = Boolean(
-      !options.forceDigest &&
-      Number(domainMeta.lastDigestAttemptAt || 0) &&
-      nowValue - Number(domainMeta.lastDigestAttemptAt || 0) < INTEL_DIGEST_RETRY_BACKOFF_MS
-    );
-    const dueDigest = Boolean(options.forceDigest) || (
-      currentHour >= clampInt(nextIntelStore.metadata?.digestHourLocal, 9, 0, 23) &&
-      (!normalizeString(domainMeta.nextDigestDate) || normalizeString(domainMeta.nextDigestDate) <= todayKey) &&
-      !backoffActive
-    );
-    if (!dueDigest) continue;
-    const digest = buildManagedIntelDigest(domainId, nextIntelStore, todayKey);
+  const lastDeliveredDigestDate = normalizeString(nextMetadata.lastDeliveredDigestDate);
+  const backoffActive = Boolean(
+    !options.forceDigest &&
+    Number(nextMetadata.lastDigestAttemptAt || 0) &&
+    nowValue - Number(nextMetadata.lastDigestAttemptAt || 0) < INTEL_DIGEST_RETRY_BACKOFF_MS,
+  );
+  const pushHour = clampInt(nextMetadata.dailyPushHourLocal, 9, 0, 23);
+  const pushMinute = clampInt(nextMetadata.dailyPushMinuteLocal, 0, 0, 59);
+  const dueDigest =
+    Boolean(options.forceDigest) ||
+    (!backoffActive &&
+      lastDeliveredDigestDate !== todayKey &&
+      (currentHour > pushHour || (currentHour === pushHour && currentMinute >= pushMinute)));
+  if (dueDigest) {
+    const digest = buildManagedIntelDigest(nextIntelStore, todayKey);
     if (!digest.items.length) {
-      nextMetadata = writeManagedIntelDomainMetadata(nextMetadata, domainId, {
+      nextMetadata = {
+        ...nextMetadata,
         lastDigestAttemptAt: nowValue,
         lastDigestError: "no_digest_items",
-        nextDigestDate: buildRelativeLocalDateKey(1)
-      });
+      };
       changed = true;
-      continue;
-    }
-    if (!delivery) {
-      nextMetadata = writeManagedIntelDomainMetadata(nextMetadata, domainId, {
+    } else if (!delivery) {
+      nextMetadata = {
+        ...nextMetadata,
         lastDigestAttemptAt: nowValue,
-        lastDigestError: "delivery_unavailable"
-      });
+        lastDigestError: "delivery_unavailable",
+      };
       changed = true;
-      continue;
-    }
-    const domainLabel =
-      nextIntelStore.sourceProfiles.find((entry) => entry.domain === domainId)?.label ||
-      (domainId === "ai" ? "AI" : domainId === "github" ? "GitHub" : domainId === "business" ? "Business" : "Tech");
-    const message = formatManagedIntelDigestMessage(domainLabel, digest);
-    const deliveryResult = await notifyTaskTarget({
-      id: digest.id,
-      title: `${domainLabel} 情报日报`,
-      delivery
-    }, "proactive", message);
-    nextMetadata = writeManagedIntelDomainMetadata(nextMetadata, domainId, {
-      lastDigestAttemptAt: nowValue,
-      lastDigestDate: todayKey,
-      lastDigestError: deliveryResult.ok ? "" : String(deliveryResult.error || "digest_delivery_failed"),
-      lastDeliveredDigestDate: deliveryResult.ok ? todayKey : normalizeString(domainMeta.lastDeliveredDigestDate) || undefined,
-      nextDigestDate: deliveryResult.ok ? buildRelativeLocalDateKey(1) : normalizeString(domainMeta.nextDigestDate) || computeInitialDigestDateKey(clampInt(nextIntelStore.metadata?.digestHourLocal, 9, 0, 23))
-    });
-    changed = true;
-    if (deliveryResult.ok && typeof storeCore.appendRuntimeEvent === "function") {
-      storeCore.appendRuntimeEvent("runtime_intel_digest_sent", {
-        domainId,
-        digestId: digest.id,
-        digestDate: todayKey,
-        delivery
-      }, opts);
+    } else {
+      const message = formatManagedIntelDigestMessage(digest);
+      const deliveryResult = await notifyTaskTarget(
+        {
+          id: digest.id,
+          title: "情报面板日报",
+          delivery,
+        },
+        "proactive",
+        message,
+      );
+      nextMetadata = {
+        ...nextMetadata,
+        lastDigestAttemptAt: nowValue,
+        lastDigestDate: todayKey,
+        lastDigestError: deliveryResult.ok
+          ? ""
+          : String(deliveryResult.error || "digest_delivery_failed"),
+        lastDeliveredDigestDate: deliveryResult.ok
+          ? todayKey
+          : lastDeliveredDigestDate || undefined,
+      };
+      changed = true;
+      if (deliveryResult.ok && typeof storeCore.appendRuntimeEvent === "function") {
+        storeCore.appendRuntimeEvent(
+          "runtime_intel_digest_sent",
+          {
+            digestId: digest.id,
+            digestDate: todayKey,
+            itemCount: digest.items.length,
+            delivery,
+          },
+          opts,
+        );
+      }
     }
   }
   if (changed) {
@@ -2028,7 +2194,7 @@ async function runEvolutionReview(options = {}) {
   const opts = managedRuntimeStoreOptions(nowValue);
   const [storeCore, mutations] = await Promise.all([
     loadManagedRuntimeStoreCore(),
-    loadManagedRuntimeMutationsCore()
+    loadManagedRuntimeMutationsCore(),
   ]);
   const governanceStore = storeCore.loadRuntimeGovernanceStore(opts);
   const metadata = isRecord(governanceStore.metadata) ? governanceStore.metadata : {};
@@ -2038,7 +2204,11 @@ async function runEvolutionReview(options = {}) {
   if (!enabled) {
     return await buildManagedEvolutionStatus();
   }
-  if (!Boolean(options.force) && lastReviewAt && nowValue - lastReviewAt < reviewIntervalHours * 60 * 60 * 1000) {
+  if (
+    !Boolean(options.force) &&
+    lastReviewAt &&
+    nowValue - lastReviewAt < reviewIntervalHours * 60 * 60 * 1000
+  ) {
     return await buildManagedEvolutionStatus();
   }
   evolutionRuntime.active = true;
@@ -2109,34 +2279,42 @@ function buildAutopilotTaskView(task, config) {
     isOverdue: Boolean(isDue && nextRunAt),
     canRunNow: Boolean(config.enabled && isRunnable),
     effectiveBudgetMode: task.budgetMode || config.defaultBudgetMode,
-    effectiveRetrievalMode: task.retrievalMode || config.defaultRetrievalMode
+    effectiveRetrievalMode: task.retrievalMode || config.defaultRetrievalMode,
   };
 }
 
 function findContinuationTask(store, sessionKey) {
   const active = store.tasks
-    .filter((task) => !isAutopilotTerminalStatus(task.status) && task.sourceMeta?.sessionKey === sessionKey)
+    .filter(
+      (task) =>
+        !isAutopilotTerminalStatus(task.status) && task.sourceMeta?.sessionKey === sessionKey,
+    )
     .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
   return active[0] || null;
 }
 
 function buildCapturedTaskPayload(params) {
   const { store, sessionKey, cleanText, sourceMeta, delivery, route, assignee } = params;
-  const continuation = looksLikeContinuation(cleanText) ? findContinuationTask(store, sessionKey) : null;
-  const taskId = continuation?.id || buildTaskIdFromMessage(sessionKey, sourceMeta.messageId, cleanText);
-  const goal = continuation?.goal
-    ? `${continuation.goal}\n\n跟进补充：${cleanText}`
-    : cleanText;
+  const continuation = looksLikeContinuation(cleanText)
+    ? findContinuationTask(store, sessionKey)
+    : null;
+  const taskId =
+    continuation?.id || buildTaskIdFromMessage(sessionKey, sourceMeta.messageId, cleanText);
+  const goal = continuation?.goal ? `${continuation.goal}\n\n跟进补充：${cleanText}` : cleanText;
   return {
     ...continuation,
     id: taskId,
     title: continuation?.title || buildTaskTitleFromText(cleanText),
     goal: summarizeTaskGoal(goal),
-    successCriteria: continuation?.successCriteria || "形成真实交付、明确下一动作，或在缺少关键输入时给出高信息密度阻塞说明。",
+    successCriteria:
+      continuation?.successCriteria ||
+      "形成真实交付、明确下一动作，或在缺少关键输入时给出高信息密度阻塞说明。",
     notes: continuation?.notes
       ? `${continuation.notes}\n\n[follow-up ${new Date().toISOString()}]\n${cleanText}`
       : cleanText,
-    doneCriteria: continuation?.doneCriteria || "完成真实交付，或在缺少关键决策/外部输入时给出高信息密度阻塞说明。",
+    doneCriteria:
+      continuation?.doneCriteria ||
+      "完成真实交付，或在缺少关键决策/外部输入时给出高信息密度阻塞说明。",
     planSummary: continuation?.planSummary || "",
     nextAction: continuation?.nextAction || "",
     blockedReason: continuation?.blockedReason || "",
@@ -2153,7 +2331,7 @@ function buildCapturedTaskPayload(params) {
     skillHints: buildSkillHintsForTask(route, cleanText),
     tags: mergeUniqueStrings(continuation?.tags, extractKeywordTags(goal, [route, assignee])),
     priority: route === "ops" || route === "coder" ? "high" : "normal",
-    nextRunAt: nowTs()
+    nextRunAt: nowTs(),
   };
 }
 
@@ -2173,11 +2351,12 @@ async function captureAutopilotTaskFromSession(ctx) {
   if (!messageMeta.delivery.channel || !messageMeta.delivery.target) return null;
   const status = await buildManagedAutopilotStatus();
   if (!status.config.enabled) return null;
-  const duplicate = status.tasks.find((task) => (
-    task?.sourceMeta?.sessionKey === sessionKey &&
-    task?.sourceMeta?.messageId &&
-    task.sourceMeta.messageId === messageMeta.sourceMeta.messageId
-  ));
+  const duplicate = status.tasks.find(
+    (task) =>
+      task?.sourceMeta?.sessionKey === sessionKey &&
+      task?.sourceMeta?.messageId &&
+      task.sourceMeta.messageId === messageMeta.sourceMeta.messageId,
+  );
   if (duplicate) return duplicate;
   const routeInfo = classifyTaskRoute(cleanText);
   const payload = buildCapturedTaskPayload({
@@ -2187,7 +2366,7 @@ async function captureAutopilotTaskFromSession(ctx) {
     sourceMeta: messageMeta.sourceMeta,
     delivery: messageMeta.delivery,
     route: routeInfo.route,
-    assignee: routeInfo.assignee
+    assignee: routeInfo.assignee,
   });
   const saved = await upsertManagedAutopilotTask(payload);
   return saved.tasks.find((task) => task.id === payload.id) || payload;
@@ -2210,7 +2389,7 @@ function buildAutopilotPromptBlock(task, config) {
     "- 只有缺少关键决策、授权、外部输入时才问，并且一次说清楚缺什么。",
     "- 如当前回合无法完全收口，也要给用户一个简短确认，并继续让后台推进。",
     task.skillHints?.length ? `优先考虑的 skills：${task.skillHints.join(", ")}` : "",
-    "</personal-superintelligence>"
+    "</personal-superintelligence>",
   ].filter(Boolean);
   return lines.join("\n");
 }
@@ -2245,26 +2424,31 @@ function buildAutopilotWorkerPrompt(task, config) {
     "10. 最终输出时，除了必要的简短说明，只能在最后包含一段 AUTOPILOT_RESULT JSON。",
     "输出格式：",
     "<AUTOPILOT_RESULT>",
-    JSON.stringify({
-      status: "running",
-      summary: "一句话说明当前进展或交付结果",
-      planSummary: "当前计划的简短摘要",
-      nextAction: "下一步具体动作",
-      blockedReason: "",
-      lastResult: "本轮产出或最新结论",
-      nextRunInMinutes: 15,
-      needsUser: "",
-      shouldNotify: false,
-      notes: ""
-    }, null, 2),
-    "</AUTOPILOT_RESULT>"
+    JSON.stringify(
+      {
+        status: "running",
+        summary: "一句话说明当前进展或交付结果",
+        planSummary: "当前计划的简短摘要",
+        nextAction: "下一步具体动作",
+        blockedReason: "",
+        lastResult: "本轮产出或最新结论",
+        nextRunInMinutes: 15,
+        needsUser: "",
+        shouldNotify: false,
+        notes: "",
+      },
+      null,
+      2,
+    ),
+    "</AUTOPILOT_RESULT>",
   ].filter(Boolean);
   return lines.join("\n\n");
 }
 
 async function notifyTaskTarget(task, kind, text) {
   const delivery = normalizeAutopilotDelivery(task.delivery);
-  if (!delivery.channel || !delivery.target || !normalizeString(text)) return { ok: false, skipped: true };
+  if (!delivery.channel || !delivery.target || !normalizeString(text))
+    return { ok: false, skipped: true };
   const args = [
     "message",
     "send",
@@ -2274,14 +2458,16 @@ async function notifyTaskTarget(task, kind, text) {
     delivery.target,
     "--message",
     text,
-    "--json"
+    "--json",
   ];
   if (delivery.accountId) args.push("--account", delivery.accountId);
   if (delivery.threadId) args.push("--thread-id", delivery.threadId);
   if (delivery.replyTo && kind !== "proactive") args.push("--reply-to", delivery.replyTo);
   const result = await runOpenClawCli(args, { timeoutMs: 60 * 1000 });
   if (!result.ok && pluginApi) {
-    pluginApi.logger.warn(`[openclaw-codex-control] notify ${kind} failed for ${task.id}: ${result.stderr || result.stdout}`);
+    pluginApi.logger.warn(
+      `[openclaw-codex-control] notify ${kind} failed for ${task.id}: ${result.stderr || result.stdout}`,
+    );
   }
   return result;
 }
@@ -2298,9 +2484,17 @@ async function resolveWorkspacePathForAutopilotTask(task) {
 
 function formatMemoryTaskLine(task, status) {
   const route = normalizeString(task.route || task.taskKind || "general");
-  const summary = normalizeString(task.lastResult || task.runState?.lastResultSummary || task.blockedReason || task.lastError || task.goal || task.title);
+  const summary = normalizeString(
+    task.lastResult ||
+      task.runState?.lastResultSummary ||
+      task.blockedReason ||
+      task.lastError ||
+      task.goal ||
+      task.title,
+  );
   const compactSummary = summary.replace(/\s+/g, " ").trim();
-  const shownSummary = compactSummary.length > 220 ? `${compactSummary.slice(0, 220)}...` : compactSummary;
+  const shownSummary =
+    compactSummary.length > 220 ? `${compactSummary.slice(0, 220)}...` : compactSummary;
   return `- [autopilot][${status}][${task.id}] ${task.title} | route=${route} | ${shownSummary}`;
 }
 
@@ -2314,12 +2508,14 @@ async function appendAutopilotMemoryLineWithTransition(task, status, transitionF
   const memoryDir = path.join(workspace, "memory");
   const memoryFile = path.join(memoryDir, `${dateKey}.md`);
   const existing = await readTextFile(memoryFile, "");
-  const markers = getAutopilotStatusAliases(normalizedStatus).map((entry) => `[autopilot][${entry}][${task.id}]`);
+  const markers = getAutopilotStatusAliases(normalizedStatus).map(
+    (entry) => `[autopilot][${entry}][${task.id}]`,
+  );
   if (markers.some((marker) => existing.includes(marker))) {
     await transitionFn(task.id, {
       runState: {
-        memoryLoggedStatuses: [...runState.memoryLoggedStatuses, normalizedStatus]
-      }
+        memoryLoggedStatuses: [...runState.memoryLoggedStatuses, normalizedStatus],
+      },
     });
     return false;
   }
@@ -2329,20 +2525,25 @@ async function appendAutopilotMemoryLineWithTransition(task, status, transitionF
   await fsp.appendFile(memoryFile, `${prefix}${line}\n`, "utf8");
   await transitionFn(task.id, {
     runState: {
-      memoryLoggedStatuses: [...runState.memoryLoggedStatuses, normalizedStatus]
-    }
+      memoryLoggedStatuses: [...runState.memoryLoggedStatuses, normalizedStatus],
+    },
   });
   return true;
 }
 
 async function appendManagedAutopilotMemoryLine(task, status) {
-  return await appendAutopilotMemoryLineWithTransition(task, status, transitionManagedAutopilotTask);
+  return await appendAutopilotMemoryLineWithTransition(
+    task,
+    status,
+    transitionManagedAutopilotTask,
+  );
 }
 
 function buildPlanningSummary(task) {
-  const skillText = Array.isArray(task.skillHints) && task.skillHints.length > 0
-    ? `优先 skills: ${task.skillHints.slice(0, 5).join(", ")}`
-    : "优先用现有本地工具和稳定技能";
+  const skillText =
+    Array.isArray(task.skillHints) && task.skillHints.length > 0
+      ? `优先 skills: ${task.skillHints.slice(0, 5).join(", ")}`
+      : "优先用现有本地工具和稳定技能";
   return `按 ${task.route || task.taskKind || "general"} 路径推进，${skillText}。`;
 }
 
@@ -2362,9 +2563,12 @@ function buildRetryStrategy(task, failureSummary, reason = "worker_failure") {
   const totalFailures = (currentRunState.totalFailures || 0) + 1;
   const retryIndex = Math.min(consecutiveFailures - 1, AUTOPILOT_RETRY_BACKOFF_MINUTES.length - 1);
   const nextRunAt = nowTs() + AUTOPILOT_RETRY_BACKOFF_MINUTES[retryIndex] * 60 * 1000;
-  const escalatedBudget = consecutiveFailures >= 2 ? bumpBudgetMode(task.budgetMode) : task.budgetMode;
-  const escalatedRetrieval = consecutiveFailures >= 2 ? bumpRetrievalMode(task.retrievalMode) : task.retrievalMode;
-  const shouldEscalateToMain = consecutiveFailures >= 3 && !["main", ""].includes(task.assignee || "");
+  const escalatedBudget =
+    consecutiveFailures >= 2 ? bumpBudgetMode(task.budgetMode) : task.budgetMode;
+  const escalatedRetrieval =
+    consecutiveFailures >= 2 ? bumpRetrievalMode(task.retrievalMode) : task.retrievalMode;
+  const shouldEscalateToMain =
+    consecutiveFailures >= 3 && !["main", ""].includes(task.assignee || "");
   const assignee = shouldEscalateToMain ? "main" : task.assignee;
   const status = consecutiveFailures >= AUTOPILOT_MAX_CONSECUTIVE_FAILURES ? "blocked" : "queued";
   const replanCount = currentRunState.replanCount + (consecutiveFailures >= 2 ? 1 : 0);
@@ -2377,26 +2581,36 @@ function buildRetryStrategy(task, failureSummary, reason = "worker_failure") {
     nextRunAt: status === "blocked" ? nowTs() + AUTOPILOT_BLOCK_NOTIFY_AFTER_MS : nextRunAt,
     lastError: failureSummary,
     blockedReason: status === "blocked" ? failureSummary : "",
-    planSummary: status === "blocked"
-      ? `连续失败 ${consecutiveFailures} 次，已停止自动重试并等待外部处理。`
-      : `失败后自动重规划第 ${replanCount} 次，调整预算/检索策略${routeLabel}。`,
-    nextAction: status === "blocked"
-      ? "等待墨水介入，或由 heartbeat/后续任务重新触发。"
-      : `在 ${AUTOPILOT_RETRY_BACKOFF_MINUTES[retryIndex]} 分钟后重试，优先换技能或换路径。`,
+    planSummary:
+      status === "blocked"
+        ? `连续失败 ${consecutiveFailures} 次，已停止自动重试并等待外部处理。`
+        : `失败后自动重规划第 ${replanCount} 次，调整预算/检索策略${routeLabel}。`,
+    nextAction:
+      status === "blocked"
+        ? "等待墨水介入，或由 heartbeat/后续任务重新触发。"
+        : `在 ${AUTOPILOT_RETRY_BACKOFF_MINUTES[retryIndex]} 分钟后重试，优先换技能或换路径。`,
     runState: {
       consecutiveFailures,
       totalFailures,
       replanCount,
       lastFailureAt: nowTs(),
-      lastFailureSummary: failureSummary
-    }
+      lastFailureSummary: failureSummary,
+    },
   };
 }
 
 function buildHeartbeatAutopilotContext(status) {
   const tasks = Array.isArray(status?.tasks) ? status.tasks : [];
   const interesting = tasks
-    .filter((task) => task.status === "blocked" || task.status === "waiting_user" || task.status === "waiting_external" || task.status === "queued" || task.status === "ready" || task.status === "running")
+    .filter(
+      (task) =>
+        task.status === "blocked" ||
+        task.status === "waiting_user" ||
+        task.status === "waiting_external" ||
+        task.status === "queued" ||
+        task.status === "ready" ||
+        task.status === "running",
+    )
     .slice(0, 8);
   if (interesting.length === 0) return "";
   const lines = [
@@ -2408,11 +2622,13 @@ function buildHeartbeatAutopilotContext(status) {
         `route=${task.route || task.taskKind || "general"}`,
         task.nextAction ? `next=${task.nextAction}` : "",
         task.blockedReason ? `blocked=${task.blockedReason}` : "",
-        task.nextRunIn ? `retry=${task.nextRunIn}` : ""
-      ].filter(Boolean).join(" | ");
+        task.nextRunIn ? `retry=${task.nextRunIn}` : "",
+      ]
+        .filter(Boolean)
+        .join(" | ");
       return detail;
     }),
-    "</autopilot-heartbeat>"
+    "</autopilot-heartbeat>",
   ];
   return lines.join("\n");
 }
@@ -2422,14 +2638,13 @@ function formatBlockedNotification(task, result) {
     `${task.title || "任务"}卡住了。`,
     `卡点：${result.blockedReason || result.summary || task.blockedReason || task.lastError || "后台执行未能继续推进。"}`,
     task.lastError ? `已尝试：${task.lastError}` : "",
-    result.needsUser ? `还需要你提供：${result.needsUser}` : "还需要你提供：进一步决策或外部信息。"
+    result.needsUser ? `还需要你提供：${result.needsUser}` : "还需要你提供：进一步决策或外部信息。",
   ].filter(Boolean);
   return lines.join("\n");
 }
 
 function formatDoneNotification(task, result) {
-  return `${task.title || "任务"} 已完成。\n${result.lastResult || result.summary || task.lastResult || task.runState?.lastResultSummary || "后台已完成交付。"}`
-    .trim();
+  return `${task.title || "任务"} 已完成。\n${result.lastResult || result.summary || task.lastResult || task.runState?.lastResultSummary || "后台已完成交付。"}`.trim();
 }
 
 async function maybeNotifyForTaskWithTransition(task, handlers) {
@@ -2445,7 +2660,7 @@ async function maybeNotifyForTaskWithTransition(task, handlers) {
     const result = buildAutopilotResultEnvelope({
       status,
       summary: runState.lastResultSummary,
-      shouldNotify: true
+      shouldNotify: true,
     });
     const message = formatDoneNotification(task, result);
     const notified = await notifyTaskTarget(task, "reply", message);
@@ -2453,8 +2668,8 @@ async function maybeNotifyForTaskWithTransition(task, handlers) {
       await transition(task.id, {
         runState: {
           lastNotifyAt: ts,
-          lastNotifiedStatus: "completed"
-        }
+          lastNotifiedStatus: "completed",
+        },
       });
       return true;
     }
@@ -2462,14 +2677,18 @@ async function maybeNotifyForTaskWithTransition(task, handlers) {
   }
   if (status === "waiting_user") {
     await appendMemoryLine(task, "waiting_user");
-    if (runState.lastNotifiedStatus === "waiting_user" && runState.lastNotifyAt && ts - runState.lastNotifyAt < AUTOPILOT_MIN_NOTIFY_GAP_MS) {
+    if (
+      runState.lastNotifiedStatus === "waiting_user" &&
+      runState.lastNotifyAt &&
+      ts - runState.lastNotifyAt < AUTOPILOT_MIN_NOTIFY_GAP_MS
+    ) {
       return false;
     }
     const result = buildAutopilotResultEnvelope({
       status,
       summary: runState.lastResultSummary,
       needsUser: task.lastError,
-      shouldNotify: true
+      shouldNotify: true,
     });
     const message = formatBlockedNotification(task, result);
     const notified = await notifyTaskTarget(task, "reply", message);
@@ -2477,8 +2696,8 @@ async function maybeNotifyForTaskWithTransition(task, handlers) {
       await transition(task.id, {
         runState: {
           lastNotifyAt: ts,
-          lastNotifiedStatus: "waiting_user"
-        }
+          lastNotifiedStatus: "waiting_user",
+        },
       });
       return true;
     }
@@ -2488,14 +2707,18 @@ async function maybeNotifyForTaskWithTransition(task, handlers) {
     await appendMemoryLine(task, "blocked");
     const blockedAt = runState.blockedAt || task.updatedAt || ts;
     if (ts - blockedAt < AUTOPILOT_BLOCK_NOTIFY_AFTER_MS) return false;
-    if (runState.lastNotifiedStatus === "blocked" && runState.lastNotifyAt && ts - runState.lastNotifyAt < AUTOPILOT_MIN_NOTIFY_GAP_MS) {
+    if (
+      runState.lastNotifiedStatus === "blocked" &&
+      runState.lastNotifyAt &&
+      ts - runState.lastNotifyAt < AUTOPILOT_MIN_NOTIFY_GAP_MS
+    ) {
       return false;
     }
     const result = buildAutopilotResultEnvelope({
       status,
       summary: runState.lastResultSummary,
       needsUser: task.lastError,
-      shouldNotify: true
+      shouldNotify: true,
     });
     const message = formatBlockedNotification(task, result);
     const notified = await notifyTaskTarget(task, "proactive", message);
@@ -2503,8 +2726,8 @@ async function maybeNotifyForTaskWithTransition(task, handlers) {
       await transition(task.id, {
         runState: {
           lastNotifyAt: ts,
-          lastNotifiedStatus: "blocked"
-        }
+          lastNotifiedStatus: "blocked",
+        },
       });
       return true;
     }
@@ -2515,14 +2738,16 @@ async function maybeNotifyForTaskWithTransition(task, handlers) {
 async function maybeNotifyForManagedTask(task) {
   return await maybeNotifyForTaskWithTransition(task, {
     transition: transitionManagedAutopilotTask,
-    appendMemoryLine: appendManagedAutopilotMemoryLine
+    appendMemoryLine: appendManagedAutopilotMemoryLine,
   });
 }
 
 function buildManagedAutopilotRunMaps(taskStore) {
   const latestRunByTaskId = new Map();
   const runCountByTaskId = new Map();
-  for (const run of [...(taskStore?.runs || [])].sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))) {
+  for (const run of [...(taskStore?.runs || [])].sort(
+    (left, right) => (right.updatedAt || 0) - (left.updatedAt || 0),
+  )) {
     if (!latestRunByTaskId.has(run.taskId)) latestRunByTaskId.set(run.taskId, run);
     runCountByTaskId.set(run.taskId, Number(runCountByTaskId.get(run.taskId) || 0) + 1);
   }
@@ -2542,23 +2767,29 @@ async function runManagedPlannedAutopilotTask(plan, config) {
     currentRun,
     Number(runCountByTaskId.get(plan.task.id) || 0),
     config,
-    nowValue
+    nowValue,
   );
-  const backgroundSessionId = taskView.runState?.backgroundSessionId || buildBackgroundSessionId(taskView);
+  const backgroundSessionId =
+    taskView.runState?.backgroundSessionId || buildBackgroundSessionId(taskView);
   await transitionManagedAutopilotTask(taskView.id, {
     runState: {
-      backgroundSessionId
-    }
+      backgroundSessionId,
+    },
   });
-  const executionTask = normalizeAutopilotTask({
-    ...taskView,
-    runState: {
-      ...(isRecord(taskView.runState) ? taskView.runState : {}),
-      backgroundSessionId
-    }
-  }, config);
+  const executionTask = normalizeAutopilotTask(
+    {
+      ...taskView,
+      runState: {
+        ...(isRecord(taskView.runState) ? taskView.runState : {}),
+        backgroundSessionId,
+      },
+    },
+    config,
+  );
   const prompt = buildAutopilotWorkerPrompt(executionTask, config);
-  const thinking = resolveThinkingLevelForBudget(executionTask.effectiveBudgetMode || executionTask.budgetMode || config.defaultBudgetMode);
+  const thinking = resolveThinkingLevelForBudget(
+    executionTask.effectiveBudgetMode || executionTask.budgetMode || config.defaultBudgetMode,
+  );
   const args = [
     "agent",
     "--agent",
@@ -2571,7 +2802,7 @@ async function runManagedPlannedAutopilotTask(plan, config) {
     "off",
     "--message",
     prompt,
-    "--json"
+    "--json",
   ];
   const cliResult = await runOpenClawCli(args, { timeoutMs: 15 * 60 * 1000 });
   const combinedOutput = [cliResult.stdout, cliResult.stderr].filter(Boolean).join("\n");
@@ -2591,8 +2822,8 @@ async function runManagedPlannedAutopilotTask(plan, config) {
       lastWorkerOutput: combinedOutput.slice(-6000),
       lastCliExitCode: cliResult.code,
       backgroundSessionId,
-      consecutiveFailures: 0
-    }
+      consecutiveFailures: 0,
+    },
   };
   if (!cliResult.ok) {
     return await transitionManagedAutopilotTask(taskView.id, {
@@ -2600,14 +2831,14 @@ async function runManagedPlannedAutopilotTask(plan, config) {
       ...buildRetryStrategy(
         executionTask,
         normalizeString(cliResult.stderr || cliResult.stdout || "Autopilot worker failed."),
-        "cli_error"
-      )
+        "cli_error",
+      ),
     });
   }
   if (parsed.status === "completed") {
     return await transitionManagedAutopilotTask(taskView.id, {
       ...patch,
-      status: "completed"
+      status: "completed",
     });
   }
   if (parsed.status === "waiting_user") {
@@ -2615,27 +2846,32 @@ async function runManagedPlannedAutopilotTask(plan, config) {
       ...patch,
       status: "waiting_user",
       lastError: parsed.needsUser || parsed.summary,
-      blockedReason: parsed.blockedReason || parsed.needsUser || parsed.summary
+      blockedReason: parsed.blockedReason || parsed.needsUser || parsed.summary,
     });
   }
   if (parsed.status === "blocked") {
-    const failureText = normalizeString(parsed.blockedReason || parsed.needsUser || parsed.summary || "Autopilot worker returned blocked.");
+    const failureText = normalizeString(
+      parsed.blockedReason ||
+        parsed.needsUser ||
+        parsed.summary ||
+        "Autopilot worker returned blocked.",
+    );
     return await transitionManagedAutopilotTask(taskView.id, {
       ...patch,
-      ...buildRetryStrategy(executionTask, failureText, "worker_blocked")
+      ...buildRetryStrategy(executionTask, failureText, "worker_blocked"),
     });
   }
   if (parsed.status === "waiting_external") {
     return await transitionManagedAutopilotTask(taskView.id, {
       ...patch,
       status: "waiting_external",
-      nextRunAt: nowTs() + parsed.nextRunInMinutes * 60 * 1000
+      nextRunAt: nowTs() + parsed.nextRunInMinutes * 60 * 1000,
     });
   }
   return await transitionManagedAutopilotTask(taskView.id, {
     ...patch,
     status: "queued",
-    nextRunAt: nowTs() + parsed.nextRunInMinutes * 60 * 1000
+    nextRunAt: nowTs() + parsed.nextRunInMinutes * 60 * 1000,
   });
 }
 
@@ -2643,7 +2879,7 @@ async function tickAutopilotExecution() {
   const opts = managedRuntimeStoreOptions();
   const [taskEngine, status] = await Promise.all([
     loadManagedRuntimeTaskEngineCore(),
-    buildManagedAutopilotStatus()
+    buildManagedAutopilotStatus(),
   ]);
   if (!status.config.enabled) return status;
   for (const task of status.tasks) {
@@ -2674,7 +2910,7 @@ async function updateAutopilotConfig(patch) {
   const currentConfig = readManagedAutopilotCompatibilityConfig(taskStore);
   const nextConfig = normalizeAutopilotConfig({
     ...currentConfig,
-    ...patchValue
+    ...patchValue,
   });
   taskStore.defaults = {
     ...taskStore.defaults,
@@ -2682,7 +2918,7 @@ async function updateAutopilotConfig(patch) {
     defaultRetrievalMode: nextConfig.defaultRetrievalMode,
     maxInputTokensPerTurn: nextConfig.maxInputTokensPerTurn,
     maxContextChars: nextConfig.maxContextChars,
-    maxRemoteCallsPerTask: nextConfig.maxRemoteCallsPerTask
+    maxRemoteCallsPerTask: nextConfig.maxRemoteCallsPerTask,
   };
   taskStore.metadata = {
     ...(isRecord(taskStore.metadata) ? taskStore.metadata : {}),
@@ -2690,19 +2926,23 @@ async function updateAutopilotConfig(patch) {
       enabled: nextConfig.enabled,
       localFirst: nextConfig.localFirst,
       heartbeatEnabled: nextConfig.heartbeatEnabled,
-      dailyRemoteTokenBudget: nextConfig.dailyRemoteTokenBudget
+      dailyRemoteTokenBudget: nextConfig.dailyRemoteTokenBudget,
     },
-    updatedAt: nowValue
+    updatedAt: nowValue,
   };
   storeCore.saveRuntimeTaskStore(taskStore, opts);
   if (typeof storeCore.appendRuntimeEvent === "function") {
-    storeCore.appendRuntimeEvent("runtime_autopilot_config_updated", {
-      enabled: nextConfig.enabled,
-      localFirst: nextConfig.localFirst,
-      heartbeatEnabled: nextConfig.heartbeatEnabled,
-      defaultBudgetMode: nextConfig.defaultBudgetMode,
-      defaultRetrievalMode: nextConfig.defaultRetrievalMode
-    }, opts);
+    storeCore.appendRuntimeEvent(
+      "runtime_autopilot_config_updated",
+      {
+        enabled: nextConfig.enabled,
+        localFirst: nextConfig.localFirst,
+        heartbeatEnabled: nextConfig.heartbeatEnabled,
+        defaultBudgetMode: nextConfig.defaultBudgetMode,
+        defaultRetrievalMode: nextConfig.defaultRetrievalMode,
+      },
+      opts,
+    );
   }
   return await buildManagedAutopilotStatus();
 }
@@ -2711,7 +2951,12 @@ function mapLegacyReportPolicyToManaged(value) {
   const normalized = normalizeString(value);
   if (normalized === "reply_only") return "reply";
   if (normalized === "proactive_only") return "proactive";
-  if (normalized === "reply_and_proactive" || normalized === "reply" || normalized === "proactive" || normalized === "silent") {
+  if (
+    normalized === "reply_and_proactive" ||
+    normalized === "reply" ||
+    normalized === "proactive" ||
+    normalized === "silent"
+  ) {
     return normalized;
   }
   return undefined;
@@ -2725,11 +2970,14 @@ function readManagedAutopilotCompatibilityConfig(taskStore, fallback = DEFAULT_A
     localFirst: autopilot.localFirst,
     heartbeatEnabled: autopilot.heartbeatEnabled,
     defaultBudgetMode: taskStore?.defaults?.defaultBudgetMode || fallback.defaultBudgetMode,
-    defaultRetrievalMode: taskStore?.defaults?.defaultRetrievalMode || fallback.defaultRetrievalMode,
-    maxInputTokensPerTurn: taskStore?.defaults?.maxInputTokensPerTurn || fallback.maxInputTokensPerTurn,
+    defaultRetrievalMode:
+      taskStore?.defaults?.defaultRetrievalMode || fallback.defaultRetrievalMode,
+    maxInputTokensPerTurn:
+      taskStore?.defaults?.maxInputTokensPerTurn || fallback.maxInputTokensPerTurn,
     maxContextChars: taskStore?.defaults?.maxContextChars || fallback.maxContextChars,
-    maxRemoteCallsPerTask: taskStore?.defaults?.maxRemoteCallsPerTask || fallback.maxRemoteCallsPerTask,
-    dailyRemoteTokenBudget: autopilot.dailyRemoteTokenBudget
+    maxRemoteCallsPerTask:
+      taskStore?.defaults?.maxRemoteCallsPerTask || fallback.maxRemoteCallsPerTask,
+    dailyRemoteTokenBudget: autopilot.dailyRemoteTokenBudget,
   });
 }
 
@@ -2746,12 +2994,18 @@ function buildManagedAutopilotMetadataPatch(patchValue) {
     runtimeTask.optimizationState = normalizeOptionalRecord(patchValue.optimizationState) || {};
   }
   const taskContext = {};
-  if (hasDefinedOwn(patchValue, "notes")) taskContext.notes = normalizeString(patchValue.notes) || undefined;
-  if (hasDefinedOwn(patchValue, "workspace")) taskContext.workspace = normalizeString(patchValue.workspace) || undefined;
-  if (hasDefinedOwn(patchValue, "source")) taskContext.source = normalizeString(patchValue.source) || undefined;
-  if (hasDefinedOwn(patchValue, "delivery")) taskContext.delivery = normalizeOptionalRecord(patchValue.delivery) || undefined;
-  if (hasDefinedOwn(patchValue, "sourceMeta")) taskContext.sourceMeta = normalizeOptionalRecord(patchValue.sourceMeta) || undefined;
-  if (hasDefinedOwn(patchValue, "intakeText")) taskContext.intakeText = normalizeString(patchValue.intakeText) || undefined;
+  if (hasDefinedOwn(patchValue, "notes"))
+    taskContext.notes = normalizeString(patchValue.notes) || undefined;
+  if (hasDefinedOwn(patchValue, "workspace"))
+    taskContext.workspace = normalizeString(patchValue.workspace) || undefined;
+  if (hasDefinedOwn(patchValue, "source"))
+    taskContext.source = normalizeString(patchValue.source) || undefined;
+  if (hasDefinedOwn(patchValue, "delivery"))
+    taskContext.delivery = normalizeOptionalRecord(patchValue.delivery) || undefined;
+  if (hasDefinedOwn(patchValue, "sourceMeta"))
+    taskContext.sourceMeta = normalizeOptionalRecord(patchValue.sourceMeta) || undefined;
+  if (hasDefinedOwn(patchValue, "intakeText"))
+    taskContext.intakeText = normalizeString(patchValue.intakeText) || undefined;
   const metadata = {};
   if (Object.keys(runtimeTask).length > 0) metadata.runtimeTask = runtimeTask;
   if (Object.keys(taskContext).length > 0) metadata.taskContext = taskContext;
@@ -2760,62 +3014,71 @@ function buildManagedAutopilotMetadataPatch(patchValue) {
 
 function buildManagedAutopilotTaskView(task, latestRun, runCount, config, nowValue) {
   const taskContext = readManagedAutopilotTaskContext(task);
-  const runState = isRecord(task.metadata?.runtimeTask?.runState) ? task.metadata.runtimeTask.runState : {};
+  const runState = isRecord(task.metadata?.runtimeTask?.runState)
+    ? task.metadata.runtimeTask.runState
+    : {};
   const optimizationState = isRecord(task.metadata?.runtimeTask?.optimizationState)
     ? task.metadata.runtimeTask.optimizationState
     : {};
   const nextRunAt = Number(task.nextRunAt || 0) || null;
-  const lastRunAt = Number(
-    latestRun?.completedAt || latestRun?.blockedAt || latestRun?.updatedAt || latestRun?.startedAt || 0
-  ) || null;
+  const lastRunAt =
+    Number(
+      latestRun?.completedAt ||
+        latestRun?.blockedAt ||
+        latestRun?.updatedAt ||
+        latestRun?.startedAt ||
+        0,
+    ) || null;
   const isDone = task.status === "completed" || task.status === "cancelled";
   const isRunnable = !isDone && task.status !== "waiting_user";
   const isDue = Boolean(
-    isRunnable && (
-      (nextRunAt && nextRunAt <= nowValue) ||
-      (!nextRunAt && ["queued", "planning", "ready"].includes(task.status))
-    )
+    isRunnable &&
+    ((nextRunAt && nextRunAt <= nowValue) ||
+      (!nextRunAt && ["queued", "planning", "ready"].includes(task.status))),
   );
-  return buildAutopilotTaskView({
-    id: task.id,
-    title: task.title,
-    goal: task.goal,
-    successCriteria: task.successCriteria,
-    doneCriteria: task.successCriteria,
-    planSummary: task.planSummary,
-    nextAction: task.nextAction,
-    blockedReason: task.blockedReason,
-    lastResult: normalizeString(runState.lastResultSummary),
-    notes: normalizeString(taskContext.notes) || null,
-    source: normalizeString(taskContext.source, "runtime-store"),
-    assignee: task.worker || "main",
-    workspace: normalizeString(taskContext.workspace) || INSTANCE_PATHS.workspaceRoot,
-    route: task.route,
-    taskKind: task.route,
-    reportPolicy: task.reportPolicy,
-    skillHints: Array.isArray(task.skillIds) ? task.skillIds : [],
-    tags: Array.isArray(task.tags) ? task.tags : [],
-    memoryRefs: Array.isArray(task.memoryRefs) ? task.memoryRefs : [],
-    intelRefs: Array.isArray(task.intelRefs) ? task.intelRefs : [],
-    optimizationState,
-    intakeText: normalizeString(taskContext.intakeText) || null,
-    sourceMeta: normalizeOptionalRecord(taskContext.sourceMeta),
-    delivery: normalizeOptionalRecord(taskContext.delivery),
-    runState,
-    status: task.status,
-    priority: task.priority,
-    budgetMode: task.budgetMode || config.defaultBudgetMode,
-    retrievalMode: task.retrievalMode || config.defaultRetrievalMode,
-    localOnly: false,
-    localFirst: config.localFirst !== false,
-    createdAt: task.createdAt,
-    updatedAt: task.updatedAt,
-    nextRunAt,
-    lastRunAt,
-    runCount,
-    lastError: task.lastError || null,
-    isDue
-  }, config);
+  return buildAutopilotTaskView(
+    {
+      id: task.id,
+      title: task.title,
+      goal: task.goal,
+      successCriteria: task.successCriteria,
+      doneCriteria: task.successCriteria,
+      planSummary: task.planSummary,
+      nextAction: task.nextAction,
+      blockedReason: task.blockedReason,
+      lastResult: normalizeString(runState.lastResultSummary),
+      notes: normalizeString(taskContext.notes) || null,
+      source: normalizeString(taskContext.source, "runtime-store"),
+      assignee: task.worker || "main",
+      workspace: normalizeString(taskContext.workspace) || INSTANCE_PATHS.workspaceRoot,
+      route: task.route,
+      taskKind: task.route,
+      reportPolicy: task.reportPolicy,
+      skillHints: Array.isArray(task.skillIds) ? task.skillIds : [],
+      tags: Array.isArray(task.tags) ? task.tags : [],
+      memoryRefs: Array.isArray(task.memoryRefs) ? task.memoryRefs : [],
+      intelRefs: Array.isArray(task.intelRefs) ? task.intelRefs : [],
+      optimizationState,
+      intakeText: normalizeString(taskContext.intakeText) || null,
+      sourceMeta: normalizeOptionalRecord(taskContext.sourceMeta),
+      delivery: normalizeOptionalRecord(taskContext.delivery),
+      runState,
+      status: task.status,
+      priority: task.priority,
+      budgetMode: task.budgetMode || config.defaultBudgetMode,
+      retrievalMode: task.retrievalMode || config.defaultRetrievalMode,
+      localOnly: false,
+      localFirst: config.localFirst !== false,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      nextRunAt,
+      lastRunAt,
+      runCount,
+      lastError: task.lastError || null,
+      isDue,
+    },
+    config,
+  );
 }
 
 async function buildManagedAutopilotStatus() {
@@ -2826,7 +3089,9 @@ async function buildManagedAutopilotStatus() {
   const config = readManagedAutopilotCompatibilityConfig(taskStore);
   const latestRunByTaskId = new Map();
   const runCountByTaskId = new Map();
-  for (const run of [...taskStore.runs].sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))) {
+  for (const run of [...taskStore.runs].sort(
+    (left, right) => (right.updatedAt || 0) - (left.updatedAt || 0),
+  )) {
     if (!latestRunByTaskId.has(run.taskId)) latestRunByTaskId.set(run.taskId, run);
     runCountByTaskId.set(run.taskId, Number(runCountByTaskId.get(run.taskId) || 0) + 1);
   }
@@ -2837,8 +3102,8 @@ async function buildManagedAutopilotStatus() {
         latestRunByTaskId.get(task.id) || null,
         Number(runCountByTaskId.get(task.id) || 0),
         config,
-        nowValue
-      )
+        nowValue,
+      ),
     )
     .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
   const counts = {
@@ -2852,7 +3117,7 @@ async function buildManagedAutopilotStatus() {
     waitingUser: 0,
     completed: 0,
     cancelled: 0,
-    due: 0
+    due: 0,
   };
   let nextDueTask = null;
   for (const task of tasks) {
@@ -2878,14 +3143,14 @@ async function buildManagedAutopilotStatus() {
       lastError: autopilotRuntime.lastError || null,
       nextDueTaskId: nextDueTask ? nextDueTask.id : null,
       activeTaskId: autopilotRuntime.activeTaskId || null,
-      activeTaskStartedIso: toIso(autopilotRuntime.activeTaskStartedAt)
+      activeTaskStartedIso: toIso(autopilotRuntime.activeTaskStartedAt),
     },
     stats: {
       ...counts,
       waitingHuman: counts.waitingUser,
-      done: counts.completed
+      done: counts.completed,
     },
-    tasks
+    tasks,
   };
 }
 
@@ -2893,57 +3158,59 @@ async function buildManagedIntelStatus() {
   const opts = managedRuntimeStoreOptions();
   const storeCore = await loadManagedRuntimeStoreCore();
   const intelStore = storeCore.loadRuntimeIntelStore(opts);
-    const sourceProfiles = Array.isArray(intelStore.sourceProfiles) ? intelStore.sourceProfiles : [];
-    const groupedDigests = new Map();
-    for (const digestItem of intelStore.digestItems) {
-      const digestDate = normalizeString(digestItem.metadata?.digestDate) || new Date(digestItem.createdAt || nowTs()).toISOString().slice(0, 10);
-      const key = `${digestItem.domain}|${digestDate}`;
-      const current = groupedDigests.get(key) || {
-        id: `digest_${hashText(key, 16)}`,
-        domain: digestItem.domain,
-        digestDate,
-        createdAt: digestItem.createdAt || nowTs(),
-        status: "sent",
-        delivery: null,
-        items: []
-      };
-      current.createdAt = Math.max(current.createdAt, digestItem.createdAt || 0);
-      current.items.push({
-        title: digestItem.title,
-        itemId: digestItem.id,
-        rank: current.items.length + 1
-      });
-      groupedDigests.set(key, current);
-    }
-    const digests = [...groupedDigests.values()]
-      .sort((left, right) => (right.createdAt || 0) - (left.createdAt || 0))
-      .slice(0, 9);
-    const domainsById = new Map();
-    for (const candidate of intelStore.candidates) domainsById.set(candidate.domain, true);
-    for (const digest of intelStore.digestItems) domainsById.set(digest.domain, true);
-    for (const sourceProfile of sourceProfiles) domainsById.set(sourceProfile.domain, true);
-    const domainIds = [...domainsById.keys()].length
-      ? [...domainsById.keys()]
-      : ["tech", "ai", "business", "github"];
-    const metadata = isRecord(intelStore.metadata) ? intelStore.metadata : {};
-    const latestFetchAt = sourceProfiles.reduce((latest, profile) => {
-      const profileMeta = isRecord(profile?.metadata) ? profile.metadata : {};
-      return Math.max(latest, Number(profileMeta.latestFetchAt || profileMeta.lastFetchedAt || 0) || 0);
-    }, 0);
+  const sourceProfiles = Array.isArray(intelStore.sourceProfiles) ? intelStore.sourceProfiles : [];
+  const groupedDigests = new Map();
+  for (const digestItem of intelStore.digestItems) {
+    const digestDate =
+      normalizeString(digestItem.metadata?.digestDate) ||
+      new Date(digestItem.createdAt || nowTs()).toISOString().slice(0, 10);
+    const key = `${digestItem.domain}|${digestDate}`;
+    const current = groupedDigests.get(key) || {
+      id: `digest_${hashText(key, 16)}`,
+      domain: digestItem.domain,
+      digestDate,
+      createdAt: digestItem.createdAt || nowTs(),
+      status: "sent",
+      delivery: null,
+      items: [],
+    };
+    current.createdAt = Math.max(current.createdAt, digestItem.createdAt || 0);
+    current.items.push({
+      title: digestItem.title,
+      itemId: digestItem.id,
+      rank: current.items.length + 1,
+    });
+    groupedDigests.set(key, current);
+  }
+  const digests = [...groupedDigests.values()]
+    .sort((left, right) => (right.createdAt || 0) - (left.createdAt || 0))
+    .slice(0, 9);
+  const domainsById = new Map();
+  for (const candidate of intelStore.candidates) domainsById.set(candidate.domain, true);
+  for (const digest of intelStore.digestItems) domainsById.set(digest.domain, true);
+  for (const sourceProfile of sourceProfiles) domainsById.set(sourceProfile.domain, true);
+  const domainIds = [...domainsById.keys()].length
+    ? [...domainsById.keys()]
+    : ["tech", "ai", "business", "github"];
+  const metadata = isRecord(intelStore.metadata) ? intelStore.metadata : {};
+  const latestFetchAt = sourceProfiles.reduce((latest, profile) => {
+    const profileMeta = isRecord(profile?.metadata) ? profile.metadata : {};
+    return Math.max(
+      latest,
+      Number(profileMeta.latestFetchAt || profileMeta.lastFetchedAt || 0) || 0,
+    );
+  }, 0);
   return {
     config: {
       enabled: intelStore.enabled,
-      digestEnabled: intelStore.digestEnabled,
+      dailyPushEnabled: metadata.dailyPushEnabled !== false,
       refreshMinutes: clampInt(metadata.refreshMinutes, 180, 1, 10080),
-      digestHourLocal: clampInt(metadata.digestHourLocal, 9, 0, 23),
-      candidateLimitPerDomain: intelStore.candidateLimitPerDomain,
-      digestItemLimitPerDomain: intelStore.digestItemLimitPerDomain,
-      exploitItemsPerDigest: intelStore.exploitItemsPerDigest,
-      exploreItemsPerDigest: intelStore.exploreItemsPerDigest,
-      maxItemsPerSourceInDigest: clampInt(metadata.maxItemsPerSourceInDigest, 2, 1, 10),
-      recentDigestTopicWindowDays: clampInt(metadata.recentDigestTopicWindowDays, 5, 1, 30),
-      llmJudgeEnabled: metadata.llmJudgeEnabled === true,
-      llmAgent: normalizeString(metadata.llmAgent) || null
+      dailyPushItemCount: clampInt(metadata.dailyPushItemCount, 10, 1, 50),
+      dailyPushHourLocal: clampInt(metadata.dailyPushHourLocal, 9, 0, 23),
+      dailyPushMinuteLocal: clampInt(metadata.dailyPushMinuteLocal, 0, 0, 59),
+      selectedSourceIds: Array.isArray(metadata.selectedSourceIds)
+        ? metadata.selectedSourceIds.filter((entry) => typeof entry === "string" && entry.trim())
+        : [],
     },
     scheduler: {
       lastTickIso: toIso(intelRuntime.lastTickAt),
@@ -2951,12 +3218,12 @@ async function buildManagedIntelStatus() {
       activeDomainId: intelRuntime.activeDomainId || null,
       activeDigestDomainId: intelRuntime.activeDigestDomainId || null,
       lastRefreshIso: toIso(latestFetchAt),
-      lastDigestSweepIso: toIso(Number(metadata.lastDigestSweepAt || 0) || 0)
+      lastDigestSweepIso: toIso(Number(metadata.lastDigestSweepAt || 0) || 0),
     },
     stats: {
       itemCount: intelStore.candidates.length,
       digestCount: digests.length,
-      deliveredDigestCount: digests.filter((digest) => digest.status === "sent").length
+      deliveredDigestCount: digests.filter((digest) => digest.status === "sent").length,
     },
     domains: domainIds.map((domainId) => {
       const candidates = intelStore.candidates
@@ -2969,16 +3236,35 @@ async function buildManagedIntelStatus() {
         id: domainId,
         label:
           domainSources[0]?.label ||
-          (domainId === "ai" ? "AI" : domainId === "github" ? "GitHub" : domainId === "business" ? "Business" : "Tech"),
+          (domainId === "ai"
+            ? "AI"
+            : domainId === "github"
+              ? "GitHub"
+              : domainId === "business"
+                ? "Business"
+                : "Tech"),
         keywords: [],
         sourceCount: domainSources.length,
+        enabledSourceCount: domainSources.filter((entry) => {
+          const selected = Array.isArray(metadata.selectedSourceIds)
+            ? metadata.selectedSourceIds.filter((value) => typeof value === "string")
+            : [];
+          return selected.length === 0 || selected.includes(entry.label);
+        }).length,
         itemCount: candidates.length,
-        lastFetchedIso: toIso(domainSources.reduce((latest, entry) => {
-          const profileMeta = isRecord(entry?.metadata) ? entry.metadata : {};
-          return Math.max(latest, Number(profileMeta.latestFetchAt || profileMeta.lastFetchedAt || 0) || 0);
-        }, 0)),
+        lastFetchedIso: toIso(
+          domainSources.reduce((latest, entry) => {
+            const profileMeta = isRecord(entry?.metadata) ? entry.metadata : {};
+            return Math.max(
+              latest,
+              Number(profileMeta.latestFetchAt || profileMeta.lastFetchedAt || 0) || 0,
+            );
+          }, 0),
+        ),
         lastDigestIso: toIso(latestDigest?.createdAt || 0),
-        lastDigestAttemptIso: toIso(Number(domainMeta.lastDigestAttemptAt || latestDigest?.createdAt || 0) || 0),
+        lastDigestAttemptIso: toIso(
+          Number(domainMeta.lastDigestAttemptAt || latestDigest?.createdAt || 0) || 0,
+        ),
         lastDigestError: normalizeString(domainMeta.lastDigestError) || null,
         nextDigestDate: normalizeString(domainMeta.nextDigestDate) || null,
         latestDigestId: latestDigest?.id || null,
@@ -2990,7 +3276,7 @@ async function buildManagedIntelStatus() {
           noveltyScore: clampPercent(item.metadata?.noveltyScore || 0),
           relevanceScore: clampPercent(item.metadata?.relevanceScore || item.score || 0),
           judgement: normalizeString(item.summary),
-          url: item.url
+          url: item.url,
         })),
         sources: domainSources.map((source) => {
           const profileMeta = isRecord(source?.metadata) ? source.metadata : {};
@@ -3001,12 +3287,18 @@ async function buildManagedIntelStatus() {
             stats: {
               successCount: clampInt(profileMeta.successCount, 0, 0, 100000),
               failureCount: clampInt(profileMeta.failureCount, 0, 0, 100000),
-              lastSeenAt: Number(profileMeta.lastSeenAt || profileMeta.latestFetchAt || profileMeta.lastFetchedAt || 0) || null,
+              lastSeenAt:
+                Number(
+                  profileMeta.lastSeenAt ||
+                    profileMeta.latestFetchAt ||
+                    profileMeta.lastFetchedAt ||
+                    0,
+                ) || null,
               lastFailureAt: Number(profileMeta.lastFailureAt || 0) || null,
-              avgScore: clampPercent(profileMeta.avgScore || source.trustScore || 0)
-            }
+              avgScore: clampPercent(profileMeta.avgScore || source.trustScore || 0),
+            },
           };
-        })
+        }),
       };
     }),
     digests: digests.map((digest) => ({
@@ -3017,8 +3309,8 @@ async function buildManagedIntelStatus() {
       status: digest.status,
       delivery: digest.delivery,
       itemCount: digest.items.length,
-      topTitles: digest.items.slice(0, 3).map((item) => item.title)
-    }))
+      topTitles: digest.items.slice(0, 3).map((item) => item.title),
+    })),
   };
 }
 
@@ -3028,19 +3320,34 @@ async function buildManagedMemoryStatus() {
   const memoryStore = storeCore.loadRuntimeMemoryStore(opts);
   return {
     scheduler: {
-      lastDistilledIso: toIso(memoryStore.memories.reduce((latest, entry) => Math.max(latest, entry.updatedAt || 0), 0)),
-      lastPersistedIso: toIso(Math.max(
+      lastDistilledIso: toIso(
         memoryStore.memories.reduce((latest, entry) => Math.max(latest, entry.updatedAt || 0), 0),
-        memoryStore.strategies.reduce((latest, entry) => Math.max(latest, entry.updatedAt || 0), 0),
-        memoryStore.metaLearning.reduce((latest, entry) => Math.max(latest, entry.updatedAt || 0), 0)
-      ))
+      ),
+      lastPersistedIso: toIso(
+        Math.max(
+          memoryStore.memories.reduce((latest, entry) => Math.max(latest, entry.updatedAt || 0), 0),
+          memoryStore.strategies.reduce(
+            (latest, entry) => Math.max(latest, entry.updatedAt || 0),
+            0,
+          ),
+          memoryStore.metaLearning.reduce(
+            (latest, entry) => Math.max(latest, entry.updatedAt || 0),
+            0,
+          ),
+        ),
+      ),
     },
     stats: {
       memoryCount: memoryStore.memories.length,
       strategyCount: memoryStore.strategies.length,
       learningCount: memoryStore.metaLearning.length,
-      highConfidenceMemories: memoryStore.memories.filter((entry) => entry.confidence >= 75 && (!entry.invalidatedBy || entry.invalidatedBy.length === 0)).length,
-      invalidatedMemories: memoryStore.memories.filter((entry) => Array.isArray(entry.invalidatedBy) && entry.invalidatedBy.length > 0).length
+      highConfidenceMemories: memoryStore.memories.filter(
+        (entry) =>
+          entry.confidence >= 75 && (!entry.invalidatedBy || entry.invalidatedBy.length === 0),
+      ).length,
+      invalidatedMemories: memoryStore.memories.filter(
+        (entry) => Array.isArray(entry.invalidatedBy) && entry.invalidatedBy.length > 0,
+      ).length,
     },
     recentMemories: [...memoryStore.memories]
       .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
@@ -3054,7 +3361,7 @@ async function buildManagedMemoryStatus() {
         confidence: entry.confidence,
         tags: entry.tags,
         invalidated: Array.isArray(entry.invalidatedBy) && entry.invalidatedBy.length > 0,
-        updatedIso: toIso(entry.updatedAt)
+        updatedIso: toIso(entry.updatedAt),
       })),
     recentStrategies: [...memoryStore.strategies]
       .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
@@ -3068,7 +3375,7 @@ async function buildManagedMemoryStatus() {
         confidence: entry.confidence,
         invalidated: Array.isArray(entry.invalidatedBy) && entry.invalidatedBy.length > 0,
         triggerConditions: truncateText(entry.triggerConditions, 160),
-        updatedIso: toIso(entry.updatedAt)
+        updatedIso: toIso(entry.updatedAt),
       })),
     recentLearnings: [...memoryStore.metaLearning]
       .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
@@ -3080,11 +3387,12 @@ async function buildManagedMemoryStatus() {
           observedPattern: truncateText(entry.summary || entry.hypothesis || "", 180),
           effectOnSuccessRate: Number(meta.effectOnSuccessRate || meta.successDelta || 0) || 0,
           effectOnTokenCost: Number(meta.effectOnTokenCost || meta.tokenDelta || 0) || 0,
-          effectOnCompletionQuality: Number(meta.effectOnCompletionQuality || meta.qualityDelta || 0) || 0,
+          effectOnCompletionQuality:
+            Number(meta.effectOnCompletionQuality || meta.qualityDelta || 0) || 0,
           adoptedAs: entry.adoptedAs,
-          updatedIso: toIso(entry.updatedAt)
+          updatedIso: toIso(entry.updatedAt),
         };
-      })
+      }),
   };
 }
 
@@ -3098,26 +3406,33 @@ async function buildManagedEvolutionStatus() {
     config: {
       enabled: metadata.enabled !== false,
       autoApplyLowRisk: metadata.autoApplyLowRisk !== false,
-      reviewIntervalHours: clampInt(metadata.reviewIntervalHours, 12, 1, 168)
+      reviewIntervalHours: clampInt(metadata.reviewIntervalHours, 12, 1, 168),
     },
     scheduler: {
       lastTickIso: toIso(evolutionRuntime.lastTickAt),
       lastError: evolutionRuntime.lastError || null,
       active: Boolean(evolutionRuntime.active),
-      lastReviewIso: toIso(Number(metadata.lastReviewAt || evolutionRuntime.lastReviewAt || 0) || 0)
+      lastReviewIso: toIso(
+        Number(metadata.lastReviewAt || evolutionRuntime.lastReviewAt || 0) || 0,
+      ),
     },
     stats: {
       candidateCount: memoryStore.evolutionMemory.length,
-      shadowCount: memoryStore.evolutionMemory.filter((entry) => entry.adoptionState === "shadow").length,
-      candidateStageCount: memoryStore.evolutionMemory.filter((entry) => entry.adoptionState === "candidate").length,
-      adoptedCount: memoryStore.evolutionMemory.filter((entry) => entry.adoptionState === "adopted").length
+      shadowCount: memoryStore.evolutionMemory.filter((entry) => entry.adoptionState === "shadow")
+        .length,
+      candidateStageCount: memoryStore.evolutionMemory.filter(
+        (entry) => entry.adoptionState === "candidate",
+      ).length,
+      adoptedCount: memoryStore.evolutionMemory.filter((entry) => entry.adoptionState === "adopted")
+        .length,
     },
     candidates: [...memoryStore.evolutionMemory]
       .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))
       .slice(0, 20)
       .map((entry) => {
-        const linkedShadow = governanceStore.shadowEvaluations.find((shadow) =>
-          shadow.candidateRef === entry.id || shadow.candidateRef === entry.candidateRef
+        const linkedShadow = governanceStore.shadowEvaluations.find(
+          (shadow) =>
+            shadow.candidateRef === entry.id || shadow.candidateRef === entry.candidateRef,
         );
         return {
           id: entry.id,
@@ -3130,9 +3445,9 @@ async function buildManagedEvolutionStatus() {
           shadowMetrics: isRecord(linkedShadow?.metadata) ? linkedShadow.metadata : null,
           expectedEffect: linkedShadow?.expectedEffect || null,
           measuredEffect: linkedShadow?.measuredEffect || null,
-          updatedIso: toIso(entry.updatedAt)
+          updatedIso: toIso(entry.updatedAt),
         };
-      })
+      }),
   };
 }
 
@@ -3141,31 +3456,35 @@ async function upsertManagedAutopilotTask(inputTask) {
   const nowValue = nowTs();
   const opts = managedRuntimeStoreOptions(nowValue);
   const taskEngine = await loadManagedRuntimeTaskEngineCore();
-  taskEngine.upsertRuntimeTask({
-    id: normalizeString(payload.id) || undefined,
-    title: normalizeString(payload.title) || normalizeString(payload.goal) || "Untitled task",
-    route: normalizeString(payload.route || payload.taskKind, "general"),
-    status: normalizeString(payload.status) || "queued",
-    priority: normalizeString(payload.priority) || undefined,
-    budgetMode: normalizeString(payload.budgetMode) || undefined,
-    retrievalMode: normalizeString(payload.retrievalMode) || undefined,
-    goal: normalizeString(payload.goal) || undefined,
-    successCriteria: normalizeString(payload.successCriteria || payload.doneCriteria) || undefined,
-    tags: normalizeStringArray(payload.tags),
-    worker: normalizeString(payload.assignee) || undefined,
-    skillIds: normalizeStringArray(payload.skillHints),
-    memoryRefs: normalizeStringArray(payload.memoryRefs),
-    intelRefs: normalizeStringArray(payload.intelRefs),
-    recurring: payload.recurring === true,
-    maintenance: payload.maintenance === true,
-    planSummary: normalizeString(payload.planSummary) || undefined,
-    nextAction: normalizeString(payload.nextAction) || undefined,
-    blockedReason: normalizeString(payload.blockedReason) || undefined,
-    lastError: normalizeString(payload.lastError) || undefined,
-    reportPolicy: mapLegacyReportPolicyToManaged(payload.reportPolicy),
-    nextRunAt: parseOptionalTimestamp(payload.nextRunAt) || undefined,
-    metadata: buildManagedAutopilotMetadataPatch(payload)
-  }, opts);
+  taskEngine.upsertRuntimeTask(
+    {
+      id: normalizeString(payload.id) || undefined,
+      title: normalizeString(payload.title) || normalizeString(payload.goal) || "Untitled task",
+      route: normalizeString(payload.route || payload.taskKind, "general"),
+      status: normalizeString(payload.status) || "queued",
+      priority: normalizeString(payload.priority) || undefined,
+      budgetMode: normalizeString(payload.budgetMode) || undefined,
+      retrievalMode: normalizeString(payload.retrievalMode) || undefined,
+      goal: normalizeString(payload.goal) || undefined,
+      successCriteria:
+        normalizeString(payload.successCriteria || payload.doneCriteria) || undefined,
+      tags: normalizeStringArray(payload.tags),
+      worker: normalizeString(payload.assignee) || undefined,
+      skillIds: normalizeStringArray(payload.skillHints),
+      memoryRefs: normalizeStringArray(payload.memoryRefs),
+      intelRefs: normalizeStringArray(payload.intelRefs),
+      recurring: payload.recurring === true,
+      maintenance: payload.maintenance === true,
+      planSummary: normalizeString(payload.planSummary) || undefined,
+      nextAction: normalizeString(payload.nextAction) || undefined,
+      blockedReason: normalizeString(payload.blockedReason) || undefined,
+      lastError: normalizeString(payload.lastError) || undefined,
+      reportPolicy: mapLegacyReportPolicyToManaged(payload.reportPolicy),
+      nextRunAt: parseOptionalTimestamp(payload.nextRunAt) || undefined,
+      metadata: buildManagedAutopilotMetadataPatch(payload),
+    },
+    opts,
+  );
   return await buildManagedAutopilotStatus();
 }
 
@@ -3175,67 +3494,101 @@ async function transitionManagedAutopilotTask(taskId, patch) {
   const opts = managedRuntimeStoreOptions(nowValue);
   const [taskEngine, storeCore] = await Promise.all([
     loadManagedRuntimeTaskEngineCore(),
-    loadManagedRuntimeStoreCore()
+    loadManagedRuntimeStoreCore(),
   ]);
-  const currentTask = storeCore.loadRuntimeTaskStore(opts).tasks.find((task) => task.id === taskId) || null;
+  const currentTask =
+    storeCore.loadRuntimeTaskStore(opts).tasks.find((task) => task.id === taskId) || null;
   const metadataPatch = buildManagedAutopilotMetadataPatch(patchValue);
-  const nextStatus = normalizeAutopilotStatusValue(patchValue.status, currentTask?.status || "queued");
-  if (["completed", "blocked", "waiting_user", "waiting_external", "cancelled"].includes(nextStatus)) {
+  const nextStatus = normalizeAutopilotStatusValue(
+    patchValue.status,
+    currentTask?.status || "queued",
+  );
+  if (
+    ["completed", "blocked", "waiting_user", "waiting_external", "cancelled"].includes(nextStatus)
+  ) {
     const nextRunAt = parseOptionalTimestamp(patchValue.nextRunAt);
-    taskEngine.applyRuntimeTaskResult({
-      taskId,
-      status: nextStatus,
-      summary: normalizeString(patchValue.summary || patchValue.lastResult || patchValue.notes) || undefined,
-      lastResult: normalizeString(patchValue.lastResult || patchValue.summary) || undefined,
-      lastError: normalizeString(patchValue.lastError) || undefined,
-      blockedReason: normalizeString(patchValue.blockedReason) || undefined,
-      needsUser: nextStatus === "waiting_user" ? normalizeString(patchValue.summary || patchValue.blockedReason) || undefined : undefined,
-      nextRunInMinutes: nextRunAt ? Math.max(1, Math.round((nextRunAt - nowValue) / 60000)) : undefined,
-      planSummary: normalizeString(patchValue.planSummary) || undefined,
-      nextAction: normalizeString(patchValue.nextAction) || undefined,
-      workerOutput: normalizeString(patchValue.workerOutput) || undefined,
-      cliExitCode: Number.isFinite(Number(patchValue.cliExitCode)) ? Number(patchValue.cliExitCode) : undefined,
-      now: nowValue
-    }, opts);
-    taskEngine.upsertRuntimeTask({
-      id: taskId,
-      route: normalizeString(patchValue.route) || undefined,
-      worker: normalizeString(patchValue.assignee) || undefined,
-      priority: normalizeString(patchValue.priority) || undefined,
-      budgetMode: normalizeString(patchValue.budgetMode) || undefined,
-      retrievalMode: normalizeString(patchValue.retrievalMode) || undefined,
-      successCriteria: normalizeString(patchValue.successCriteria || patchValue.doneCriteria) || undefined,
-      skillIds: hasDefinedOwn(patchValue, "skillHints")
-        ? normalizeStringArray(patchValue.skillHints)
-        : undefined,
-      memoryRefs: hasDefinedOwn(patchValue, "memoryRefs") ? normalizeStringArray(patchValue.memoryRefs) : undefined,
-      intelRefs: hasDefinedOwn(patchValue, "intelRefs") ? normalizeStringArray(patchValue.intelRefs) : undefined,
-      reportPolicy: mapLegacyReportPolicyToManaged(patchValue.reportPolicy),
-      metadata: metadataPatch
-    }, opts);
+    taskEngine.applyRuntimeTaskResult(
+      {
+        taskId,
+        status: nextStatus,
+        summary:
+          normalizeString(patchValue.summary || patchValue.lastResult || patchValue.notes) ||
+          undefined,
+        lastResult: normalizeString(patchValue.lastResult || patchValue.summary) || undefined,
+        lastError: normalizeString(patchValue.lastError) || undefined,
+        blockedReason: normalizeString(patchValue.blockedReason) || undefined,
+        needsUser:
+          nextStatus === "waiting_user"
+            ? normalizeString(patchValue.summary || patchValue.blockedReason) || undefined
+            : undefined,
+        nextRunInMinutes: nextRunAt
+          ? Math.max(1, Math.round((nextRunAt - nowValue) / 60000))
+          : undefined,
+        planSummary: normalizeString(patchValue.planSummary) || undefined,
+        nextAction: normalizeString(patchValue.nextAction) || undefined,
+        workerOutput: normalizeString(patchValue.workerOutput) || undefined,
+        cliExitCode: Number.isFinite(Number(patchValue.cliExitCode))
+          ? Number(patchValue.cliExitCode)
+          : undefined,
+        now: nowValue,
+      },
+      opts,
+    );
+    taskEngine.upsertRuntimeTask(
+      {
+        id: taskId,
+        route: normalizeString(patchValue.route) || undefined,
+        worker: normalizeString(patchValue.assignee) || undefined,
+        priority: normalizeString(patchValue.priority) || undefined,
+        budgetMode: normalizeString(patchValue.budgetMode) || undefined,
+        retrievalMode: normalizeString(patchValue.retrievalMode) || undefined,
+        successCriteria:
+          normalizeString(patchValue.successCriteria || patchValue.doneCriteria) || undefined,
+        skillIds: hasDefinedOwn(patchValue, "skillHints")
+          ? normalizeStringArray(patchValue.skillHints)
+          : undefined,
+        memoryRefs: hasDefinedOwn(patchValue, "memoryRefs")
+          ? normalizeStringArray(patchValue.memoryRefs)
+          : undefined,
+        intelRefs: hasDefinedOwn(patchValue, "intelRefs")
+          ? normalizeStringArray(patchValue.intelRefs)
+          : undefined,
+        reportPolicy: mapLegacyReportPolicyToManaged(patchValue.reportPolicy),
+        metadata: metadataPatch,
+      },
+      opts,
+    );
   } else {
-    taskEngine.upsertRuntimeTask({
-      id: taskId,
-      status: nextStatus,
-      route: normalizeString(patchValue.route) || undefined,
-      worker: normalizeString(patchValue.assignee) || undefined,
-      priority: normalizeString(patchValue.priority) || undefined,
-      budgetMode: normalizeString(patchValue.budgetMode) || undefined,
-      retrievalMode: normalizeString(patchValue.retrievalMode) || undefined,
-      successCriteria: normalizeString(patchValue.successCriteria || patchValue.doneCriteria) || undefined,
-      skillIds: hasDefinedOwn(patchValue, "skillHints")
-        ? normalizeStringArray(patchValue.skillHints)
-        : undefined,
-      memoryRefs: hasDefinedOwn(patchValue, "memoryRefs") ? normalizeStringArray(patchValue.memoryRefs) : undefined,
-      intelRefs: hasDefinedOwn(patchValue, "intelRefs") ? normalizeStringArray(patchValue.intelRefs) : undefined,
-      planSummary: normalizeString(patchValue.planSummary) || undefined,
-      nextAction: normalizeString(patchValue.nextAction) || undefined,
-      blockedReason: normalizeString(patchValue.blockedReason) || undefined,
-      lastError: normalizeString(patchValue.lastError) || undefined,
-      reportPolicy: mapLegacyReportPolicyToManaged(patchValue.reportPolicy),
-      nextRunAt: parseOptionalTimestamp(patchValue.nextRunAt) || undefined,
-      metadata: metadataPatch
-    }, opts);
+    taskEngine.upsertRuntimeTask(
+      {
+        id: taskId,
+        status: nextStatus,
+        route: normalizeString(patchValue.route) || undefined,
+        worker: normalizeString(patchValue.assignee) || undefined,
+        priority: normalizeString(patchValue.priority) || undefined,
+        budgetMode: normalizeString(patchValue.budgetMode) || undefined,
+        retrievalMode: normalizeString(patchValue.retrievalMode) || undefined,
+        successCriteria:
+          normalizeString(patchValue.successCriteria || patchValue.doneCriteria) || undefined,
+        skillIds: hasDefinedOwn(patchValue, "skillHints")
+          ? normalizeStringArray(patchValue.skillHints)
+          : undefined,
+        memoryRefs: hasDefinedOwn(patchValue, "memoryRefs")
+          ? normalizeStringArray(patchValue.memoryRefs)
+          : undefined,
+        intelRefs: hasDefinedOwn(patchValue, "intelRefs")
+          ? normalizeStringArray(patchValue.intelRefs)
+          : undefined,
+        planSummary: normalizeString(patchValue.planSummary) || undefined,
+        nextAction: normalizeString(patchValue.nextAction) || undefined,
+        blockedReason: normalizeString(patchValue.blockedReason) || undefined,
+        lastError: normalizeString(patchValue.lastError) || undefined,
+        reportPolicy: mapLegacyReportPolicyToManaged(patchValue.reportPolicy),
+        nextRunAt: parseOptionalTimestamp(patchValue.nextRunAt) || undefined,
+        metadata: metadataPatch,
+      },
+      opts,
+    );
   }
   return await buildManagedAutopilotStatus();
 }
@@ -3270,21 +3623,30 @@ function startAutopilotTicker() {
       autopilotRuntime.lastError = null;
     } catch (error) {
       autopilotRuntime.lastError = String(error?.message || error);
-      if (pluginApi) pluginApi.logger.warn(`[openclaw-codex-control] autopilot tick failed: ${autopilotRuntime.lastError}`);
+      if (pluginApi)
+        pluginApi.logger.warn(
+          `[openclaw-codex-control] autopilot tick failed: ${autopilotRuntime.lastError}`,
+        );
     }
     try {
       await runIntelMaintenance();
       intelRuntime.lastError = null;
     } catch (error) {
       intelRuntime.lastError = String(error?.message || error);
-      if (pluginApi) pluginApi.logger.warn(`[openclaw-codex-control] intel tick failed: ${intelRuntime.lastError}`);
+      if (pluginApi)
+        pluginApi.logger.warn(
+          `[openclaw-codex-control] intel tick failed: ${intelRuntime.lastError}`,
+        );
     }
     try {
       await runEvolutionReview();
       evolutionRuntime.lastError = null;
     } catch (error) {
       evolutionRuntime.lastError = String(error?.message || error);
-      if (pluginApi) pluginApi.logger.warn(`[openclaw-codex-control] evolution tick failed: ${evolutionRuntime.lastError}`);
+      if (pluginApi)
+        pluginApi.logger.warn(
+          `[openclaw-codex-control] evolution tick failed: ${evolutionRuntime.lastError}`,
+        );
     }
   };
   tick();
@@ -3300,8 +3662,9 @@ function listProviderProfileIds(store) {
 
 function resolveCooldownUntil(stats) {
   if (!isRecord(stats)) return null;
-  const values = [stats.cooldownUntil, stats.disabledUntil]
-    .filter((value) => typeof value === "number" && Number.isFinite(value) && value > 0);
+  const values = [stats.cooldownUntil, stats.disabledUntil].filter(
+    (value) => typeof value === "number" && Number.isFinite(value) && value > 0,
+  );
   if (values.length === 0) return null;
   return Math.max(...values);
 }
@@ -3315,7 +3678,11 @@ function computeEffectiveOrder(store, config, profileIds) {
   const ts = nowTs();
   const storeOrder = isRecord(store.order) ? store.order[PROVIDER] : null;
   const configOrder = isRecord(config.auth?.order) ? config.auth.order[PROVIDER] : null;
-  const explicitOrder = Array.isArray(storeOrder) ? storeOrder : Array.isArray(configOrder) ? configOrder : null;
+  const explicitOrder = Array.isArray(storeOrder)
+    ? storeOrder
+    : Array.isArray(configOrder)
+      ? configOrder
+      : null;
   const validIds = new Set(profileIds);
 
   if (explicitOrder) {
@@ -3327,7 +3694,7 @@ function computeEffectiveOrder(store, config, profileIds) {
       if (isInCooldown(stats, ts)) {
         cooling.push({
           profileId,
-          cooldownUntil: resolveCooldownUntil(stats) || ts
+          cooldownUntil: resolveCooldownUntil(stats) || ts,
         });
       } else {
         available.push(profileId);
@@ -3351,14 +3718,14 @@ function computeEffectiveOrder(store, config, profileIds) {
     if (isInCooldown(stats, ts)) {
       cooling.push({
         profileId,
-        cooldownUntil: resolveCooldownUntil(stats) || ts
+        cooldownUntil: resolveCooldownUntil(stats) || ts,
       });
       continue;
     }
     available.push({
       profileId,
       typeScore: typeScore(store.profiles?.[profileId]),
-      lastUsed: Number(store.usageStats?.[profileId]?.lastUsed || 0)
+      lastUsed: Number(store.usageStats?.[profileId]?.lastUsed || 0),
     });
   }
 
@@ -3403,8 +3770,12 @@ function buildSuggestedCliAlias({ email, accountId, workspaceId, workspaceTitle 
 
 function parseProfileMetadata(profileId, profile) {
   const jwt = profile?.type === "oauth" ? decodeJwtPayload(profile.access) : null;
-  const authMeta = isRecord(jwt?.["https://api.openai.com/auth"]) ? jwt["https://api.openai.com/auth"] : {};
-  const profileMeta = isRecord(jwt?.["https://api.openai.com/profile"]) ? jwt["https://api.openai.com/profile"] : {};
+  const authMeta = isRecord(jwt?.["https://api.openai.com/auth"])
+    ? jwt["https://api.openai.com/auth"]
+    : {};
+  const profileMeta = isRecord(jwt?.["https://api.openai.com/profile"])
+    ? jwt["https://api.openai.com/profile"]
+    : {};
   const email = String(profile?.email || profileMeta.email || "").trim() || null;
   const accountId = String(profile?.accountId || authMeta.chatgpt_account_id || "").trim() || null;
   const plan = String(authMeta.chatgpt_plan_type || "").trim() || null;
@@ -3412,7 +3783,7 @@ function parseProfileMetadata(profileId, profile) {
     email,
     accountId,
     plan,
-    suggestedAlias: buildSuggestedAlias(profileId, { email, accountId })
+    suggestedAlias: buildSuggestedAlias(profileId, { email, accountId }),
   };
 }
 
@@ -3432,7 +3803,7 @@ function normalizeCodexCliStore(store) {
   return {
     ...(isRecord(store) ? store : {}),
     version: Number(store?.version || 1) || 1,
-    profiles: isRecord(store?.profiles) ? { ...store.profiles } : {}
+    profiles: isRecord(store?.profiles) ? { ...store.profiles } : {},
   };
 }
 
@@ -3441,19 +3812,26 @@ function parseCodexCliAuthMetadata(auth) {
   const idJwt = decodeJwtPayload(tokens.id_token);
   const accessJwt = decodeJwtPayload(tokens.access_token);
   const ts = nowTs();
-  const idAuthMeta = isRecord(idJwt?.["https://api.openai.com/auth"]) ? idJwt["https://api.openai.com/auth"] : {};
-  const accessAuthMeta = isRecord(accessJwt?.["https://api.openai.com/auth"]) ? accessJwt["https://api.openai.com/auth"] : {};
+  const idAuthMeta = isRecord(idJwt?.["https://api.openai.com/auth"])
+    ? idJwt["https://api.openai.com/auth"]
+    : {};
+  const accessAuthMeta = isRecord(accessJwt?.["https://api.openai.com/auth"])
+    ? accessJwt["https://api.openai.com/auth"]
+    : {};
   const authMeta = Object.keys(accessAuthMeta).length ? accessAuthMeta : idAuthMeta;
-  const profileMeta = isRecord(accessJwt?.["https://api.openai.com/profile"]) ? accessJwt["https://api.openai.com/profile"] : {};
+  const profileMeta = isRecord(accessJwt?.["https://api.openai.com/profile"])
+    ? accessJwt["https://api.openai.com/profile"]
+    : {};
   const organizations = (Array.isArray(idAuthMeta.organizations) ? idAuthMeta.organizations : [])
     .filter((value) => isRecord(value))
     .map((organization) => ({
       id: String(organization.id || "").trim() || null,
       title: String(organization.title || "").trim() || null,
       role: String(organization.role || "").trim() || null,
-      isDefault: Boolean(organization.is_default)
+      isDefault: Boolean(organization.is_default),
     }));
-  const defaultOrganization = organizations.find((organization) => organization.isDefault) || organizations[0] || null;
+  const defaultOrganization =
+    organizations.find((organization) => organization.isDefault) || organizations[0] || null;
   const email = String(idJwt?.email || profileMeta.email || "").trim() || null;
   const accountId = String(tokens.account_id || authMeta.chatgpt_account_id || "").trim() || null;
   const plan = String(authMeta.chatgpt_plan_type || "").trim() || null;
@@ -3484,17 +3862,23 @@ function parseCodexCliAuthMetadata(auth) {
       email,
       accountId,
       workspaceId,
-      workspaceTitle
-    })
+      workspaceTitle,
+    }),
   };
 }
 
 function buildCodexCliIdentity(meta) {
   if (!meta) return null;
   const parts = [
-    String(meta.accountId || "").trim().toLowerCase(),
-    String(meta.workspaceId || "").trim().toLowerCase(),
-    String(meta.email || "").trim().toLowerCase()
+    String(meta.accountId || "")
+      .trim()
+      .toLowerCase(),
+    String(meta.workspaceId || "")
+      .trim()
+      .toLowerCase(),
+    String(meta.email || "")
+      .trim()
+      .toLowerCase(),
   ];
   if (!parts.some(Boolean)) return null;
   return parts.join("|");
@@ -3502,8 +3886,10 @@ function buildCodexCliIdentity(meta) {
 
 function validateCodexCliAuth(auth) {
   const tokens = isRecord(auth?.tokens) ? auth.tokens : {};
-  if (!tokens.id_token) throw new Error("Current Codex CLI auth is missing id_token. Run codex login again.");
-  if (!tokens.refresh_token) throw new Error("Current Codex CLI auth is missing refresh_token. Run codex login again.");
+  if (!tokens.id_token)
+    throw new Error("Current Codex CLI auth is missing id_token. Run codex login again.");
+  if (!tokens.refresh_token)
+    throw new Error("Current Codex CLI auth is missing refresh_token. Run codex login again.");
 }
 
 async function loadCodexCliConfigSummary() {
@@ -3512,7 +3898,7 @@ async function loadCodexCliConfigSummary() {
     return {
       model: null,
       reasoning: null,
-      serviceTier: null
+      serviceTier: null,
     };
   }
   const extract = (key) => {
@@ -3522,7 +3908,7 @@ async function loadCodexCliConfigSummary() {
   return {
     model: extract("model"),
     reasoning: extract("model_reasoning_effort"),
-    serviceTier: extract("service_tier")
+    serviceTier: extract("service_tier"),
   };
 }
 
@@ -3537,7 +3923,7 @@ function buildCodexCliProfileView(profileId, entry, currentProfileId) {
     savedIso: toIso(savedAt),
     updatedAt,
     updatedIso: toIso(updatedAt),
-    isCurrent: currentProfileId === profileId
+    isCurrent: currentProfileId === profileId,
   };
 }
 
@@ -3555,22 +3941,24 @@ async function loadCodexCliStatus() {
   const [config, rawStore, currentAuth] = await Promise.all([
     loadCodexCliConfigSummary(),
     loadCodexCliStore(),
-    readJsonFile(CODEX_CLI_AUTH_PATH, null)
+    readJsonFile(CODEX_CLI_AUTH_PATH, null),
   ]);
   const store = normalizeCodexCliStore(rawStore);
   const currentMeta = currentAuth ? parseCodexCliAuthMetadata(currentAuth) : null;
   const currentIdentity = buildCodexCliIdentity(currentMeta);
   let currentProfileId = null;
-  const profiles = await Promise.all(Object.entries(store.profiles).map(async ([profileId, entry]) => {
-    const view = buildCodexCliProfileView(profileId, entry, null);
-    if (!currentProfileId && currentIdentity && buildCodexCliIdentity(view) === currentIdentity) {
-      currentProfileId = profileId;
-    }
-    return {
-      ...view,
-      usage: await fetchCodexUsageFromAuthJson(entry?.auth || null)
-    };
-  }));
+  const profiles = await Promise.all(
+    Object.entries(store.profiles).map(async ([profileId, entry]) => {
+      const view = buildCodexCliProfileView(profileId, entry, null);
+      if (!currentProfileId && currentIdentity && buildCodexCliIdentity(view) === currentIdentity) {
+        currentProfileId = profileId;
+      }
+      return {
+        ...view,
+        usage: await fetchCodexUsageFromAuthJson(entry?.auth || null),
+      };
+    }),
+  );
 
   profiles.sort((left, right) => {
     if (left.profileId === currentProfileId && right.profileId !== currentProfileId) return -1;
@@ -3592,24 +3980,24 @@ async function loadCodexCliStatus() {
     paths: {
       authPath: CODEX_CLI_AUTH_PATH,
       configPath: CODEX_CLI_CONFIG_PATH,
-      codexRoot: CODEX_HOME
+      codexRoot: CODEX_HOME,
     },
     current: currentMeta
       ? {
           ...currentMeta,
           usage: currentUsage,
           matchedProfileId: currentProfileId,
-          authFilePresent: true
+          authFilePresent: true,
         }
       : {
           authFilePresent: false,
-          matchedProfileId: null
+          matchedProfileId: null,
         },
     profileCount: profiles.length,
     profiles: profiles.map((profile) => ({
       ...profile,
-      isCurrent: profile.profileId === currentProfileId
-    }))
+      isCurrent: profile.profileId === currentProfileId,
+    })),
   };
 }
 
@@ -3621,9 +4009,16 @@ async function saveCurrentCodexCliProfile(alias) {
   const store = normalizeCodexCliStore(await loadCodexCliStore());
   const matchedProfileId = findCodexCliProfileIdByIdentity(store, meta);
   const requestedProfileId = alias ? sanitizeCliProfileId(alias) : null;
-  let profileId = requestedProfileId || matchedProfileId || makeUniqueProfileId(meta.suggestedAlias, store.profiles);
+  let profileId =
+    requestedProfileId ||
+    matchedProfileId ||
+    makeUniqueProfileId(meta.suggestedAlias, store.profiles);
 
-  if (requestedProfileId && store.profiles[requestedProfileId] && requestedProfileId !== matchedProfileId) {
+  if (
+    requestedProfileId &&
+    store.profiles[requestedProfileId] &&
+    requestedProfileId !== matchedProfileId
+  ) {
     throw new Error(`CLI profile already exists: ${requestedProfileId}`);
   }
 
@@ -3631,7 +4026,7 @@ async function saveCurrentCodexCliProfile(alias) {
   store.profiles[profileId] = {
     savedAt: Number(existing?.savedAt || 0) || nowTs(),
     updatedAt: nowTs(),
-    auth: currentAuth
+    auth: currentAuth,
   };
 
   await writeJsonAtomicSecure(CODEX_CLI_STORE_PATH, store);
@@ -3675,14 +4070,14 @@ async function exchangeRefreshTokenForFullCodexTokens(refreshToken) {
     const response = await fetch(OPENAI_OAUTH_TOKEN_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
+        "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
         grant_type: "refresh_token",
         refresh_token: String(refreshToken || "").trim(),
-        client_id: OPENAI_OAUTH_CLIENT_ID
+        client_id: OPENAI_OAUTH_CLIENT_ID,
       }),
-      signal: controller.signal
+      signal: controller.signal,
     });
     const text = await response.text();
     let json = null;
@@ -3695,14 +4090,19 @@ async function exchangeRefreshTokenForFullCodexTokens(refreshToken) {
       const errorText = json?.error_description || json?.error || text || `HTTP ${response.status}`;
       throw new Error(`OpenAI token refresh failed: ${errorText}`);
     }
-    if (!json?.access_token || !json?.refresh_token || !json?.id_token || typeof json?.expires_in !== "number") {
+    if (
+      !json?.access_token ||
+      !json?.refresh_token ||
+      !json?.id_token ||
+      typeof json?.expires_in !== "number"
+    ) {
       throw new Error("OpenAI token refresh response is missing required fields.");
     }
     return {
       accessToken: json.access_token,
       refreshToken: json.refresh_token,
       idToken: json.id_token,
-      expiresAt: nowTs() + json.expires_in * 1000
+      expiresAt: nowTs() + json.expires_in * 1000,
     };
   } catch (error) {
     if (error?.name === "AbortError") throw new Error("OpenAI token refresh timed out.");
@@ -3720,9 +4120,9 @@ function buildCodexCliAuthJson(fullTokens) {
       id_token: fullTokens.idToken,
       access_token: fullTokens.accessToken,
       refresh_token: fullTokens.refreshToken,
-      account_id: ""
+      account_id: "",
     },
-    last_refresh: new Date().toISOString()
+    last_refresh: new Date().toISOString(),
   });
   return {
     auth_mode: "chatgpt",
@@ -3731,9 +4131,9 @@ function buildCodexCliAuthJson(fullTokens) {
       id_token: fullTokens.idToken,
       access_token: fullTokens.accessToken,
       refresh_token: fullTokens.refreshToken,
-      account_id: accessMeta.accountId
+      account_id: accessMeta.accountId,
     },
-    last_refresh: new Date().toISOString()
+    last_refresh: new Date().toISOString(),
   };
 }
 
@@ -3743,15 +4143,22 @@ async function upsertCodexCliProfileFromAuth(auth, preferredAlias) {
   const store = normalizeCodexCliStore(await loadCodexCliStore());
   const matchedProfileId = findCodexCliProfileIdByIdentity(store, meta);
   const requestedProfileId = preferredAlias ? sanitizeCliProfileId(preferredAlias) : null;
-  let profileId = matchedProfileId || requestedProfileId || makeUniqueProfileId(meta.suggestedAlias, store.profiles);
-  if (requestedProfileId && store.profiles[requestedProfileId] && requestedProfileId !== matchedProfileId) {
+  let profileId =
+    matchedProfileId ||
+    requestedProfileId ||
+    makeUniqueProfileId(meta.suggestedAlias, store.profiles);
+  if (
+    requestedProfileId &&
+    store.profiles[requestedProfileId] &&
+    requestedProfileId !== matchedProfileId
+  ) {
     profileId = makeUniqueProfileId(requestedProfileId, store.profiles);
   }
   const existing = store.profiles[profileId];
   store.profiles[profileId] = {
     savedAt: Number(existing?.savedAt || 0) || nowTs(),
     updatedAt: nowTs(),
-    auth
+    auth,
   };
   await writeJsonAtomicSecure(CODEX_CLI_STORE_PATH, store);
   return profileId;
@@ -3765,13 +4172,13 @@ async function fetchCodexUsageFromAccess(accessToken, accountId) {
     const headers = {
       Authorization: `Bearer ${accessToken}`,
       "User-Agent": "OpenClawCodexControl",
-      Accept: "application/json"
+      Accept: "application/json",
     };
     if (accountId) headers["ChatGPT-Account-Id"] = accountId;
     const response = await fetch(CODEX_USAGE_URL, {
       method: "GET",
       headers,
-      signal: controller.signal
+      signal: controller.signal,
     });
     if (!response.ok) return { error: `HTTP ${response.status}` };
     const data = await response.json();
@@ -3781,7 +4188,7 @@ async function fetchCodexUsageFromAccess(accessToken, accountId) {
       windows.push({
         label: `${Math.round((entry.limit_window_seconds || 10800) / 3600)}h`,
         usedPercent: clampPercent(entry.used_percent || 0),
-        resetAt: entry.reset_at ? entry.reset_at * 1000 : null
+        resetAt: entry.reset_at ? entry.reset_at * 1000 : null,
       });
     }
     if (isRecord(data.rate_limit?.secondary_window)) {
@@ -3790,12 +4197,12 @@ async function fetchCodexUsageFromAccess(accessToken, accountId) {
       windows.push({
         label: hours >= 24 ? `${Math.round(hours / 24)}d` : `${hours}h`,
         usedPercent: clampPercent(entry.used_percent || 0),
-        resetAt: entry.reset_at ? entry.reset_at * 1000 : null
+        resetAt: entry.reset_at ? entry.reset_at * 1000 : null,
       });
     }
     return {
       plan: data.plan_type || null,
-      windows
+      windows,
     };
   } catch (error) {
     return { error: error?.name === "AbortError" ? "timeout" : String(error?.message || error) };
@@ -3817,44 +4224,57 @@ function ensureConfigAuthProfile(config, params) {
   profiles[params.profileId] = {
     provider: params.provider,
     mode: params.mode,
-    ...(params.email ? { email: params.email } : {})
+    ...(params.email ? { email: params.email } : {}),
   };
 
-  const existingProviderOrder = Array.isArray(auth.order?.[params.provider]) ? auth.order[params.provider] : undefined;
+  const existingProviderOrder = Array.isArray(auth.order?.[params.provider])
+    ? auth.order[params.provider]
+    : undefined;
   const configuredProviderProfiles = Object.entries(profiles)
     .filter(([, profile]) => String(profile?.provider || "").toLowerCase() === normalizedProvider)
     .map(([profileId, profile]) => ({ profileId, mode: profile?.mode }));
   const preferProfileFirst = params.preferProfileFirst !== false;
-  const reorderedProviderOrder = existingProviderOrder && preferProfileFirst
-    ? [params.profileId, ...existingProviderOrder.filter((profileId) => profileId !== params.profileId)]
-    : existingProviderOrder;
-  const hasMixedConfiguredModes = configuredProviderProfiles.some(({ profileId, mode }) =>
-    profileId !== params.profileId && mode !== params.mode
+  const reorderedProviderOrder =
+    existingProviderOrder && preferProfileFirst
+      ? [
+          params.profileId,
+          ...existingProviderOrder.filter((profileId) => profileId !== params.profileId),
+        ]
+      : existingProviderOrder;
+  const hasMixedConfiguredModes = configuredProviderProfiles.some(
+    ({ profileId, mode }) => profileId !== params.profileId && mode !== params.mode,
   );
-  const derivedProviderOrder = existingProviderOrder === undefined && preferProfileFirst && hasMixedConfiguredModes
-    ? [params.profileId, ...configuredProviderProfiles.map(({ profileId }) => profileId).filter((profileId) => profileId !== params.profileId)]
-    : undefined;
-  const order = existingProviderOrder !== undefined
-    ? {
-        ...(isRecord(auth.order) ? auth.order : {}),
-        [params.provider]: reorderedProviderOrder?.includes(params.profileId)
-          ? reorderedProviderOrder
-          : [...(reorderedProviderOrder || []), params.profileId]
-      }
-    : derivedProviderOrder
+  const derivedProviderOrder =
+    existingProviderOrder === undefined && preferProfileFirst && hasMixedConfiguredModes
+      ? [
+          params.profileId,
+          ...configuredProviderProfiles
+            .map(({ profileId }) => profileId)
+            .filter((profileId) => profileId !== params.profileId),
+        ]
+      : undefined;
+  const order =
+    existingProviderOrder !== undefined
       ? {
           ...(isRecord(auth.order) ? auth.order : {}),
-          [params.provider]: derivedProviderOrder
+          [params.provider]: reorderedProviderOrder?.includes(params.profileId)
+            ? reorderedProviderOrder
+            : [...(reorderedProviderOrder || []), params.profileId],
         }
-      : auth.order;
+      : derivedProviderOrder
+        ? {
+            ...(isRecord(auth.order) ? auth.order : {}),
+            [params.provider]: derivedProviderOrder,
+          }
+        : auth.order;
 
   return {
     ...nextConfig,
     auth: {
       ...auth,
       profiles,
-      ...(order ? { order } : {})
-    }
+      ...(order ? { order } : {}),
+    },
   };
 }
 
@@ -3870,7 +4290,7 @@ function summarizeLoginSession() {
     error: activeLogin.error || null,
     result: activeLogin.result || null,
     createdAt: activeLogin.createdAt,
-    updatedAt: activeLogin.updatedAt
+    updatedAt: activeLogin.updatedAt,
   };
 }
 
@@ -3924,11 +4344,14 @@ async function persistOAuthLogin(params) {
   store = isRecord(store) ? store : { version: 1, profiles: {} };
   store.profiles = isRecord(store.profiles) ? store.profiles : {};
 
-  const email = String(parseProfileMetadata("incoming", {
-    type: "oauth",
-    access: params.creds.access,
-    accountId: params.creds.accountId
-  }).email || "").trim() || null;
+  const email =
+    String(
+      parseProfileMetadata("incoming", {
+        type: "oauth",
+        access: params.creds.access,
+        accountId: params.creds.accountId,
+      }).email || "",
+    ).trim() || null;
   const targetProfileId = String(params.targetProfileId || "").trim() || null;
   let profileId = targetProfileId || naturalProfileIdForEmail(email);
   const existingTarget = store.profiles[profileId];
@@ -3941,7 +4364,11 @@ async function persistOAuthLogin(params) {
   if (!targetProfileId && existingTarget) {
     const existingMeta = parseProfileMetadata(profileId, existingTarget);
     const existingAccountId = existingMeta.accountId;
-    if (existingAccountId && params.creds.accountId && existingAccountId !== params.creds.accountId) {
+    if (
+      existingAccountId &&
+      params.creds.accountId &&
+      existingAccountId !== params.creds.accountId
+    ) {
       const suggestedBase = existingMeta.suggestedAlias;
       preservedProfileId = makeUniqueProfileId(suggestedBase, store.profiles);
       renameProfileInState(config, store, profileId, preservedProfileId);
@@ -3955,26 +4382,26 @@ async function persistOAuthLogin(params) {
     refresh: params.creds.refresh,
     expires: params.creds.expires,
     accountId: params.creds.accountId,
-    ...(email ? { email } : {})
+    ...(email ? { email } : {}),
   };
 
   config = ensureConfigAuthProfile(config, {
     profileId,
     provider: PROVIDER,
     mode: "oauth",
-    email
+    email,
   });
 
   await Promise.all([
     writeJsonAtomic(CONFIG_PATH, config),
-    writeJsonAtomic(AUTH_STORE_PATH, store)
+    writeJsonAtomic(AUTH_STORE_PATH, store),
   ]);
 
   return {
     profileId,
     email,
     accountId: params.creds.accountId || null,
-    preservedProfileId
+    preservedProfileId,
   };
 }
 
@@ -3994,7 +4421,7 @@ async function startLoginSession(params = {}) {
     instructions: null,
     targetProfileId: String(params.targetProfileId || "").trim() || null,
     result: null,
-    manualInput: createDeferred()
+    manualInput: createDeferred(),
   };
   activeLogin = login;
 
@@ -4008,7 +4435,7 @@ async function startLoginSession(params = {}) {
           updateActiveLogin({
             status: "awaiting-browser",
             authUrl: url,
-            instructions: instructions || "Open the login page and complete the OAuth flow."
+            instructions: instructions || "Open the login page and complete the OAuth flow.",
           });
           authReady.resolve();
         },
@@ -4018,47 +4445,44 @@ async function startLoginSession(params = {}) {
         async onManualCodeInput() {
           updateActiveLogin({
             status: "waiting-callback",
-            progress: "Waiting for browser callback or pasted redirect URL…"
+            progress: "Waiting for browser callback or pasted redirect URL…",
           });
           return await login.manualInput.promise;
         },
         async onPrompt(prompt) {
           updateActiveLogin({
             status: "waiting-callback",
-            progress: prompt?.message || "Paste the final redirect URL or authorization code."
+            progress: prompt?.message || "Paste the final redirect URL or authorization code.",
           });
           return await login.manualInput.promise;
-        }
+        },
       });
 
       updateActiveLogin({
         status: "saving",
-        progress: "Saving OAuth credentials…"
+        progress: "Saving OAuth credentials…",
       });
       const persisted = await persistOAuthLogin({
         creds,
-        targetProfileId: login.targetProfileId
+        targetProfileId: login.targetProfileId,
       });
       updateActiveLogin({
         status: "completed",
         progress: "OAuth login complete.",
-        result: persisted
+        result: persisted,
       });
       authReady.resolve();
     } catch (error) {
       updateActiveLogin({
         status: login.status === "cancelled" ? "cancelled" : "error",
         error: String(error?.message || error),
-        progress: null
+        progress: null,
       });
       authReady.resolve();
     }
   })();
 
-  await Promise.race([
-    authReady.promise,
-    new Promise((resolve) => setTimeout(resolve, 5000))
-  ]);
+  await Promise.race([authReady.promise, new Promise((resolve) => setTimeout(resolve, 5000))]);
   return summarizeLoginSession();
 }
 
@@ -4070,7 +4494,7 @@ async function submitLoginInput(input) {
   if (!value) throw new Error("Redirect URL or authorization code is required.");
   updateActiveLogin({
     status: "waiting-exchange",
-    progress: "Exchanging authorization code for token…"
+    progress: "Exchanging authorization code for token…",
   });
   activeLogin.manualInput.resolve(value);
   return summarizeLoginSession();
@@ -4083,7 +4507,7 @@ async function cancelLoginSession() {
   updateActiveLogin({
     status: "cancelled",
     error: "Login cancelled.",
-    progress: null
+    progress: null,
   });
   activeLogin.manualInput.reject(new Error("Login cancelled."));
   return summarizeLoginSession();
@@ -4124,43 +4548,48 @@ function buildProfileView(profileId, profile, store, config, effectiveOrder, usa
     isInCooldown: isInCooldown(stats, ts),
     suggestedAlias: meta.suggestedAlias,
     usage: usageById[profileId] || null,
-    configProfile: config.auth?.profiles?.[profileId] || null
+    configProfile: config.auth?.profiles?.[profileId] || null,
   };
 }
 
 async function loadStatus(includeUsage = true) {
-  const [config, store, codexCli, autopilot, intel, memory, evolution, recentEvents] = await Promise.all([
-    loadConfig(),
-    loadStore(),
-    loadCodexCliStatus(),
-    loadAutopilotStatus(),
-    buildManagedIntelStatus(),
-    buildManagedMemoryStatus(),
-    buildManagedEvolutionStatus(),
-    readRecentSystemEvents(24)
-  ]);
+  const [config, store, codexCli, autopilot, intel, memory, evolution, recentEvents] =
+    await Promise.all([
+      loadConfig(),
+      loadStore(),
+      loadCodexCliStatus(),
+      loadAutopilotStatus(),
+      buildManagedIntelStatus(),
+      buildManagedMemoryStatus(),
+      buildManagedEvolutionStatus(),
+      readRecentSystemEvents(24),
+    ]);
   const profileIds = listProviderProfileIds(store);
   const effectiveOrder = computeEffectiveOrder(store, config, profileIds);
   const usageById = {};
   if (includeUsage) {
-    await Promise.all(profileIds.map(async (profileId) => {
-      usageById[profileId] = await fetchCodexUsage(store.profiles[profileId]);
-    }));
+    await Promise.all(
+      profileIds.map(async (profileId) => {
+        usageById[profileId] = await fetchCodexUsage(store.profiles[profileId]);
+      }),
+    );
   }
   return {
     config: {
       defaultModel: config.agents?.defaults?.model?.primary || null,
       imageModel: config.agents?.defaults?.imageModel?.primary || null,
       thinkingDefault: config.agents?.defaults?.thinkingDefault || null,
-      workspace: config.agents?.defaults?.workspace || null
+      workspace: config.agents?.defaults?.workspace || null,
     },
     auth: {
       explicitOrder: Array.isArray(store.order?.[PROVIDER]) ? store.order[PROVIDER] : null,
-      configOrder: Array.isArray(config.auth?.order?.[PROVIDER]) ? config.auth.order[PROVIDER] : null,
+      configOrder: Array.isArray(config.auth?.order?.[PROVIDER])
+        ? config.auth.order[PROVIDER]
+        : null,
       effectiveOrder,
       autoMode: !Array.isArray(store.order?.[PROVIDER]),
       profileCount: profileIds.length,
-      lastGood: store.lastGood?.[PROVIDER] || null
+      lastGood: store.lastGood?.[PROVIDER] || null,
     },
     codexCli,
     autopilot,
@@ -4170,8 +4599,15 @@ async function loadStatus(includeUsage = true) {
     recentEvents,
     login: summarizeLoginSession(),
     profiles: profileIds.map((profileId) =>
-      buildProfileView(profileId, store.profiles[profileId], store, config, effectiveOrder, usageById)
-    )
+      buildProfileView(
+        profileId,
+        store.profiles[profileId],
+        store,
+        config,
+        effectiveOrder,
+        usageById,
+      ),
+    ),
   };
 }
 
@@ -4198,7 +4634,7 @@ async function readJsonBody(req) {
 function sendJson(res, statusCode, body) {
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-cache"
+    "Cache-Control": "no-cache",
   });
   res.end(JSON.stringify(body));
 }
@@ -4206,18 +4642,22 @@ function sendJson(res, statusCode, body) {
 function sendJs(res, source) {
   res.writeHead(200, {
     "Content-Type": "application/javascript; charset=utf-8",
-    "Cache-Control": "no-cache"
+    "Cache-Control": "no-cache",
   });
   res.end(source);
 }
 
 function isLoopbackAddress(value) {
-  const text = String(value || "").trim().toLowerCase();
+  const text = String(value || "")
+    .trim()
+    .toLowerCase();
   return text === "127.0.0.1" || text === "::1" || text === "::ffff:127.0.0.1";
 }
 
 function isTrustedPluginApiRequest(req) {
-  const host = String(req.headers?.host || "").trim().toLowerCase();
+  const host = String(req.headers?.host || "")
+    .trim()
+    .toLowerCase();
   const origin = String(req.headers?.origin || "").trim();
   if (origin) {
     try {
@@ -4226,7 +4666,9 @@ function isTrustedPluginApiRequest(req) {
       return false;
     }
   }
-  const site = String(req.headers?.["sec-fetch-site"] || "").trim().toLowerCase();
+  const site = String(req.headers?.["sec-fetch-site"] || "")
+    .trim()
+    .toLowerCase();
   if (site === "same-origin" || site === "same-site") return true;
   return isLoopbackAddress(req.socket?.remoteAddress);
 }
@@ -4241,7 +4683,11 @@ async function selectProfile(profileId) {
   const [config, store] = await Promise.all([loadConfig(), loadStore()]);
   const profileIds = listProviderProfileIds(store);
   if (!profileIds.includes(profileId)) throw new Error(`Unknown profile: ${profileId}`);
-  const order = dedupe([profileId, ...computeEffectiveOrder(store, config, profileIds), ...profileIds]);
+  const order = dedupe([
+    profileId,
+    ...computeEffectiveOrder(store, config, profileIds),
+    ...profileIds,
+  ]);
   store.order = isRecord(store.order) ? store.order : {};
   store.order[PROVIDER] = order;
   await writeJsonAtomic(AUTH_STORE_PATH, store);
@@ -4268,7 +4714,11 @@ async function activateOpenClawProfileForCodexCli(profileId, setOpenClawCurrent 
 
   if (setOpenClawCurrent) {
     const profileIds = listProviderProfileIds(store);
-    const order = dedupe([profileId, ...computeEffectiveOrder(store, config, profileIds), ...profileIds]);
+    const order = dedupe([
+      profileId,
+      ...computeEffectiveOrder(store, config, profileIds),
+      ...profileIds,
+    ]);
     store.order = isRecord(store.order) ? store.order : {};
     store.order[PROVIDER] = order;
     await writeJsonAtomic(AUTH_STORE_PATH, store);
@@ -4291,7 +4741,7 @@ async function renameProfile(profileId, alias) {
 
   await Promise.all([
     writeJsonAtomic(CONFIG_PATH, config),
-    writeJsonAtomic(AUTH_STORE_PATH, store)
+    writeJsonAtomic(AUTH_STORE_PATH, store),
   ]);
 }
 
@@ -4300,7 +4750,8 @@ module.exports = {
   name: "OpenClaw Codex Control",
   register(api) {
     pluginApi = api;
-    const routeBase = String(api.pluginConfig?.routeBase || DEFAULT_ROUTE_BASE).trim() || DEFAULT_ROUTE_BASE;
+    const routeBase =
+      String(api.pluginConfig?.routeBase || DEFAULT_ROUTE_BASE).trim() || DEFAULT_ROUTE_BASE;
     const injectPath = `${routeBase}/inject.js`;
     const apiBase = `${routeBase}/api`;
 
@@ -4318,14 +4769,14 @@ module.exports = {
         if (req.method === "HEAD") {
           res.writeHead(200, {
             "Content-Type": "application/javascript; charset=utf-8",
-            "Cache-Control": "no-cache"
+            "Cache-Control": "no-cache",
           });
           res.end();
           return true;
         }
         sendJs(res, source.replaceAll("__ROUTE_BASE__", routeBase));
         return true;
-      }
+      },
     });
 
     api.registerHttpRoute({
@@ -4355,11 +4806,15 @@ module.exports = {
 
           if (pathname === `${apiBase}/intel/run` && req.method === "POST") {
             const body = await readJsonBody(req);
-            sendJson(res, 200, await runIntelMaintenance({
-              domainId: normalizeString(body.domainId),
-              forceRefresh: Boolean(body.forceRefresh),
-              forceDigest: Boolean(body.forceDigest)
-            }));
+            sendJson(
+              res,
+              200,
+              await runIntelMaintenance({
+                domainId: normalizeString(body.domainId),
+                forceRefresh: Boolean(body.forceRefresh),
+                forceDigest: Boolean(body.forceDigest),
+              }),
+            );
             return true;
           }
 
@@ -4372,18 +4827,21 @@ module.exports = {
             const body = await readJsonBody(req);
             const reasonEvent = await appendSystemEvent("memory_invalidation_requested", {
               memoryIds: normalizeStringArray(body.memoryIds || []),
-              reason: normalizeString(body.reason)
+              reason: normalizeString(body.reason),
             });
             const mutations = await loadManagedRuntimeMutationsCore();
             const opts = managedRuntimeStoreOptions(nowTs());
             sendJson(
               res,
               200,
-              mutations.invalidateMemoryLineage({
-                memoryIds: normalizeStringArray(body.memoryIds || []),
-                reasonEventId: reasonEvent.eventId,
-                now: opts.now
-              }, opts)
+              mutations.invalidateMemoryLineage(
+                {
+                  memoryIds: normalizeStringArray(body.memoryIds || []),
+                  reasonEventId: reasonEvent.eventId,
+                  now: opts.now,
+                },
+                opts,
+              ),
             );
             return true;
           }
@@ -4413,7 +4871,11 @@ module.exports = {
 
           if (pathname === `${apiBase}/autopilot/task/upsert` && req.method === "POST") {
             const body = await readJsonBody(req);
-            sendJson(res, 200, await upsertManagedAutopilotTask(isRecord(body.task) ? body.task : body));
+            sendJson(
+              res,
+              200,
+              await upsertManagedAutopilotTask(isRecord(body.task) ? body.task : body),
+            );
             return true;
           }
 
@@ -4421,11 +4883,13 @@ module.exports = {
             const body = await readJsonBody(req);
             const transitionPatch = {
               status: body.status,
-              runState: isRecord(body.runState) ? body.runState : {
-                lastResultStatus: body.status,
-                lastResultSummary: body.summary,
-                lastWorkerOutput: body.workerOutput
-              }
+              runState: isRecord(body.runState)
+                ? body.runState
+                : {
+                    lastResultStatus: body.status,
+                    lastResultSummary: body.summary,
+                    lastWorkerOutput: body.workerOutput,
+                  },
             };
             const optionalKeys = [
               "notes",
@@ -4446,15 +4910,23 @@ module.exports = {
               "skillHints",
               "memoryRefs",
               "intelRefs",
-              "optimizationState"
+              "optimizationState",
             ];
             for (const key of optionalKeys) {
               if (body[key] !== undefined) transitionPatch[key] = body[key];
             }
             if (body.lastResult !== undefined || body.summary !== undefined) {
-              transitionPatch.lastResult = body.lastResult !== undefined ? body.lastResult : body.summary;
+              transitionPatch.lastResult =
+                body.lastResult !== undefined ? body.lastResult : body.summary;
             }
-            sendJson(res, 200, await transitionManagedAutopilotTask(String(body.taskId || "").trim(), transitionPatch));
+            sendJson(
+              res,
+              200,
+              await transitionManagedAutopilotTask(
+                String(body.taskId || "").trim(),
+                transitionPatch,
+              ),
+            );
             return true;
           }
 
@@ -4484,16 +4956,23 @@ module.exports = {
 
           if (pathname === `${apiBase}/profile/rename` && req.method === "POST") {
             const body = await readJsonBody(req);
-            await renameProfile(String(body.profileId || "").trim(), String(body.alias || "").trim());
+            await renameProfile(
+              String(body.profileId || "").trim(),
+              String(body.alias || "").trim(),
+            );
             sendJson(res, 200, await loadStatus(true));
             return true;
           }
 
           if (pathname === `${apiBase}/login/start` && req.method === "POST") {
             const body = await readJsonBody(req);
-            sendJson(res, 200, await startLoginSession({
-              targetProfileId: String(body.targetProfileId || "").trim() || null
-            }));
+            sendJson(
+              res,
+              200,
+              await startLoginSession({
+                targetProfileId: String(body.targetProfileId || "").trim() || null,
+              }),
+            );
             return true;
           }
 
@@ -4516,8 +4995,8 @@ module.exports = {
               200,
               await activateOpenClawProfileForCodexCli(
                 String(body.profileId || "").trim(),
-                Boolean(body.setOpenClawCurrent)
-              )
+                Boolean(body.setOpenClawCurrent),
+              ),
             );
             return true;
           }
@@ -4527,7 +5006,10 @@ module.exports = {
             sendJson(
               res,
               200,
-              await renameCodexCliProfile(String(body.profileId || "").trim(), String(body.alias || "").trim())
+              await renameCodexCliProfile(
+                String(body.profileId || "").trim(),
+                String(body.alias || "").trim(),
+              ),
             );
             return true;
           }
@@ -4552,43 +5034,57 @@ module.exports = {
           sendJson(res, 404, { error: "not found" });
           return true;
         } catch (error) {
-          api.logger.warn(`[openclaw-codex-control] ${pathname} failed: ${String(error?.message || error)}`);
+          api.logger.warn(
+            `[openclaw-codex-control] ${pathname} failed: ${String(error?.message || error)}`,
+          );
           sendJson(res, 500, { error: String(error?.message || error) });
           return true;
         }
-      }
+      },
     });
 
     api.logger.info(`[openclaw-codex-control] injection script: ${injectPath}`);
     api.logger.info(`[openclaw-codex-control] api base: ${apiBase}`);
 
-    api.on("before_prompt_build", async (_event, ctx) => {
-      try {
-        const sessionKey = normalizeString(ctx?.sessionKey);
-        if (!sessionKey) return;
-        const agentId = normalizeString(ctx?.agentId, "main");
-        const autopilotStatus = await loadAutopilotStatus();
-        if (autopilotStatus?.config?.heartbeatEnabled && await isHeartbeatSession(agentId, sessionKey)) {
-          const heartbeatBlock = buildHeartbeatAutopilotContext(autopilotStatus);
-          if (heartbeatBlock) {
-            return {
-              prependContext: heartbeatBlock
-            };
+    api.on(
+      "before_prompt_build",
+      async (_event, ctx) => {
+        try {
+          const sessionKey = normalizeString(ctx?.sessionKey);
+          if (!sessionKey) return;
+          const agentId = normalizeString(ctx?.agentId, "main");
+          const autopilotStatus = await loadAutopilotStatus();
+          if (
+            autopilotStatus?.config?.heartbeatEnabled &&
+            (await isHeartbeatSession(agentId, sessionKey))
+          ) {
+            const heartbeatBlock = buildHeartbeatAutopilotContext(autopilotStatus);
+            if (heartbeatBlock) {
+              return {
+                prependContext: heartbeatBlock,
+              };
+            }
           }
+          const task = await captureAutopilotTaskFromSession(ctx);
+          if (!task) return;
+          const block = buildAutopilotPromptBlock(
+            task,
+            autopilotStatus?.config || DEFAULT_AUTOPILOT_CONFIG,
+          );
+          if (!block) return;
+          return {
+            prependContext: block,
+          };
+        } catch (error) {
+          api.logger.warn(
+            `[openclaw-codex-control] before_prompt_build capture failed: ${String(error?.message || error)}`,
+          );
+          return;
         }
-        const task = await captureAutopilotTaskFromSession(ctx);
-        if (!task) return;
-        const block = buildAutopilotPromptBlock(task, autopilotStatus?.config || DEFAULT_AUTOPILOT_CONFIG);
-        if (!block) return;
-        return {
-          prependContext: block
-        };
-      } catch (error) {
-        api.logger.warn(`[openclaw-codex-control] before_prompt_build capture failed: ${String(error?.message || error)}`);
-        return;
-      }
-    }, { priority: 18 });
+      },
+      { priority: 18 },
+    );
 
     startAutopilotTicker();
-  }
+  },
 };
