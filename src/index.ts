@@ -32,6 +32,7 @@ import { installUnhandledRejectionHandler } from "./infra/unhandled-rejections.j
 import { resolveInstanceManifest, resolvePathResolver } from "./instance/paths.js";
 import { enableConsoleCapture } from "./logging.js";
 import { runCommandWithTimeout, runExec } from "./process/exec.js";
+import { syncRuntimeCapabilityRegistry } from "./shared/runtime/capability-plane.js";
 import {
   buildDecisionRecord,
   buildDecisionPromptBlock,
@@ -41,11 +42,15 @@ import {
   buildRemoteModelPlan,
   shouldUseSystem2,
 } from "./shared/runtime/decision-core.js";
-import { buildContextPack, buildRouteDomains } from "./shared/runtime/retrieval-orchestrator.js";
+import {
+  listRuntimeFederationInbox,
+  syncRuntimeFederationInbox,
+  transitionRuntimeFederationPackage,
+} from "./shared/runtime/federation-inbox.js";
+import { syncRuntimeFederationOutbox } from "./shared/runtime/federation-outbox.js";
+import { syncRuntimeFederationRemote } from "./shared/runtime/federation-sync.js";
 import { runRuntimeIntelPipeline } from "./shared/runtime/intel-pipeline.js";
 import { refreshRuntimeIntelPipeline } from "./shared/runtime/intel-refresh.js";
-import { syncRuntimeFederationOutbox } from "./shared/runtime/federation-outbox.js";
-import { syncRuntimeCapabilityRegistry } from "./shared/runtime/capability-plane.js";
 import {
   distillTaskOutcomeToMemory,
   invalidateMemoryLineage,
@@ -55,17 +60,12 @@ import {
   persistTaskLifecycleArtifacts,
   reviewRuntimeEvolution,
 } from "./shared/runtime/mutations.js";
-import {
-  applyRuntimeTaskResult,
-  planRuntimeTask,
-  tickRuntimeTaskLoop,
-  upsertRuntimeTask,
-} from "./shared/runtime/task-engine.js";
+import { buildContextPack, buildRouteDomains } from "./shared/runtime/retrieval-orchestrator.js";
 import {
   applyLegacyRuntimeImport,
   buildFederationRuntimeSnapshot,
   buildGovernanceSnapshotMetadata,
-  buildLatestIntelDigestEnvelope,
+  buildLatestNewsDigestEnvelope,
   buildLatestStrategyDigestEnvelope,
   buildLegacyRuntimeImportPreview,
   buildRuntimeCapabilitiesStatus,
@@ -80,6 +80,7 @@ import {
   appendRuntimeEvent,
   buildRuntimeRetrievalSourceSet,
   hasAuthoritativeRuntimeStore,
+  loadRuntimeFederationStore,
   loadRuntimeGovernanceStore,
   loadRuntimeIntelStore,
   loadRuntimeMemoryStore,
@@ -88,6 +89,7 @@ import {
   readRuntimeEvents,
   resolveRuntimeStorePaths,
   saveRuntimeGovernanceStore,
+  saveRuntimeFederationStore,
   saveRuntimeIntelStore,
   saveRuntimeMemoryStore,
   saveRuntimeStoreBundle,
@@ -103,6 +105,12 @@ import {
   buildTaskStepSnapshot,
   buildTaskTransitionStep,
 } from "./shared/runtime/task-artifacts.js";
+import {
+  applyRuntimeTaskResult,
+  planRuntimeTask,
+  tickRuntimeTaskLoop,
+  upsertRuntimeTask,
+} from "./shared/runtime/task-engine.js";
 import {
   buildTaskStatusCounts,
   compareTaskQueueOrder,
@@ -142,6 +150,10 @@ export {
   buildRouteDomains,
   refreshRuntimeIntelPipeline,
   syncRuntimeFederationOutbox,
+  syncRuntimeFederationRemote,
+  syncRuntimeFederationInbox,
+  listRuntimeFederationInbox,
+  transitionRuntimeFederationPackage,
   runRuntimeIntelPipeline,
   syncRuntimeCapabilityRegistry,
   buildRuntimeRetrievalSourceSet,
@@ -156,7 +168,7 @@ export {
   applyLegacyRuntimeImport,
   buildFederationRuntimeSnapshot,
   buildGovernanceSnapshotMetadata,
-  buildLatestIntelDigestEnvelope,
+  buildLatestNewsDigestEnvelope,
   buildLatestStrategyDigestEnvelope,
   buildLegacyRuntimeImportPreview,
   buildRuntimeCapabilitiesStatus,
@@ -181,6 +193,7 @@ export {
   invalidateMemoryLineage,
   loadConfig,
   loadRuntimeGovernanceStore,
+  loadRuntimeFederationStore,
   loadRuntimeIntelStore,
   loadRuntimeMemoryStore,
   loadRuntimeStoreBundle,
@@ -210,6 +223,7 @@ export {
   runCommandWithTimeout,
   runExec,
   saveRuntimeGovernanceStore,
+  saveRuntimeFederationStore,
   saveRuntimeIntelStore,
   saveRuntimeMemoryStore,
   saveRuntimeStoreBundle,
@@ -232,6 +246,9 @@ export type {
   DecisionTaskInput,
   CapabilityGovernanceSnapshot,
   ContextPack,
+  FederationInboxRecord,
+  FederationInboundPackage,
+  FederationPackageState,
   GovernanceRegistryEntry,
   InstanceManifest,
   IntelCandidate,
@@ -249,6 +266,7 @@ export type {
   RetrievalMode,
   RetrievalSourceSet,
   RuntimeManifest,
+  RuntimeFederationStore,
   ShadowEvaluationRecord,
   ShadowTelemetryEnvelope,
   ShareableMemoryEnvelope,
@@ -281,6 +299,7 @@ export type { TaskQueueInput, TaskStatusCounts } from "./shared/runtime/task-loo
 export type {
   CapabilityPolicyPreset,
   FederationRuntimeSnapshot,
+  FederationInboxStatus,
   LegacyRuntimeImportApplyResult,
   LegacyRuntimeImportReport,
   RuntimeCapabilitiesStatus,

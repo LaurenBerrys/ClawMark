@@ -8,7 +8,6 @@ import type {
   TaskRecord,
   TaskReview,
   TaskRun,
-  TaskStatus,
   TaskStep,
   ThinkingLane,
 } from "./contracts.js";
@@ -18,16 +17,17 @@ export type TaskRecordSnapshotInput = {
   id?: string | null;
   title?: string | null;
   route?: string | null;
-  status?: TaskStatus | string | null;
-  priority?: TaskPriority | string | null;
-  budgetMode?: BudgetMode | string | null;
-  retrievalMode?: RetrievalMode | string | null;
+  status?: string | null;
+  priority?: string | null;
+  budgetMode?: string | null;
+  retrievalMode?: string | null;
   goal?: string | null;
   successCriteria?: string | null;
   tags?: Array<string | null | undefined> | null;
   worker?: string | null;
   skillIds?: Array<string | null | undefined> | null;
   memoryRefs?: Array<string | null | undefined> | null;
+  artifactRefs?: Array<string | null | undefined> | null;
   intelRefs?: Array<string | null | undefined> | null;
   recurring?: boolean | null;
   maintenance?: boolean | null;
@@ -35,7 +35,7 @@ export type TaskRecordSnapshotInput = {
   nextAction?: string | null;
   blockedReason?: string | null;
   lastError?: string | null;
-  reportPolicy?: TaskReportPolicy | string | null;
+  reportPolicy?: string | null;
   nextRunAt?: number | null;
   leaseOwner?: string | null;
   leaseExpiresAt?: number | null;
@@ -49,8 +49,8 @@ export type TaskRecordSnapshotInput = {
 export type TaskRunSnapshotInput = {
   id?: string | null;
   taskId: string;
-  status?: TaskStatus | string | null;
-  thinkingLane?: ThinkingLane | string | null;
+  status?: string | null;
+  thinkingLane?: string | null;
   startedAt?: number | null;
   updatedAt?: number | null;
   completedAt?: number | null;
@@ -68,8 +68,8 @@ export type TaskStepSnapshotInput = {
   id?: string | null;
   taskId: string;
   runId: string;
-  kind?: TaskStepKind | string | null;
-  status?: TaskStepStatus | string | null;
+  kind?: string | null;
+  status?: string | null;
   idempotencyKey: string;
   worker?: string | null;
   route?: string | null;
@@ -83,7 +83,7 @@ export type TaskStepSnapshotInput = {
 export type TaskTransitionStepInput = {
   taskId: string;
   runId: string;
-  status?: TaskStatus | string | null;
+  status?: string | null;
   idempotencyKey: string;
   worker?: string | null;
   route?: string | null;
@@ -97,9 +97,9 @@ export type TaskReviewInput = {
   id?: string | null;
   taskId: string;
   runId: string;
-  status?: TaskStatus | string | null;
+  status?: string | null;
   summary?: string | null;
-  outcome?: TaskReview["outcome"] | string | null;
+  outcome?: string | null;
   extractedMemoryIds?: Array<string | null | undefined> | null;
   strategyCandidateIds?: Array<string | null | undefined> | null;
   createdAt?: number | null;
@@ -141,14 +141,20 @@ function normalizeText(value: unknown): string {
 }
 
 function uniqueStrings(values: Array<string | null | undefined> | null | undefined): string[] {
-  if (!values?.length) return [];
+  if (!values?.length) {
+    return [];
+  }
   const seen = new Set<string>();
   const out: string[] = [];
   for (const value of values) {
     const text = normalizeText(value);
-    if (!text) continue;
+    if (!text) {
+      continue;
+    }
     const key = text.toLowerCase();
-    if (seen.has(key)) continue;
+    if (seen.has(key)) {
+      continue;
+    }
     seen.add(key);
     out.push(text);
   }
@@ -177,7 +183,7 @@ function buildStableId(prefix: string, parts: Array<string | number | null | und
 }
 
 function normalizePriority(
-  value: TaskPriority | string | null | undefined,
+  value: string | null | undefined,
   fallback: TaskPriority = "normal",
 ): TaskPriority {
   const normalized = normalizeText(value).toLowerCase();
@@ -188,7 +194,7 @@ function normalizePriority(
 }
 
 function normalizeBudgetMode(
-  value: BudgetMode | string | null | undefined,
+  value: string | null | undefined,
   fallback: BudgetMode = "balanced",
 ): BudgetMode {
   const normalized = normalizeText(value).toLowerCase();
@@ -199,7 +205,7 @@ function normalizeBudgetMode(
 }
 
 function normalizeRetrievalMode(
-  value: RetrievalMode | string | null | undefined,
+  value: string | null | undefined,
   fallback: RetrievalMode = "light",
 ): RetrievalMode {
   const normalized = normalizeText(value).toLowerCase();
@@ -210,7 +216,7 @@ function normalizeRetrievalMode(
 }
 
 function normalizeReportPolicy(
-  value: TaskReportPolicy | string | null | undefined,
+  value: string | null | undefined,
   fallback: TaskReportPolicy = "reply_and_proactive",
 ): TaskReportPolicy {
   const normalized = normalizeText(value).toLowerCase();
@@ -226,14 +232,14 @@ function normalizeReportPolicy(
 }
 
 function normalizeThinkingLane(
-  value: ThinkingLane | string | null | undefined,
+  value: string | null | undefined,
   fallback: ThinkingLane = "system1",
 ): ThinkingLane {
   return normalizeText(value).toLowerCase() === "system2" ? "system2" : fallback;
 }
 
 function normalizeTaskStepKind(
-  value: TaskStepKind | string | null | undefined,
+  value: string | null | undefined,
   fallback: TaskStepKind = "intake",
 ): TaskStepKind {
   const normalized = normalizeText(value).toLowerCase();
@@ -241,7 +247,7 @@ function normalizeTaskStepKind(
 }
 
 function normalizeTaskStepStatus(
-  value: TaskStepStatus | string | null | undefined,
+  value: string | null | undefined,
   fallback: TaskStepStatus = "queued",
 ): TaskStepStatus {
   const normalized = normalizeText(value).toLowerCase();
@@ -249,7 +255,7 @@ function normalizeTaskStepStatus(
 }
 
 function normalizeReviewOutcome(
-  value: TaskReview["outcome"] | string | null | undefined,
+  value: string | null | undefined,
   fallback: TaskReview["outcome"],
 ): TaskReview["outcome"] {
   const normalized = normalizeText(value).toLowerCase();
@@ -265,13 +271,17 @@ function normalizeReviewOutcome(
   return fallback;
 }
 
-export function buildTaskReviewOutcome(
-  value: TaskStatus | string | null | undefined,
-): TaskReview["outcome"] {
+export function buildTaskReviewOutcome(value: string | null | undefined): TaskReview["outcome"] {
   const status = normalizeTaskStatus(value, "queued");
-  if (status === "completed") return "success";
-  if (status === "cancelled") return "cancelled";
-  if (status === "blocked" || status === "waiting_user") return "blocked";
+  if (status === "completed") {
+    return "success";
+  }
+  if (status === "cancelled") {
+    return "cancelled";
+  }
+  if (status === "blocked" || status === "waiting_user") {
+    return "blocked";
+  }
   return "partial";
 }
 
@@ -298,7 +308,9 @@ export function buildTaskRecordSnapshot(
     worker: normalizeText(input.worker) || undefined,
     skillIds: uniqueStrings(input.skillIds),
     memoryRefs: uniqueStrings(input.memoryRefs),
-    intelRefs: uniqueStrings(input.intelRefs),
+    // Keep legacy intel refs import-compatible while the news/info module is
+    // being demoted into an optional artifact source.
+    artifactRefs: uniqueStrings(input.artifactRefs ?? input.intelRefs),
     recurring: input.recurring === true,
     maintenance: input.maintenance === true,
     planSummary: normalizeText(input.planSummary) || undefined,

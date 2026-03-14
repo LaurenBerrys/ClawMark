@@ -8,7 +8,13 @@ import {
   buildLegacyRuntimeImportPreview,
   buildRuntimeDashboardSnapshot,
 } from "./runtime-dashboard.js";
-import { resolveRuntimeStorePaths } from "./store.js";
+import {
+  loadRuntimeGovernanceStore,
+  loadRuntimeIntelStore,
+  loadRuntimeMemoryStore,
+  loadRuntimeTaskStore,
+  resolveRuntimeStorePaths,
+} from "./store.js";
 
 async function withTempRoot(
   prefix: string,
@@ -290,26 +296,44 @@ describe("runtime dashboard legacy import", () => {
         path.join("instance", "data", "imports", "legacy-runtime"),
       );
       expect(applied.extensionsManifestPath).toContain("extensions-manifest.json");
-      await expect(fs.readFile(storePaths.taskStorePath, "utf8")).resolves.toContain('"task-a"');
-      await expect(fs.readFile(storePaths.memoryStorePath, "utf8")).resolves.toContain(
-        '"memory-a"',
+      const importedTaskStore = loadRuntimeTaskStore({ env, now: 1_700_000_100_000 });
+      const importedMemoryStore = loadRuntimeMemoryStore({ env, now: 1_700_000_100_000 });
+      const importedIntelStore = loadRuntimeIntelStore({ env, now: 1_700_000_100_000 });
+      const importedGovernanceStore = loadRuntimeGovernanceStore({
+        env,
+        now: 1_700_000_100_000,
+      });
+      expect(storePaths.dbPath).toContain(path.join("instance", "data", "runtime", "v2"));
+      expect(importedTaskStore.tasks.some((task) => task.id === "task-a")).toBe(true);
+      expect(importedMemoryStore.memories.some((memory) => memory.id === "memory-a")).toBe(true);
+      expect(importedIntelStore.digestItems.some((item) => item.id === "digest-item-a")).toBe(true);
+      expect(importedGovernanceStore.entries.some((entry) => entry.targetId === "patch-edit")).toBe(
+        true,
       );
-      await expect(fs.readFile(storePaths.intelStorePath, "utf8")).resolves.toContain(
-        '"digest-item-a"',
-      );
-      await expect(fs.readFile(storePaths.governanceStorePath, "utf8")).resolves.toContain(
-        '"patch-edit"',
-      );
-      const importedTaskStore = JSON.parse(await fs.readFile(storePaths.taskStorePath, "utf8")) as {
-        metadata?: {
-          autopilot?: {
-            localFirst?: boolean;
-            heartbeatEnabled?: boolean;
-          };
-        };
-      };
-      expect(importedTaskStore.metadata?.autopilot?.localFirst).toBe(false);
-      expect(importedTaskStore.metadata?.autopilot?.heartbeatEnabled).toBe(true);
+      expect(
+        (
+          importedTaskStore.metadata as
+            | {
+                autopilot?: {
+                  localFirst?: boolean;
+                  heartbeatEnabled?: boolean;
+                };
+              }
+            | undefined
+        )?.autopilot?.localFirst,
+      ).toBe(false);
+      expect(
+        (
+          importedTaskStore.metadata as
+            | {
+                autopilot?: {
+                  localFirst?: boolean;
+                  heartbeatEnabled?: boolean;
+                };
+              }
+            | undefined
+        )?.autopilot?.heartbeatEnabled,
+      ).toBe(true);
 
       const importedConfig = await fs.readFile(
         path.join(applied.targetRoot, "config", "openclaw.json"),
@@ -349,6 +373,9 @@ describe("runtime dashboard legacy import", () => {
       expect(dashboard.intel.digestCount).toBe(1);
       expect(dashboard.capabilities.skillCount).toBe(1);
       expect(dashboard.capabilities.governanceStateCounts.shadow).toBe(1);
+      expect(dashboard.userConsole.model.id).toBe("runtime-user");
+      expect(dashboard.agents).toEqual([]);
+      expect(dashboard.surfaces).toEqual([]);
     });
   });
 
@@ -365,7 +392,7 @@ describe("runtime dashboard legacy import", () => {
           recursive: true,
         },
       );
-      await fs.mkdir(path.join(root, "instance", "data", "federation", "outbox", "intel-digest"), {
+      await fs.mkdir(path.join(root, "instance", "data", "federation", "outbox", "news-digest"), {
         recursive: true,
       });
       await fs.writeFile(
@@ -379,7 +406,7 @@ describe("runtime dashboard legacy import", () => {
         "utf8",
       );
       await fs.writeFile(
-        path.join(root, "instance", "data", "federation", "outbox", "intel-digest", "b.json"),
+        path.join(root, "instance", "data", "federation", "outbox", "news-digest", "b.json"),
         "{}",
         "utf8",
       );
@@ -413,7 +440,7 @@ describe("runtime dashboard legacy import", () => {
               enabled: true,
               url: "https://brain.example.test/runtime",
             },
-            allowedPushScopes: ["shareable_derived", "intel_digest", "metrics"],
+            allowedPushScopes: ["shareable_derived", "news_digest", "team_shareable_knowledge"],
             blockedPushScopes: ["raw_chat", "secrets", "durable_private_memory_dump"],
           },
         },
@@ -430,18 +457,22 @@ describe("runtime dashboard legacy import", () => {
         "business",
         "github",
       ]);
+      expect(dashboard.userConsole.model.id).toBe("runtime-user");
+      expect(dashboard.agents).toEqual([]);
+      expect(dashboard.surfaces).toEqual([]);
       expect(dashboard.capabilities.agentCount).toBe(2);
       expect(dashboard.capabilities.skillCount).toBe(2);
       expect(dashboard.capabilities.legacyExtensions).toEqual([]);
       expect(dashboard.importPreview.counts.tasks).toBe(2);
       expect(dashboard.importPreview.counts.memories).toBe(1);
       expect(dashboard.federation.pendingAssignments).toBe(1);
+      expect(dashboard.federation.inbox.total).toBe(0);
       expect(dashboard.federation.outboxEnvelopeCounts.strategyDigest).toBe(1);
-      expect(dashboard.federation.outboxEnvelopeCounts.intelDigest).toBe(1);
+      expect(dashboard.federation.outboxEnvelopeCounts.newsDigest).toBe(1);
       expect(dashboard.federation.allowedPushScopes).toEqual([
         "shareable_derived",
-        "intel_digest",
-        "metrics",
+        "news_digest",
+        "team_shareable_knowledge",
       ]);
       expect(dashboard.federation.blockedPushScopes).toContain("raw_chat");
       expect(dashboard.federation.remoteConfigured).toBe(true);
@@ -472,6 +503,7 @@ describe("runtime dashboard legacy import", () => {
         "durable_private_memory_dump",
       ]);
       expect(federation.remoteConfigured).toBe(true);
+      expect(federation.inbox.stateCounts.received).toBe(0);
     });
   });
 });

@@ -78,3 +78,19 @@ export async function applyRuntimeLegacyImport(state: RuntimeState) {
     state.runtimeImportBusy = false;
   }
 }
+
+export async function syncRuntimeFederationRemote(state: RuntimeState) {
+  if (!state.client || !state.connected || state.federationLoading) {
+    return;
+  }
+  state.federationLoading = true;
+  state.federationError = null;
+  try {
+    await state.client.request("federation.remote.sync", {});
+    await loadRuntime(state);
+  } catch (error) {
+    state.federationError = String(error);
+  } finally {
+    state.federationLoading = false;
+  }
+}

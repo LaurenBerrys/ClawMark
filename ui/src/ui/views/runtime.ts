@@ -20,10 +20,13 @@ type RuntimeProps = {
   federationStatus: FederationRuntimeSnapshot | null;
   onRefresh: () => void;
   onImportApply: () => void;
+  onFederationSync: () => void;
 };
 
 function formatConfidencePercent(value: number) {
-  if (!Number.isFinite(value)) return "0%";
+  if (!Number.isFinite(value)) {
+    return "0%";
+  }
   return `${Math.round(value <= 1 ? value * 100 : value)}%`;
 }
 
@@ -96,6 +99,49 @@ function renderRecentMemories(snapshot: RuntimeDashboardSnapshot) {
       )}`;
 }
 
+function renderAgents(snapshot: RuntimeDashboardSnapshot) {
+  const agents = snapshot.agents.slice(0, 6);
+  return agents.length === 0
+    ? html`
+        <div class="muted">No agents configured yet.</div>
+      `
+    : html`${agents.map(
+        (agent) => html`
+          <div class="row spread" style="gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line);">
+            <div style="min-width: 0;">
+              <div><strong>${agent.name}</strong></div>
+              <div class="muted" style="font-size: 12px;">
+                ${agent.roleBase ? `${agent.roleBase} · ` : nothing}${agent.surfaceCount} surfaces ·
+                ${agent.skillCount} skills
+              </div>
+            </div>
+            <div class="pill">${agent.active ? "active" : "paused"}</div>
+          </div>
+        `,
+      )}`;
+}
+
+function renderSurfaces(snapshot: RuntimeDashboardSnapshot) {
+  const surfaces = snapshot.surfaces.slice(0, 6);
+  return surfaces.length === 0
+    ? html`
+        <div class="muted">No channel surfaces configured yet.</div>
+      `
+    : html`${surfaces.map(
+        (surface) => html`
+          <div class="row spread" style="gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line);">
+            <div style="min-width: 0;">
+              <div><strong>${surface.label}</strong></div>
+              <div class="muted" style="font-size: 12px;">
+                ${surface.channel} · ${surface.ownerKind}${surface.role ? ` · ${surface.role}` : ""}
+              </div>
+            </div>
+            <div class="pill">${surface.active ? "active" : "off"}</div>
+          </div>
+        `,
+      )}`;
+}
+
 function renderIntelDomains(snapshot: RuntimeDashboardSnapshot) {
   return html`${snapshot.intel.domains.map(
     (domain) => html`
@@ -103,16 +149,41 @@ function renderIntelDomains(snapshot: RuntimeDashboardSnapshot) {
         <div>
           <strong>${domain.label}</strong>
           <div class="muted" style="font-size: 12px;">
-            candidates ${domain.candidateCount} · selected ${domain.selectedCount} · digests
-            ${domain.digestCount}
+            sources ${domain.enabledSourceCount}/${domain.sourceCount} · candidates ${domain.candidateCount}
+            · selected ${domain.selectedCount} · pushed ${domain.digestCount}
           </div>
         </div>
         <div class="muted" style="font-size: 12px;">
-          ${domain.latestDigestAt ? formatRelativeTimestamp(domain.latestDigestAt) : "no digest yet"}
+          ${
+            domain.latestDeliveryAt
+              ? formatRelativeTimestamp(domain.latestDeliveryAt)
+              : "not pushed yet"
+          }
         </div>
       </div>
     `,
   )}`;
+}
+
+function renderIntelSources(snapshot: RuntimeDashboardSnapshot) {
+  const sources = snapshot.intel.sources.slice(0, 8);
+  return sources.length === 0
+    ? html`
+        <div class="muted">No configured sources.</div>
+      `
+    : html`${sources.map(
+        (source) => html`
+          <div class="row spread" style="padding: 6px 0; border-bottom: 1px solid var(--line); gap: 12px;">
+            <div style="min-width: 0;">
+              <div><strong>${source.label}</strong></div>
+              <div class="muted" style="font-size: 12px;">
+                ${source.domain} · ${source.kind} · priority ${source.priority}
+              </div>
+            </div>
+            <div class="pill">${source.enabled ? "enabled" : "off"}</div>
+          </div>
+        `,
+      )}`;
 }
 
 function renderImportPreview(
@@ -177,8 +248,20 @@ function renderFederation(snapshot: FederationRuntimeSnapshot | null, error: str
       ${renderStat("Enabled", snapshot.enabled ? "Yes" : "No")}
       ${renderStat("Remote configured", snapshot.remoteConfigured ? "Yes" : "No")}
       ${renderStat("Pending assignments", snapshot.pendingAssignments)}
+      ${renderStat("Inbox packages", snapshot.inbox.total)}
+      ${renderStat("Recommended", snapshot.inbox.stateCounts.recommended)}
+      ${renderStat("Adopted", snapshot.inbox.stateCounts.adopted)}
       ${renderStat("Strategy outbox", snapshot.outboxEnvelopeCounts.strategyDigest)}
-      ${renderStat("Intel outbox", snapshot.outboxEnvelopeCounts.intelDigest)}
+      ${renderStat("News outbox", snapshot.outboxEnvelopeCounts.newsDigest)}
+    </div>
+    <div style="margin-top: 16px;">
+      <div class="muted" style="font-size: 12px;">Inbox state counts</div>
+      <div>
+        received ${snapshot.inbox.stateCounts.received} · validated
+        ${snapshot.inbox.stateCounts.validated} · shadowed ${snapshot.inbox.stateCounts.shadowed}
+        · recommended ${snapshot.inbox.stateCounts.recommended} · adopted
+        ${snapshot.inbox.stateCounts.adopted}
+      </div>
     </div>
     <div style="margin-top: 16px;">
       <div class="muted" style="font-size: 12px;">Allowed push scopes</div>
@@ -189,8 +272,61 @@ function renderFederation(snapshot: FederationRuntimeSnapshot | null, error: str
       <div>${formatList(snapshot.blockedPushScopes)}</div>
     </div>
     <div style="margin-top: 12px;">
+      <div class="muted" style="font-size: 12px;">Inbox root</div>
+      <div class="mono">${snapshot.inboxRoot}</div>
+    </div>
+    <div style="margin-top: 12px;">
+      <div class="muted" style="font-size: 12px;">Last sync</div>
+      <div>
+        pushed
+        ${
+          snapshot.syncCursor?.lastPushedAt
+            ? formatRelativeTimestamp(snapshot.syncCursor.lastPushedAt)
+            : "never"
+        } · pulled
+        ${
+          snapshot.syncCursor?.lastPulledAt
+            ? formatRelativeTimestamp(snapshot.syncCursor.lastPulledAt)
+            : "never"
+        }
+      </div>
+    </div>
+    <div style="margin-top: 12px;">
       <div class="muted" style="font-size: 12px;">Outbox root</div>
       <div class="mono">${snapshot.outboxRoot}</div>
+    </div>
+    <div style="margin-top: 12px;">
+      <div class="muted" style="font-size: 12px;">Local adopted artifacts</div>
+      <div>
+        ${snapshot.inbox.sharedStrategyCount} shared strategies ·
+        ${snapshot.inbox.teamKnowledgeCount} team knowledge records
+      </div>
+    </div>
+    <div style="margin-top: 12px;">
+      <div class="muted" style="font-size: 12px;">Recent inbox packages</div>
+      ${
+        snapshot.inbox.latestPackages.length === 0
+          ? html`
+              <div class="muted">No federation packages received yet.</div>
+            `
+          : html`${snapshot.inbox.latestPackages.map(
+              (entry) => html`
+                <div
+                  class="row spread"
+                  style="gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line);"
+                >
+                  <div style="min-width: 0;">
+                    <div><strong>${entry.summary}</strong></div>
+                    <div class="muted" style="font-size: 12px;">
+                      ${entry.packageType} · ${entry.sourceRuntimeId} ·
+                      ${formatRelativeTimestamp(entry.updatedAt)}
+                    </div>
+                  </div>
+                  <div class="pill">${entry.state}</div>
+                </div>
+              `,
+            )}`
+      }
     </div>
   `;
 }
@@ -205,7 +341,7 @@ export function renderRuntime(props: RuntimeProps) {
       <div class="card">
         <div class="card-title">Managed Runtime</div>
         <div class="card-sub">
-          Built-in runtime control surface on top of the upgraded OpenClaw source tree.
+          Runtime Core status, storage roots, and execution posture.
         </div>
         <div class="row" style="margin-top: 16px; gap: 12px; align-items: center;">
           <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
@@ -233,6 +369,52 @@ export function renderRuntime(props: RuntimeProps) {
               `
             : html`
                 <div class="muted" style="margin-top: 16px">Connect to the gateway to inspect runtime state.</div>
+              `
+        }
+      </div>
+
+      <div class="card">
+        <div class="card-title">User Console</div>
+        <div class="card-sub">Default web control surface for the local runtime.</div>
+        ${
+          snapshot
+            ? html`
+                <div class="stat-grid stat-grid--4">
+                  ${renderStat("Display name", snapshot.userConsole.model.displayName || "unset")}
+                  ${renderStat("Report policy", snapshot.userConsole.model.reportPolicy || "reply")}
+                  ${renderStat("Active agents", snapshot.userConsole.activeAgentCount)}
+                  ${renderStat("User surfaces", snapshot.userConsole.userOwnedSurfaceCount)}
+                </div>
+                <div style="margin-top: 12px;" class="muted">
+                  ${snapshot.userConsole.model.communicationStyle || "Communication style not customized yet."}
+                </div>
+              `
+            : html`
+                <div class="muted">No data.</div>
+              `
+        }
+      </div>
+
+      <div class="card">
+        <div class="card-title">Agents</div>
+        <div class="card-sub">Local ecology objects that can own channel surfaces.</div>
+        ${
+          snapshot
+            ? renderAgents(snapshot)
+            : html`
+                <div class="muted">No data.</div>
+              `
+        }
+      </div>
+
+      <div class="card">
+        <div class="card-title">Surfaces</div>
+        <div class="card-sub">Channel/account surfaces bound to the user console or an agent.</div>
+        ${
+          snapshot
+            ? renderSurfaces(snapshot)
+            : html`
+                <div class="muted">No data.</div>
               `
         }
       </div>
@@ -283,17 +465,24 @@ export function renderRuntime(props: RuntimeProps) {
 
       <div class="card">
         <div class="card-title">Intel</div>
-        <div class="card-sub">Digest coverage by domain and the current exploit/explore budget.</div>
+        <div class="card-sub">Independent info panel with source selection and daily push settings.</div>
         ${
           snapshot
             ? html`
                 <div class="stat-grid stat-grid--4">
-                  ${renderStat("Candidates / domain", snapshot.intel.candidateLimitPerDomain)}
-                  ${renderStat("Digest items / domain", snapshot.intel.digestItemLimitPerDomain)}
-                  ${renderStat("Exploit", snapshot.intel.exploitItemsPerDigest)}
-                  ${renderStat("Explore", snapshot.intel.exploreItemsPerDigest)}
+                  ${renderStat("Refresh (min)", snapshot.intel.refreshMinutes)}
+                  ${renderStat("Daily push", snapshot.intel.dailyPushEnabled ? "On" : "Off")}
+                  ${renderStat("Items / day", snapshot.intel.dailyPushItemCount)}
+                  ${renderStat(
+                    "Push time",
+                    `${String(snapshot.intel.dailyPushHourLocal).padStart(2, "0")}:${String(snapshot.intel.dailyPushMinuteLocal).padStart(2, "0")}`,
+                  )}
                 </div>
                 <div style="margin-top: 16px;">${renderIntelDomains(snapshot)}</div>
+                <div style="margin-top: 16px;">
+                  <div class="muted" style="font-size: 12px; margin-bottom: 6px;">Sources</div>
+                  ${renderIntelSources(snapshot)}
+                </div>
               `
             : html`
                 <div class="muted">No data.</div>
@@ -311,7 +500,18 @@ export function renderRuntime(props: RuntimeProps) {
             ? html`
                 <div class="muted">Loading federation status...</div>
               `
-            : renderFederation(federation, props.federationError)
+            : html`
+                <div class="row" style="gap: 12px; margin-bottom: 16px; align-items: center;">
+                  <button
+                    class="btn"
+                    ?disabled=${props.federationLoading}
+                    @click=${props.onFederationSync}
+                  >
+                    ${props.federationLoading ? "Syncing..." : "Sync Federation"}
+                  </button>
+                </div>
+                ${renderFederation(federation, props.federationError)}
+              `
         }
       </div>
 

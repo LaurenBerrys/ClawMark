@@ -4,18 +4,21 @@ import { resolvePathResolver } from "../../instance/paths.js";
 import type {
   CapabilityGovernanceSnapshot,
   RuntimeMetadata,
+  RuntimeManifestEnvelope,
   ShadowTelemetryEnvelope,
 } from "./contracts.js";
 import {
   buildFederationRuntimeSnapshot,
   buildGovernanceSnapshotMetadata,
-  buildLatestIntelDigestEnvelope,
+  buildLatestNewsDigestEnvelope,
   buildLatestStrategyDigestEnvelope,
   buildRuntimeDashboardSnapshot,
 } from "./runtime-dashboard.js";
 import {
   hasAuthoritativeRuntimeStore,
+  loadRuntimeFederationStore,
   loadRuntimeGovernanceStore,
+  saveRuntimeFederationStore,
 } from "./store.js";
 
 export type FederationOutboxSyncOptions = {
@@ -29,7 +32,7 @@ export type FederationOutboxSyncResult = {
   generatedAt: number;
   runtimeManifestPath: string;
   strategyDigestPath: string;
-  intelDigestPath: string;
+  newsDigestPath: string;
   shadowTelemetryPath: string;
   capabilityGovernancePath: string;
   syncCursorPath: string;
@@ -116,11 +119,18 @@ export function syncRuntimeFederationOutbox(
     ...opts,
     now,
   });
+  const runtimeManifestEnvelope: RuntimeManifestEnvelope = {
+    schemaVersion: "v1",
+    type: "runtime-manifest",
+    sourceRuntimeId: dashboard.runtimeManifest.instanceId,
+    generatedAt: now,
+    payload: dashboard.runtimeManifest,
+  };
   const strategyDigest = buildLatestStrategyDigestEnvelope({
     ...opts,
     now,
   });
-  const intelDigest = buildLatestIntelDigestEnvelope({
+  const newsDigest = buildLatestNewsDigestEnvelope({
     ...opts,
     now,
   });
@@ -135,17 +145,17 @@ export function syncRuntimeFederationOutbox(
   const runtimeManifestPath = writeEnvelope(
     path.join(outboxRoot, "runtime-manifest"),
     `${dashboard.runtimeManifest.instanceId.replace(/[^a-zA-Z0-9._-]+/g, "_")}-${now}.json`,
-    dashboard.runtimeManifest,
+    runtimeManifestEnvelope,
   );
   const strategyDigestPath = writeEnvelope(
     path.join(outboxRoot, "strategy-digest"),
     `${strategyDigest.id}.json`,
     strategyDigest,
   );
-  const intelDigestPath = writeEnvelope(
-    path.join(outboxRoot, "intel-digest"),
-    `${intelDigest.id}.json`,
-    intelDigest,
+  const newsDigestPath = writeEnvelope(
+    path.join(outboxRoot, "news-digest"),
+    `${newsDigest.sourceRuntimeId.replace(/[^a-zA-Z0-9._-]+/g, "_")}-${now}.json`,
+    newsDigest,
   );
   const shadowTelemetryPath = writeEnvelope(
     path.join(outboxRoot, "shadow-telemetry"),
@@ -168,18 +178,46 @@ export function syncRuntimeFederationOutbox(
     outboxRoot,
     runtimeManifestPath,
     strategyDigestPath,
-    intelDigestPath,
+    newsDigestPath,
     shadowTelemetryPath,
     capabilityGovernancePath,
     pendingAssignments: federationSnapshot.pendingAssignments,
   };
   ensureDir(path.dirname(syncCursorPath));
   fs.writeFileSync(syncCursorPath, JSON.stringify(syncCursor, null, 2), "utf8");
+  const federationStore = loadRuntimeFederationStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
+  saveRuntimeFederationStore(
+    {
+      ...federationStore,
+      syncCursor: {
+        ...(federationStore.syncCursor ?? { updatedAt: now }),
+        lastPushedAt: now,
+        updatedAt: now,
+        metadata: {
+          ...federationStore.syncCursor?.metadata,
+          runtimeManifestPath,
+          strategyDigestPath,
+          newsDigestPath,
+          shadowTelemetryPath,
+          capabilityGovernancePath,
+        },
+      },
+    },
+    {
+      env: opts.env,
+      homedir: opts.homedir,
+      now,
+    },
+  );
   return {
     generatedAt: now,
     runtimeManifestPath,
     strategyDigestPath,
-    intelDigestPath,
+    newsDigestPath,
     shadowTelemetryPath,
     capabilityGovernancePath,
     syncCursorPath,

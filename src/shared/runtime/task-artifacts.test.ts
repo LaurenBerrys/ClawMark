@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-
 import {
   buildShareableReviewEnvelope,
   buildTaskLifecycleArtifacts,
@@ -24,7 +23,7 @@ describe("buildTaskRecordSnapshot", () => {
       worker: "main",
       skillIds: ["patch.apply", "patch.apply", "repo.read"],
       memoryRefs: ["mem-1", "mem-1", "mem-2"],
-      intelRefs: ["intel-1", "intel-1"],
+      artifactRefs: ["artifact-1", "artifact-1"],
       recurring: true,
       maintenance: false,
       createdAt: 10,
@@ -34,7 +33,7 @@ describe("buildTaskRecordSnapshot", () => {
     expect(record.status).toBe("completed");
     expect(record.skillIds).toEqual(["patch.apply", "repo.read"]);
     expect(record.memoryRefs).toEqual(["mem-1", "mem-2"]);
-    expect(record.intelRefs).toEqual(["intel-1"]);
+    expect(record.artifactRefs).toEqual(["artifact-1"]);
     expect(record.recurring).toBe(true);
     expect(record.maintenance).toBe(false);
   });
@@ -179,7 +178,7 @@ describe("buildTaskLifecycleArtifacts", () => {
         worker: "main",
         skillIds: ["repo.read", "patch.apply"],
         memoryRefs: ["mem-1"],
-        intelRefs: ["intel-1"],
+        artifactRefs: ["artifact-1"],
         createdAt: 900,
         updatedAt: 1000,
       },

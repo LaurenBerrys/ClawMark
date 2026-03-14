@@ -676,6 +676,7 @@ export function renderApp(state: AppViewState) {
                   federationStatus: state.federationStatus,
                   onRefresh: () => state.loadRuntime(),
                   onImportApply: () => state.applyRuntimeLegacyImport(),
+                  onFederationSync: () => state.syncRuntimeFederationRemote(),
                 }),
               )
             : nothing

@@ -1,11 +1,8 @@
-import {
-  buildDecisionRecord,
-  type DecisionConfig,
-  type DecisionRecord,
-  type DecisionTaskInput,
-} from "./decision-core.js";
 import type {
   BudgetMode,
+  DecisionConfig,
+  DecisionRecord,
+  DecisionTaskInput,
   RetrievalMode,
   RuntimeMetadata,
   RuntimeTaskStore,
@@ -15,6 +12,7 @@ import type {
   TaskStatus,
   ThinkingLane,
 } from "./contracts.js";
+import { buildDecisionRecord } from "./decision-core.js";
 import {
   distillTaskOutcomeToMemory,
   materializeAdoptedEvolutionStrategies,
@@ -52,7 +50,7 @@ type RuntimeTaskRunState = {
   lastRecommendedWorker?: string;
   lastRecommendedSkills?: string[];
   lastRelevantMemoryIds?: string[];
-  lastRelevantIntelIds?: string[];
+  lastRelevantSessionIds?: string[];
   lastFallbackOrder?: string[];
   lastFailureAt?: number;
   lastFailureSummary?: string;
@@ -98,7 +96,7 @@ export type RuntimeTaskTickResult =
 
 export type RuntimeTaskResultInput = {
   taskId: string;
-  status: TaskStatus | string;
+  status: string;
   summary?: string;
   lastResult?: string;
   lastError?: string;
@@ -121,14 +119,20 @@ function normalizeText(value: unknown): string {
 }
 
 function uniqueStrings(values: Array<string | null | undefined> | null | undefined): string[] {
-  if (!values?.length) return [];
+  if (!values?.length) {
+    return [];
+  }
   const seen = new Set<string>();
   const output: string[] = [];
   for (const value of values) {
     const text = normalizeText(value);
-    if (!text) continue;
+    if (!text) {
+      continue;
+    }
     const key = text.toLowerCase();
-    if (seen.has(key)) continue;
+    if (seen.has(key)) {
+      continue;
+    }
     seen.add(key);
     output.push(text);
   }
@@ -146,9 +150,15 @@ function mergeMetadataRecords(
   left: Record<string, unknown> | null,
   right: Record<string, unknown> | null,
 ): Record<string, unknown> | undefined {
-  if (!left && !right) return undefined;
-  if (!left) return right ?? undefined;
-  if (!right) return left;
+  if (!left && !right) {
+    return undefined;
+  }
+  if (!left) {
+    return right ?? undefined;
+  }
+  if (!right) {
+    return left;
+  }
   const merged: Record<string, unknown> = { ...left };
   for (const [key, value] of Object.entries(right)) {
     const current = toRecord(merged[key]);
@@ -168,28 +178,50 @@ function readTaskRunState(task: TaskRecord): RuntimeTaskRunState {
     totalFailures: typeof runState?.totalFailures === "number" ? runState.totalFailures : 0,
     replanCount: typeof runState?.replanCount === "number" ? runState.replanCount : 0,
     remoteCallCount: typeof runState?.remoteCallCount === "number" ? runState.remoteCallCount : 0,
-    lastDecisionAt: typeof runState?.lastDecisionAt === "number" ? runState.lastDecisionAt : undefined,
+    lastDecisionAt:
+      typeof runState?.lastDecisionAt === "number" ? runState.lastDecisionAt : undefined,
     lastThinkingLane: runState?.lastThinkingLane === "system2" ? "system2" : "system1",
     lastDecisionSummary: normalizeText(runState?.lastDecisionSummary) || undefined,
     lastRecommendedWorker: normalizeText(runState?.lastRecommendedWorker) || undefined,
     lastRecommendedSkills: Array.isArray(runState?.lastRecommendedSkills)
-      ? uniqueStrings(runState.lastRecommendedSkills.filter((value): value is string => typeof value === "string"))
+      ? uniqueStrings(
+          runState.lastRecommendedSkills.filter(
+            (value): value is string => typeof value === "string",
+          ),
+        )
       : [],
     lastRelevantMemoryIds: Array.isArray(runState?.lastRelevantMemoryIds)
-      ? uniqueStrings(runState.lastRelevantMemoryIds.filter((value): value is string => typeof value === "string"))
+      ? uniqueStrings(
+          runState.lastRelevantMemoryIds.filter(
+            (value): value is string => typeof value === "string",
+          ),
+        )
       : [],
-    lastRelevantIntelIds: Array.isArray(runState?.lastRelevantIntelIds)
-      ? uniqueStrings(runState.lastRelevantIntelIds.filter((value): value is string => typeof value === "string"))
-      : [],
+    lastRelevantSessionIds: Array.isArray(runState?.lastRelevantSessionIds)
+      ? uniqueStrings(
+          runState.lastRelevantSessionIds.filter(
+            (value): value is string => typeof value === "string",
+          ),
+        )
+      : Array.isArray(runState?.lastRelevantIntelIds)
+        ? uniqueStrings(
+            runState.lastRelevantIntelIds.filter(
+              (value): value is string => typeof value === "string",
+            ),
+          )
+        : [],
     lastFallbackOrder: Array.isArray(runState?.lastFallbackOrder)
-      ? uniqueStrings(runState.lastFallbackOrder.filter((value): value is string => typeof value === "string"))
+      ? uniqueStrings(
+          runState.lastFallbackOrder.filter((value): value is string => typeof value === "string"),
+        )
       : [],
     lastFailureAt: typeof runState?.lastFailureAt === "number" ? runState.lastFailureAt : undefined,
     lastFailureSummary: normalizeText(runState?.lastFailureSummary) || undefined,
     lastResultStatus: normalizeText(runState?.lastResultStatus) || undefined,
     lastResultSummary: normalizeText(runState?.lastResultSummary) || undefined,
     lastWorkerOutput: normalizeText(runState?.lastWorkerOutput) || undefined,
-    lastCliExitCode: typeof runState?.lastCliExitCode === "number" ? runState.lastCliExitCode : undefined,
+    lastCliExitCode:
+      typeof runState?.lastCliExitCode === "number" ? runState.lastCliExitCode : undefined,
     blockedAt:
       runState?.blockedAt == null
         ? undefined
@@ -210,11 +242,17 @@ function readTaskOptimizationState(task: TaskRecord): RuntimeTaskOptimizationSta
         ? optimizationState.lastReplannedAt
         : undefined,
     invalidatedBy: Array.isArray(optimizationState?.invalidatedBy)
-      ? uniqueStrings(optimizationState.invalidatedBy.filter((value): value is string => typeof value === "string"))
+      ? uniqueStrings(
+          optimizationState.invalidatedBy.filter(
+            (value): value is string => typeof value === "string",
+          ),
+        )
       : [],
     invalidatedMemoryIds: Array.isArray(optimizationState?.invalidatedMemoryIds)
       ? uniqueStrings(
-          optimizationState.invalidatedMemoryIds.filter((value): value is string => typeof value === "string"),
+          optimizationState.invalidatedMemoryIds.filter(
+            (value): value is string => typeof value === "string",
+          ),
         )
       : [],
     decision: toRecord(optimizationState?.decision) as DecisionRecord | undefined,
@@ -239,11 +277,11 @@ function writeTaskRuntimeMetadata(
       ...runtime,
       runState: {
         ...currentRunState,
-        ...(params.runState ?? {}),
+        ...params.runState,
       },
       optimizationState: {
         ...currentOptimizationState,
-        ...(params.optimizationState ?? {}),
+        ...params.optimizationState,
       },
     },
   };
@@ -289,23 +327,41 @@ function buildPlanningSummary(task: TaskRecord): string {
 }
 
 function buildNextActionSummary(task: TaskRecord): string {
-  if (task.route === "office") return "Organize the request and update the lowest-cost office workflow first.";
-  if (task.route === "coder") return "Read the repo and current diff, then shape the smallest executable patch.";
-  if (task.route === "ops") return "Read logs, ports, processes, and config before attempting a repair.";
-  if (task.route === "media") return "Extract the source material into structured data before asking for higher-level judgment.";
-  if (task.route === "research") return "Retrieve, rank, and compress the signal before deep synthesis.";
+  if (task.route === "office") {
+    return "Organize the request and update the lowest-cost office workflow first.";
+  }
+  if (task.route === "coder") {
+    return "Read the repo and current diff, then shape the smallest executable patch.";
+  }
+  if (task.route === "ops") {
+    return "Read logs, ports, processes, and config before attempting a repair.";
+  }
+  if (task.route === "media") {
+    return "Extract the source material into structured data before asking for higher-level judgment.";
+  }
+  if (task.route === "research") {
+    return "Retrieve, rank, and compress the signal before deep synthesis.";
+  }
   return "Identify the task shape first, then choose the cheapest valid execution path.";
 }
 
 function bumpBudgetMode(mode: BudgetMode): BudgetMode {
-  if (mode === "strict") return "balanced";
-  if (mode === "balanced") return "deep";
+  if (mode === "strict") {
+    return "balanced";
+  }
+  if (mode === "balanced") {
+    return "deep";
+  }
   return "deep";
 }
 
 function bumpRetrievalMode(mode: RetrievalMode): RetrievalMode {
-  if (mode === "off") return "light";
-  if (mode === "light") return "deep";
+  if (mode === "off") {
+    return "light";
+  }
+  if (mode === "light") {
+    return "deep";
+  }
   return "deep";
 }
 
@@ -314,11 +370,12 @@ function buildRetryPatch(task: TaskRecord, failureSummary: string, now: number) 
   const consecutiveFailures = (runState.consecutiveFailures ?? 0) + 1;
   const totalFailures = (runState.totalFailures ?? 0) + 1;
   const retryIndex = Math.min(consecutiveFailures - 1, TASK_RETRY_BACKOFF_MINUTES.length - 1);
-  const nextRunAt = now + TASK_RETRY_BACKOFF_MINUTES[retryIndex]! * 60 * 1000;
+  const nextRunAt = now + TASK_RETRY_BACKOFF_MINUTES[retryIndex] * 60 * 1000;
   const budgetMode = consecutiveFailures >= 2 ? bumpBudgetMode(task.budgetMode) : task.budgetMode;
   const retrievalMode =
     consecutiveFailures >= 2 ? bumpRetrievalMode(task.retrievalMode) : task.retrievalMode;
-  const worker = consecutiveFailures >= 3 && task.worker && task.worker !== "main" ? "main" : task.worker;
+  const worker =
+    consecutiveFailures >= 3 && task.worker && task.worker !== "main" ? "main" : task.worker;
   const status: TaskStatus =
     consecutiveFailures >= TASK_MAX_CONSECUTIVE_FAILURES ? "blocked" : "queued";
   const replanCount = (runState.replanCount ?? 0) + (consecutiveFailures >= 2 ? 1 : 0);
@@ -370,10 +427,14 @@ function mergeTaskMemoryRefs(
   memoryIds: string[],
   opts: RuntimeStoreOptions,
 ): TaskRecord | undefined {
-  if (memoryIds.length === 0) return undefined;
+  if (memoryIds.length === 0) {
+    return undefined;
+  }
   const stores = loadRuntimeStoreBundle(opts);
   const task = stores.taskStore.tasks.find((entry) => entry.id === taskId);
-  if (!task) return undefined;
+  if (!task) {
+    return undefined;
+  }
   task.memoryRefs = uniqueStrings([...(task.memoryRefs ?? []), ...memoryIds]);
   task.updatedAt = resolveNow(opts.now);
   const saved = saveRuntimeStoreBundle(stores, opts);
@@ -423,7 +484,7 @@ export function upsertRuntimeTask(
       worker: input.worker ?? existing?.worker,
       skillIds: input.skillIds ?? existing?.skillIds ?? [],
       memoryRefs: input.memoryRefs ?? existing?.memoryRefs ?? [],
-      intelRefs: input.intelRefs ?? existing?.intelRefs ?? [],
+      artifactRefs: input.artifactRefs ?? input.intelRefs ?? existing?.artifactRefs ?? [],
       recurring: input.recurring ?? existing?.recurring ?? false,
       maintenance: input.maintenance ?? existing?.maintenance ?? false,
       planSummary: input.planSummary ?? existing?.planSummary,
@@ -431,23 +492,18 @@ export function upsertRuntimeTask(
       blockedReason: input.blockedReason ?? existing?.blockedReason,
       lastError: input.lastError ?? existing?.lastError,
       reportPolicy: input.reportPolicy ?? existing?.reportPolicy,
-      nextRunAt:
-        input.nextRunAt === null
-          ? undefined
-          : input.nextRunAt ?? existing?.nextRunAt,
+      nextRunAt: input.nextRunAt === null ? undefined : (input.nextRunAt ?? existing?.nextRunAt),
       leaseOwner: input.leaseOwner ?? existing?.leaseOwner,
       leaseExpiresAt:
         input.leaseExpiresAt === null
           ? undefined
-          : input.leaseExpiresAt ?? existing?.leaseExpiresAt,
+          : (input.leaseExpiresAt ?? existing?.leaseExpiresAt),
       activeRunId:
-        input.activeRunId === null
-          ? undefined
-          : input.activeRunId ?? existing?.activeRunId,
+        input.activeRunId === null ? undefined : (input.activeRunId ?? existing?.activeRunId),
       latestReviewId:
         input.latestReviewId === null
           ? undefined
-          : input.latestReviewId ?? existing?.latestReviewId,
+          : (input.latestReviewId ?? existing?.latestReviewId),
       createdAt: existing?.createdAt ?? input.createdAt ?? now,
       updatedAt: now,
       metadata: mergeMetadataRecords(toRecord(existing?.metadata), toRecord(input.metadata)),
@@ -514,10 +570,10 @@ export function planRuntimeTask(
     normalizeText(task.nextAction).includes("记忆已失效") ||
     normalizeText(task.planSummary).includes("记忆已失效") ||
     optimizationState.needsReplan === true;
-  const mergedSkills = uniqueStrings([...(task.skillIds ?? []), ...decision.recommendedSkills]).slice(
-    0,
-    16,
-  );
+  const mergedSkills = uniqueStrings([
+    ...(task.skillIds ?? []),
+    ...decision.recommendedSkills,
+  ]).slice(0, 16);
   const effectiveBudgetMode =
     decision.thinkingLane === "system2" ? bumpBudgetMode(task.budgetMode) : task.budgetMode;
   const effectiveRetrievalMode =
@@ -533,7 +589,7 @@ export function planRuntimeTask(
     budgetMode: effectiveBudgetMode,
     retrievalMode: effectiveRetrievalMode,
     memoryRefs: decision.relevantMemoryIds,
-    intelRefs: decision.relevantIntelIds,
+    artifactRefs: task.artifactRefs,
     nextRunAt: undefined,
     lastError: undefined,
     blockedReason: undefined,
@@ -555,7 +611,7 @@ export function planRuntimeTask(
         lastRecommendedWorker: decision.recommendedWorker,
         lastRecommendedSkills: decision.recommendedSkills,
         lastRelevantMemoryIds: decision.relevantMemoryIds,
-        lastRelevantIntelIds: decision.relevantIntelIds,
+        lastRelevantSessionIds: decision.relevantSessionIds,
         lastFallbackOrder: decision.fallbackOrder,
         remoteCallCount: (runState.remoteCallCount ?? 0) + 1,
       },
@@ -587,7 +643,6 @@ export function planRuntimeTask(
         metadata: {
           thinkingLane: decision.thinkingLane,
           relevantMemoryIds: decision.relevantMemoryIds,
-          relevantIntelIds: decision.relevantIntelIds,
         },
       },
       now,
@@ -607,7 +662,6 @@ export function planRuntimeTask(
       recommendedWorker: decision.recommendedWorker,
       recommendedSkills: decision.recommendedSkills,
       memoryRefs: decision.relevantMemoryIds,
-      intelRefs: decision.relevantIntelIds,
     },
     {
       ...opts,
@@ -759,7 +813,7 @@ export function applyRuntimeTaskResult(
         startedAt: activeRun?.startedAt || task.updatedAt,
         updatedAt: now,
         metadata: {
-          ...(toRecord(activeRun?.metadata) ?? {}),
+          ...toRecord(activeRun?.metadata),
           ...(nextRunState as RuntimeMetadata),
         },
       },
@@ -843,7 +897,10 @@ export function applyRuntimeTaskResult(
         task: evolutionInputTask,
         review: persisted.review,
         thinkingLane:
-          activeRun?.thinkingLane || decision?.thinkingLane || runState.lastThinkingLane || "system1",
+          activeRun?.thinkingLane ||
+          decision?.thinkingLane ||
+          runState.lastThinkingLane ||
+          "system1",
         now,
       },
       {

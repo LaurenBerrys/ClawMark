@@ -2,7 +2,13 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadRuntimeTaskStore, resolveRuntimeStorePaths } from "./store.js";
+import {
+  buildRuntimeRetrievalSourceSet,
+  loadRuntimeTaskStore,
+  loadRuntimeUserConsoleStore,
+  resolveRuntimeStorePaths,
+  saveRuntimeUserConsoleStore,
+} from "./store.js";
 
 async function withTempRoot(
   prefix: string,
@@ -96,6 +102,86 @@ describe("runtime store metadata normalization", () => {
       });
       expect("legacyCompatibility" in (task?.metadata ?? {})).toBe(false);
       expect("legacyRunState" in (task?.metadata ?? {})).toBe(false);
+    });
+  });
+
+  it("persists the runtime user console store in sqlite", async () => {
+    await withTempRoot("openclaw-runtime-user-store-", async (_root, env) => {
+      const now = 1_700_100_000_000;
+      saveRuntimeUserConsoleStore(
+        {
+          version: "v1",
+          userModel: {
+            id: "runtime-user",
+            displayName: "Operator",
+            communicationStyle: "direct and concise",
+            interruptionThreshold: "medium",
+            reportVerbosity: "brief",
+            confirmationBoundary: "balanced",
+            reportPolicy: "reply",
+            createdAt: now,
+            updatedAt: now,
+          },
+          agents: [
+            {
+              id: "agent-sales",
+              name: "Sales Agent",
+              memoryNamespace: "agent/agent-sales",
+              skillIds: ["pitch", "follow-up"],
+              active: true,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          agentOverlays: [
+            {
+              id: "agent-overlay-sales",
+              agentId: "agent-sales",
+              reportPolicy: "proactive",
+              updatedAt: now,
+            },
+          ],
+          surfaces: [
+            {
+              id: "surface-wechat-sales",
+              channel: "wechat",
+              accountId: "wx-sales-01",
+              label: "WeChat Sales",
+              ownerKind: "agent",
+              ownerId: "agent-sales",
+              active: true,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+          surfaceRoleOverlays: [
+            {
+              id: "surface-role-wechat-sales",
+              surfaceId: "surface-wechat-sales",
+              role: "sales",
+              businessGoal: "close qualified leads",
+              allowedTopics: ["pricing", "shipping"],
+              restrictedTopics: ["refund policy exceptions"],
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+        },
+        { env, now },
+      );
+
+      const store = loadRuntimeUserConsoleStore({ env, now });
+      expect(store.userModel.displayName).toBe("Operator");
+      expect(store.agents.map((agent) => agent.id)).toEqual(["agent-sales"]);
+      expect(store.surfaces[0]?.ownerKind).toBe("agent");
+      expect(store.surfaceRoleOverlays[0]?.role).toBe("sales");
+
+      const retrievalSources = buildRuntimeRetrievalSourceSet({ env, now });
+      expect(retrievalSources.sessions.map((entry) => entry.recordId)).toContain("runtime-user");
+      expect(retrievalSources.sessions.map((entry) => entry.recordId)).toContain("agent-sales");
+      expect(retrievalSources.sessions.map((entry) => entry.recordId)).toContain(
+        "surface-wechat-sales",
+      );
     });
   });
 });

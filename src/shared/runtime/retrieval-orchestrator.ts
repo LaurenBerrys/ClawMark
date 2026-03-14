@@ -1,6 +1,5 @@
 import type {
   ContextPack,
-  IntelCandidate,
   MemoryRecord,
   RetrievalCandidate,
   RetrievalQuery,
@@ -18,9 +17,13 @@ function uniqueStrings(values: Array<string | undefined | null>): string[] {
   const out: string[] = [];
   for (const value of values) {
     const trimmed = value?.trim();
-    if (!trimmed) continue;
+    if (!trimmed) {
+      continue;
+    }
     const normalized = trimmed.toLowerCase();
-    if (seen.has(normalized)) continue;
+    if (seen.has(normalized)) {
+      continue;
+    }
     seen.add(normalized);
     out.push(trimmed);
   }
@@ -28,7 +31,9 @@ function uniqueStrings(values: Array<string | undefined | null>): string[] {
 }
 
 function clampLimit(value: number | undefined, fallback: number): number {
-  if (!Number.isFinite(value)) return fallback;
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
   return Math.max(1, Math.trunc(value as number));
 }
 
@@ -58,22 +63,32 @@ function countTextHits(parts: Array<string | undefined>, hints: string[]): numbe
     .map((value) => value?.trim().toLowerCase())
     .filter(Boolean)
     .join("\n");
-  if (!haystack) return 0;
+  if (!haystack) {
+    return 0;
+  }
 
   let hits = 0;
   for (const hint of hints) {
     const normalized = hint.trim().toLowerCase();
-    if (!normalized) continue;
-    if (haystack.includes(normalized)) hits += 1;
+    if (!normalized) {
+      continue;
+    }
+    if (haystack.includes(normalized)) {
+      hits += 1;
+    }
   }
   return hits;
 }
 
 function scoreMemoryRecord(record: MemoryRecord, query: RetrievalQuery, hints: string[]): number {
-  if (record.invalidatedBy.length > 0) return -1000;
+  if (record.invalidatedBy.length > 0) {
+    return -1000;
+  }
 
   let score = record.confidence;
-  if (record.route && query.route && record.route === query.route) score += 24;
+  if (record.route && query.route && record.route === query.route) {
+    score += 24;
+  }
   if (
     record.memoryType === "knowledge" &&
     record.scope &&
@@ -81,9 +96,13 @@ function scoreMemoryRecord(record: MemoryRecord, query: RetrievalQuery, hints: s
   ) {
     score += 16;
   }
-  if (query.taskId && record.sourceTaskIds.includes(query.taskId)) score += 24;
+  if (query.taskId && record.sourceTaskIds.includes(query.taskId)) {
+    score += 24;
+  }
   score += countTextHits([record.summary, record.detail, ...record.tags], hints) * 8;
-  if (record.memoryType === "execution" || record.memoryType === "efficiency") score += 8;
+  if (record.memoryType === "execution" || record.memoryType === "efficiency") {
+    score += 8;
+  }
   return score;
 }
 
@@ -92,26 +111,21 @@ function scoreStrategyRecord(
   query: RetrievalQuery,
   hints: string[],
 ): number {
-  if (record.invalidatedBy.length > 0) return -1000;
+  if (record.invalidatedBy.length > 0) {
+    return -1000;
+  }
 
   let score = record.confidence;
-  if (query.route && record.route === query.route) score += 24;
-  if (query.worker && record.worker === query.worker) score += 8;
-  if (record.thinkingLane === query.thinkingLane) score += 4;
+  if (query.route && record.route === query.route) {
+    score += 24;
+  }
+  if (query.worker && record.worker === query.worker) {
+    score += 8;
+  }
+  if (record.thinkingLane === query.thinkingLane) {
+    score += 4;
+  }
   score += countTextHits([record.summary, record.worker, ...record.skillIds], hints) * 8;
-  return score;
-}
-
-function scoreIntelCandidate(
-  record: IntelCandidate,
-  query: RetrievalQuery,
-  hints: string[],
-): number {
-  let score = Number(record.score || 0);
-  if (!Number.isFinite(score)) score = 0;
-  if (buildRouteDomains(query.route).includes(record.domain)) score += 12;
-  if (record.selected) score += 8;
-  score += countTextHits([record.title, record.summary, record.domain, record.sourceId], hints) * 8;
   return score;
 }
 
@@ -121,8 +135,12 @@ function scoreArchiveCandidate(
   hints: string[],
 ): number {
   let score = Number(record.score || 0);
-  if (!Number.isFinite(score)) score = 0;
-  if (query.route && record.sourceRef?.includes(query.route)) score += 8;
+  if (!Number.isFinite(score)) {
+    score = 0;
+  }
+  if (query.route && record.sourceRef?.includes(query.route)) {
+    score += 8;
+  }
   score += countTextHits([record.title, record.excerpt, record.sourceRef], hints) * 6;
   return score;
 }
@@ -133,28 +151,41 @@ export function buildStructuredMatches(params: {
 }): {
   strategies: Array<ScoredRecord<StrategyRecord>>;
   memories: Array<ScoredRecord<MemoryRecord>>;
-  intel: Array<ScoredRecord<IntelCandidate>>;
+  sessions: Array<ScoredRecord<RetrievalCandidate>>;
   archive: Array<ScoredRecord<RetrievalCandidate>>;
 } {
   const hints = buildQueryHints(params.query);
   const strategies = params.sources.strategies
     .map((record) => ({ record, score: scoreStrategyRecord(record, params.query, hints) }))
     .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score);
+    .toSorted((left, right) => right.score - left.score);
   const memories = params.sources.memories
     .map((record) => ({ record, score: scoreMemoryRecord(record, params.query, hints) }))
     .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score);
-  const intel = params.sources.intel
-    .map((record) => ({ record, score: scoreIntelCandidate(record, params.query, hints) }))
+    .toSorted((left, right) => right.score - left.score);
+  const sessions = (params.sources.sessions ?? [])
+    .map((record) => ({
+      record: {
+        ...record,
+        plane: "session" as const,
+      },
+      score: scoreArchiveCandidate(
+        {
+          ...record,
+          plane: "session",
+        },
+        params.query,
+        hints,
+      ),
+    }))
     .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score);
+    .toSorted((left, right) => right.score - left.score);
   const archive = (params.sources.archive ?? [])
     .map((record) => ({ record, score: scoreArchiveCandidate(record, params.query, hints) }))
     .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score);
+    .toSorted((left, right) => right.score - left.score);
 
-  return { strategies, memories, intel, archive };
+  return { strategies, memories, sessions, archive };
 }
 
 function toStrategyCandidate(entry: ScoredRecord<StrategyRecord>): RetrievalCandidate {
@@ -193,31 +224,13 @@ function toMemoryCandidate(entry: ScoredRecord<MemoryRecord>): RetrievalCandidat
     },
   };
 }
-
-function toIntelRetrievalCandidate(entry: ScoredRecord<IntelCandidate>): RetrievalCandidate {
-  return {
-    id: `intel:${entry.record.id}`,
-    plane: "intel",
-    recordId: entry.record.id,
-    title: entry.record.title,
-    excerpt: entry.record.summary,
-    score: entry.score,
-    sourceRef: entry.record.url || `intel:${entry.record.id}`,
-    metadata: {
-      domain: entry.record.domain,
-      selected: entry.record.selected,
-      sourceId: entry.record.sourceId,
-    },
-  };
-}
-
 export function buildHybridCandidateGeneration(params: {
   query: RetrievalQuery;
   structured: ReturnType<typeof buildStructuredMatches>;
 }): {
   strategyCandidates: RetrievalCandidate[];
   memoryCandidates: RetrievalCandidate[];
-  intelCandidates: RetrievalCandidate[];
+  sessionCandidates: RetrievalCandidate[];
   archiveCandidates: RetrievalCandidate[];
 } {
   const limit = clampLimit(params.query.maxCandidatesPerPlane, 4);
@@ -229,8 +242,12 @@ export function buildHybridCandidateGeneration(params: {
   const memoryCandidates = planes.has("memory")
     ? params.structured.memories.slice(0, limit).map(toMemoryCandidate)
     : [];
-  const intelCandidates = planes.has("intel")
-    ? params.structured.intel.slice(0, limit).map(toIntelRetrievalCandidate)
+  const sessionCandidates = planes.has("session")
+    ? params.structured.sessions.slice(0, limit).map((entry) => ({
+        ...entry.record,
+        plane: "session" as const,
+        score: entry.score,
+      }))
     : [];
   const archiveCandidates = planes.has("archive")
     ? params.structured.archive.slice(0, limit).map((entry) => ({
@@ -243,7 +260,7 @@ export function buildHybridCandidateGeneration(params: {
   return {
     strategyCandidates,
     memoryCandidates,
-    intelCandidates,
+    sessionCandidates,
     archiveCandidates,
   };
 }
@@ -260,7 +277,7 @@ export function buildContextPack(params: {
   const summary = [
     `strategy=${hybrid.strategyCandidates.length}`,
     `memory=${hybrid.memoryCandidates.length}`,
-    `intel=${hybrid.intelCandidates.length}`,
+    `session=${hybrid.sessionCandidates.length}`,
     `archive=${hybrid.archiveCandidates.length}`,
   ].join(" | ");
   const synthesis = uniqueStrings([
@@ -270,7 +287,7 @@ export function buildContextPack(params: {
       ? `top-strategy=${hybrid.strategyCandidates[0].title}`
       : null,
     hybrid.memoryCandidates[0]?.title ? `top-memory=${hybrid.memoryCandidates[0].title}` : null,
-    hybrid.intelCandidates[0]?.title ? `top-intel=${hybrid.intelCandidates[0].title}` : null,
+    hybrid.sessionCandidates[0]?.title ? `top-session=${hybrid.sessionCandidates[0].title}` : null,
     hybrid.archiveCandidates[0]?.title ? `top-archive=${hybrid.archiveCandidates[0].title}` : null,
   ]);
 
@@ -281,7 +298,7 @@ export function buildContextPack(params: {
     summary,
     strategyCandidates: hybrid.strategyCandidates,
     memoryCandidates: hybrid.memoryCandidates,
-    intelCandidates: hybrid.intelCandidates,
+    sessionCandidates: hybrid.sessionCandidates,
     archiveCandidates: hybrid.archiveCandidates,
     synthesis,
     metadata: {
@@ -289,13 +306,13 @@ export function buildContextPack(params: {
         structuredMatch: {
           strategyCount: structured.strategies.length,
           memoryCount: structured.memories.length,
-          intelCount: structured.intel.length,
+          sessionCount: structured.sessions.length,
           archiveCount: structured.archive.length,
         },
         hybridCandidateGeneration: {
           strategyCount: hybrid.strategyCandidates.length,
           memoryCount: hybrid.memoryCandidates.length,
-          intelCount: hybrid.intelCandidates.length,
+          sessionCount: hybrid.sessionCandidates.length,
           archiveCount: hybrid.archiveCandidates.length,
         },
         contextPackSynthesis: {

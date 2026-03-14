@@ -325,6 +325,7 @@ export type AppViewState = {
     loadAssistantIdentity: () => Promise<void>;
     loadCron: () => Promise<void>;
     applyRuntimeLegacyImport: () => Promise<void>;
+    syncRuntimeFederationRemote: () => Promise<void>;
     handleWhatsAppStart: (force: boolean) => Promise<void>;
     handleWhatsAppWait: () => Promise<void>;
     handleWhatsAppLogout: () => Promise<void>;

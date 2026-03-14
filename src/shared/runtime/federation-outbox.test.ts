@@ -7,6 +7,7 @@ import { syncRuntimeFederationOutbox } from "./federation-outbox.js";
 import { runRuntimeIntelPipeline } from "./intel-pipeline.js";
 import { distillTaskOutcomeToMemory, observeTaskOutcomeForEvolution } from "./mutations.js";
 import { buildFederationRuntimeSnapshot } from "./runtime-dashboard.js";
+import { loadRuntimeFederationStore } from "./store.js";
 
 async function withTempRoot(
   prefix: string,
@@ -61,7 +62,7 @@ describe("runtime federation outbox", () => {
             url: "https://brain.example.test/runtime",
           },
           push: {
-            allowedScopes: ["shareable_derived", "strategy_digest", "intel_digest"],
+            allowedScopes: ["shareable_derived", "strategy_digest", "news_digest"],
             blockedScopes: ["raw_chat", "secrets"],
           },
         },
@@ -98,7 +99,7 @@ describe("runtime federation outbox", () => {
         worker: "main",
         skillIds: ["patch-edit"],
         memoryRefs: [],
-        intelRefs: ["intel-ai-0"],
+        artifactRefs: ["news-ai-0"],
         recurring: false,
         maintenance: true,
         createdAt: now,
@@ -149,7 +150,8 @@ describe("runtime federation outbox", () => {
       await expect(fs.readFile(result.strategyDigestPath, "utf8")).resolves.toContain(
         '"strategies"',
       );
-      await expect(fs.readFile(result.intelDigestPath, "utf8")).resolves.toContain('"digestItems"');
+      await expect(fs.readFile(result.newsDigestPath, "utf8")).resolves.toContain('"news-digest"');
+      await expect(fs.readFile(result.newsDigestPath, "utf8")).resolves.toContain('"digestItems"');
       await expect(fs.readFile(result.shadowTelemetryPath, "utf8")).resolves.toContain(
         '"evaluations"',
       );
@@ -158,10 +160,16 @@ describe("runtime federation outbox", () => {
       );
       expect(snapshot.outboxEnvelopeCounts.runtimeManifest).toBe(1);
       expect(snapshot.outboxEnvelopeCounts.strategyDigest).toBe(1);
-      expect(snapshot.outboxEnvelopeCounts.intelDigest).toBe(1);
+      expect(snapshot.outboxEnvelopeCounts.newsDigest).toBe(1);
       expect(snapshot.outboxEnvelopeCounts.shadowTelemetry).toBe(1);
       expect(snapshot.outboxEnvelopeCounts.capabilityGovernance).toBe(1);
       expect(snapshot.remoteConfigured).toBe(false);
+      expect(
+        loadRuntimeFederationStore({
+          env,
+          now,
+        }).syncCursor?.lastPushedAt,
+      ).toBe(now);
 
       const configuredSnapshot = buildFederationRuntimeSnapshot({
         env,
@@ -172,7 +180,7 @@ describe("runtime federation outbox", () => {
       expect(configuredSnapshot.allowedPushScopes).toEqual([
         "shareable_derived",
         "strategy_digest",
-        "intel_digest",
+        "news_digest",
       ]);
       expect(configuredSnapshot.blockedPushScopes).toEqual([
         "raw_chat",

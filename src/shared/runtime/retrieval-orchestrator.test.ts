@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-
 import type {
-  IntelCandidate,
   MemoryRecord,
   RetrievalCandidate,
   RetrievalQuery,
@@ -54,16 +52,15 @@ const memories: MemoryRecord[] = [
   },
 ];
 
-const intel: IntelCandidate[] = [
+const sessions: RetrievalCandidate[] = [
   {
-    id: "intel-runtime",
-    domain: "github",
-    sourceId: "repo:openclaw/openclaw",
+    id: "session-runtime",
+    plane: "session",
+    recordId: "session-runtime",
     title: "runtime refactor notes",
-    summary: "shared/runtime 可复用为统一 decision/retrieval core。",
+    excerpt: "shared/runtime 可复用为统一 decision/retrieval core。",
     score: 91,
-    selected: true,
-    createdAt: 1,
+    sourceRef: "session:web:user-console",
   },
 ];
 
@@ -86,8 +83,8 @@ function buildQuery(thinkingLane: RetrievalQuery["thinkingLane"]): RetrievalQuer
     thinkingLane,
     planes:
       thinkingLane === "system1"
-        ? ["strategy", "memory"]
-        : ["strategy", "memory", "intel", "archive"],
+        ? ["strategy", "memory", "session"]
+        : ["strategy", "memory", "session", "archive"],
     route: "coder",
     worker: "main",
     topicHints: ["coder", "runtime", "build", "github"],
@@ -99,7 +96,7 @@ function buildSources(): RetrievalSourceSet {
   return {
     strategies,
     memories,
-    intel,
+    sessions,
     archive,
   };
 }
@@ -117,9 +114,10 @@ describe("buildContextPack", () => {
       sources: buildSources(),
     });
 
-    expect(contextPack.summary).toBe("strategy=1 | memory=1 | intel=0 | archive=0");
+    expect(contextPack.summary).toBe("strategy=1 | memory=1 | session=1 | archive=0");
     expect(contextPack.strategyCandidates[0]?.recordId).toBe("strategy-coder");
     expect(contextPack.memoryCandidates[0]?.recordId).toBe("memory-execution");
+    expect(contextPack.sessionCandidates[0]?.recordId).toBe("session-runtime");
     expect(contextPack.synthesis).toContain("route=coder");
     expect(contextPack.synthesis).toContain(
       "top-strategy=先读仓库与文件差异，再做最小修改和验证。",
@@ -127,16 +125,16 @@ describe("buildContextPack", () => {
     expect(contextPack.synthesis).toContain("top-memory=改代码前先用 rg 和文件树缩小修改范围。");
   });
 
-  it("expands system2 into intel and archive planes", () => {
+  it("expands system2 into session and archive planes", () => {
     const contextPack = buildContextPack({
       query: buildQuery("system2"),
       sources: buildSources(),
     });
 
-    expect(contextPack.summary).toBe("strategy=1 | memory=1 | intel=1 | archive=1");
-    expect(contextPack.intelCandidates[0]?.recordId).toBe("intel-runtime");
+    expect(contextPack.summary).toBe("strategy=1 | memory=1 | session=1 | archive=1");
+    expect(contextPack.sessionCandidates[0]?.recordId).toBe("session-runtime");
     expect(contextPack.archiveCandidates[0]?.title).toBe("workspace migration note");
-    expect(contextPack.synthesis).toContain("top-intel=runtime refactor notes");
+    expect(contextPack.synthesis).toContain("top-session=runtime refactor notes");
     expect(contextPack.synthesis).toContain("top-archive=workspace migration note");
   });
 });

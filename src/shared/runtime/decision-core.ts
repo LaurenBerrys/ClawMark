@@ -37,9 +37,13 @@ function uniqueStrings(values: Array<string | undefined | null>): string[] {
   const out: string[] = [];
   for (const value of values) {
     const trimmed = value?.trim();
-    if (!trimmed) continue;
+    if (!trimmed) {
+      continue;
+    }
     const normalized = trimmed.toLowerCase();
-    if (seen.has(normalized)) continue;
+    if (seen.has(normalized)) {
+      continue;
+    }
     seen.add(normalized);
     out.push(trimmed);
   }
@@ -52,8 +56,12 @@ function normalizeText(value: string | undefined | null): string {
 
 function truncateText(value: string | undefined | null, maxLength = 160): string {
   const text = normalizeText(value);
-  if (!text) return "";
-  if (text.length <= maxLength) return text;
+  if (!text) {
+    return "";
+  }
+  if (text.length <= maxLength) {
+    return text;
+  }
   return `${text.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…`;
 }
 
@@ -68,7 +76,7 @@ function buildRouteSkillHints(route: string): string[] {
     case "ops":
       return ["logs-inspect", "process-inspect", "config-audit"];
     case "research":
-      return ["context-retrieve", "intel-digest"];
+      return ["context-retrieve", "news-digest"];
     case "office":
       return ["message-compose", "workflow-update"];
     case "media":
@@ -123,17 +131,24 @@ function clampMaxCandidates(
     return Math.max(1, Math.trunc(config.maxCandidatesPerPlane));
   }
 
-  if (lane === "system2" && task.retrievalMode === "deep") return 6;
-  if (lane === "system2") return 4;
+  if (lane === "system2" && task.retrievalMode === "deep") {
+    return 6;
+  }
+  if (lane === "system2") {
+    return 4;
+  }
   return 3;
 }
 
 function buildPlanes(task: DecisionTaskInput, lane: ThinkingLane): RetrievalPlane[] {
-  const base: RetrievalPlane[] = ["strategy", "memory"];
-  if (lane !== "system2") return base;
-  if (task.retrievalMode === "off") return base;
-  if (task.retrievalMode === "light") return [...base, "intel"];
-  return [...base, "intel", "archive"];
+  const base: RetrievalPlane[] = ["strategy", "memory", "session"];
+  if (lane !== "system2") {
+    return base;
+  }
+  if (task.retrievalMode === "off") {
+    return base;
+  }
+  return [...base, "archive"];
 }
 
 function defaultWorkerForRoute(_route: string): string {
@@ -145,7 +160,9 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function readStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {
+    return [];
+  }
   return value.filter(
     (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
   );
@@ -158,7 +175,9 @@ function isStrategyRecord(value: StrategyRecord | RetrievalCandidate): value is 
 function toStrategyInsight(
   value: StrategyRecord | RetrievalCandidate | null | undefined,
 ): StrategyInsight | null {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
 
   if (isStrategyRecord(value)) {
     return {
@@ -201,7 +220,9 @@ function readMemoryType(candidate: RetrievalCandidate): FormalMemoryType | undef
 
 function isHighConfidenceExecutionMemory(candidate: RetrievalCandidate): boolean {
   const memoryType = readMemoryType(candidate);
-  if (!memoryType) return false;
+  if (!memoryType) {
+    return false;
+  }
   return (
     (memoryType === "execution" || memoryType === "efficiency" || memoryType === "completion") &&
     (candidate.confidence ?? 0) >= 68
@@ -248,19 +269,19 @@ type ShouldUseSystem2Input = {
   topStrategy?: StrategyRecord | RetrievalCandidate | null;
   contextPack?: ContextPack;
   relevantMemories?: RetrievalCandidate[];
-  relevantIntel?: RetrievalCandidate[];
+  relevantSessions?: RetrievalCandidate[];
 };
 
 function normalizeShouldUseSystem2Args(
   inputOrTask: ShouldUseSystem2Input | DecisionTaskInput,
   topStrategy?: StrategyRecord | RetrievalCandidate | null,
   relevantMemoriesOrContext?: RetrievalCandidate[] | ContextPack,
-  relevantIntel: RetrievalCandidate[] = [],
+  relevantSessions: RetrievalCandidate[] = [],
 ): {
   task: DecisionTaskInput;
   topStrategy: StrategyInsight | null;
   relevantMemories: RetrievalCandidate[];
-  relevantIntel: RetrievalCandidate[];
+  relevantSessions: RetrievalCandidate[];
 } {
   if (isObject(inputOrTask) && "task" in inputOrTask) {
     const contextPack = inputOrTask.contextPack;
@@ -268,7 +289,7 @@ function normalizeShouldUseSystem2Args(
       task: inputOrTask.task,
       topStrategy: pickTopStrategy(contextPack, inputOrTask.topStrategy),
       relevantMemories: inputOrTask.relevantMemories || contextPack?.memoryCandidates || [],
-      relevantIntel: inputOrTask.relevantIntel || contextPack?.intelCandidates || [],
+      relevantSessions: inputOrTask.relevantSessions || contextPack?.sessionCandidates || [],
     };
   }
 
@@ -277,7 +298,7 @@ function normalizeShouldUseSystem2Args(
       task: inputOrTask,
       topStrategy: pickTopStrategy(relevantMemoriesOrContext, topStrategy),
       relevantMemories: relevantMemoriesOrContext.memoryCandidates,
-      relevantIntel: relevantMemoriesOrContext.intelCandidates,
+      relevantSessions: relevantMemoriesOrContext.sessionCandidates,
     };
   }
 
@@ -285,7 +306,7 @@ function normalizeShouldUseSystem2Args(
     task: inputOrTask,
     topStrategy: toStrategyInsight(topStrategy),
     relevantMemories: Array.isArray(relevantMemoriesOrContext) ? relevantMemoriesOrContext : [],
-    relevantIntel,
+    relevantSessions,
   };
 }
 
@@ -314,22 +335,34 @@ export function buildDecisionRetrievalQuery(
 
 export function buildLocalFirstPlan(task: DecisionTaskInput, lane: ThinkingLane): string {
   const route = resolveTaskRoute(task);
-  if (route === "coder") return "先读仓库与文件差异，尽量在本地完成修改、验证和总结。";
-  if (route === "ops") return "先查日志、端口、进程和配置，本地定位后再动远程链路。";
-  if (route === "office") return "先复用现有办公技能和本地结构化脚本，再决定是否重推理。";
-  if (route === "research") return "先读既有知识摘要和近期情报，再补最少量外部检索。";
-  if (route === "media") return "先做 OCR、抽取、分段等本地处理，再让模型做高层判断。";
+  if (route === "coder") {
+    return "先读仓库与文件差异，尽量在本地完成修改、验证和总结。";
+  }
+  if (route === "ops") {
+    return "先查日志、端口、进程和配置，本地定位后再动远程链路。";
+  }
+  if (route === "office") {
+    return "先复用现有办公技能和本地结构化脚本，再决定是否重推理。";
+  }
+  if (route === "research") {
+    return "先读既有知识摘要和本地资料，再补最少量外部检索。";
+  }
+  if (route === "media") {
+    return "先做 OCR、抽取、分段等本地处理，再让模型做高层判断。";
+  }
   return lane === "system1"
     ? "优先走稳定规则、本地工具和已有策略，不做重规划。"
     : "先压缩上下文和已知记忆，再决定是否升级到重推理。";
 }
 
 export function buildRemoteModelPlan(task: DecisionTaskInput, lane: ThinkingLane): string {
-  if (lane === "system1") return "只有本地路径和稳定 skill 不足时才升级到远程模型。";
-  if (task.route === "coder" || task.route === "ops") {
-    return "允许更深推理，但先带入最少必要记忆和情报，不做长上下文裸跑。";
+  if (lane === "system1") {
+    return "只有本地路径和稳定 skill 不足时才升级到远程模型。";
   }
-  return "只把最相关的记忆、情报和当前状态送入远程推理链。";
+  if (task.route === "coder" || task.route === "ops") {
+    return "允许更深推理，但先带入最少必要记忆和资料，不做长上下文裸跑。";
+  }
+  return "只把最相关的记忆、资料和当前状态送入远程推理链。";
 }
 
 export function buildFallbackOrder(
@@ -352,15 +385,15 @@ export function shouldUseSystem2(
   inputOrTask: ShouldUseSystem2Input | DecisionTaskInput,
   topStrategy?: StrategyRecord | RetrievalCandidate | null,
   relevantMemoriesOrContext?: RetrievalCandidate[] | ContextPack,
-  relevantIntel?: RetrievalCandidate[],
+  relevantSessions?: RetrievalCandidate[],
 ): boolean {
   const normalized = normalizeShouldUseSystem2Args(
     inputOrTask,
     topStrategy,
     relevantMemoriesOrContext,
-    relevantIntel,
+    relevantSessions,
   );
-  const { task, topStrategy: strategy, relevantMemories, relevantIntel: intel } = normalized;
+  const { task, topStrategy: strategy, relevantMemories } = normalized;
   const stableSkillCount = uniqueStrings([...task.skillIds, ...(strategy?.skillIds || [])]).length;
   const highConfidenceExecutionMemories = relevantMemories.filter(
     isHighConfidenceExecutionMemory,
@@ -371,10 +404,14 @@ export function shouldUseSystem2(
   const consecutiveFailures = task.runState?.consecutiveFailures || 0;
   const remoteCallCount = task.runState?.remoteCallCount || 0;
 
-  if (strategy?.thinkingLane === "system2") return true;
+  if (strategy?.thinkingLane === "system2") {
+    return true;
+  }
 
   if (strategy?.thinkingLane === "system1" && strategy.confidence >= 68) {
-    if (consecutiveFailures === 0 && remoteCallCount < 2) return false;
+    if (consecutiveFailures === 0 && remoteCallCount < 2) {
+      return false;
+    }
   }
 
   if (
@@ -389,10 +426,18 @@ export function shouldUseSystem2(
     return false;
   }
 
-  if (!strategy) return true;
-  if (consecutiveFailures > 0) return true;
-  if (remoteCallCount >= 2) return true;
-  if (task.blockedReason || task.lastError) return true;
+  if (!strategy) {
+    return true;
+  }
+  if (consecutiveFailures > 0) {
+    return true;
+  }
+  if (remoteCallCount >= 2) {
+    return true;
+  }
+  if (task.blockedReason || task.lastError) {
+    return true;
+  }
   if (
     resolveTaskRoute(task) === "general" &&
     highConfidenceExecutionMemories < 2 &&
@@ -400,9 +445,12 @@ export function shouldUseSystem2(
   ) {
     return true;
   }
-  if (promptLength > 220) return true;
-  if (task.priority === "high" && relevantMemories.length < 2) return true;
-  if (intel.length >= 2 && relevantMemories.length === 0) return true;
+  if (promptLength > 220) {
+    return true;
+  }
+  if (task.priority === "high" && relevantMemories.length < 2) {
+    return true;
+  }
   return strategy.confidence < 68;
 }
 
@@ -500,7 +548,7 @@ export function buildDecisionRecord(
     thinkingLane,
   );
   const relevantMemoryIds = collectRecordIds(finalContextPack.memoryCandidates);
-  const relevantIntelIds = collectRecordIds(finalContextPack.intelCandidates);
+  const relevantSessionIds = collectRecordIds(finalContextPack.sessionCandidates);
   const summary = [
     `lane=${thinkingLane}`,
     `worker=${recommendedWorker}`,
@@ -518,7 +566,7 @@ export function buildDecisionRecord(
     recommendedWorker,
     recommendedSkills,
     relevantMemoryIds,
-    relevantIntelIds,
+    relevantSessionIds,
     fallbackOrder,
     localFirstPlan: buildLocalFirstPlan(task, thinkingLane),
     remoteModelPlan: buildRemoteModelPlan(task, thinkingLane),
@@ -536,16 +584,16 @@ export function buildDecisionRecord(
       contextSummary: finalContextPack.summary,
       synthesis: finalContextPack.synthesis,
       memoryBullets: toContextBullet("memory", finalContextPack.memoryCandidates),
-      intelBullets: toContextBullet("intel", finalContextPack.intelCandidates),
     },
   };
 }
 
 export function buildDecisionPromptBlock(decision: DecisionRecord | null | undefined): string {
-  if (!decision) return "";
+  if (!decision) {
+    return "";
+  }
 
   const memoryLines = toContextBullet("memory", decision.contextPack.memoryCandidates);
-  const intelLines = toContextBullet("intel", decision.contextPack.intelCandidates);
   const synthesisLines = decision.contextPack.synthesis.map((line) => `- ${line}`);
 
   return [
@@ -562,8 +610,6 @@ export function buildDecisionPromptBlock(decision: DecisionRecord | null | undef
     decision.contextPack.summary ? `- 上下文摘要：${decision.contextPack.summary}` : "",
     memoryLines.length ? "- 相关记忆：" : "",
     ...memoryLines,
-    intelLines.length ? "- 相关情报：" : "",
-    ...intelLines,
     synthesisLines.length ? "- 综合上下文：" : "",
     ...synthesisLines,
   ]

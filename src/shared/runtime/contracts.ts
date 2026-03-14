@@ -26,6 +26,7 @@ export type TaskPriority = "low" | "normal" | "high";
 export type BudgetMode = "strict" | "balanced" | "deep";
 export type RetrievalMode = "off" | "light" | "deep";
 export type TaskReportPolicy = "silent" | "reply" | "proactive" | "reply_and_proactive";
+export type SurfaceOwnerKind = "user" | "agent";
 
 export const TASK_STATUSES = [
   "queued",
@@ -42,7 +43,7 @@ export const TASK_STATUSES = [
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export type ThinkingLane = "system1" | "system2";
-export type RetrievalPlane = "strategy" | "memory" | "intel" | "archive";
+export type RetrievalPlane = "strategy" | "memory" | "session" | "archive";
 export type GovernanceState = "blocked" | "shadow" | "candidate" | "adopted" | "core";
 export type GovernanceRegistryType = "skill" | "agent" | "mcp";
 
@@ -157,7 +158,7 @@ export type TaskRecord = {
   worker?: string;
   skillIds: string[];
   memoryRefs: string[];
-  intelRefs: string[];
+  artifactRefs: string[];
   recurring: boolean;
   maintenance: boolean;
   planSummary?: string;
@@ -250,7 +251,7 @@ export type ContextPack = {
   summary: string;
   strategyCandidates: RetrievalCandidate[];
   memoryCandidates: RetrievalCandidate[];
-  intelCandidates: RetrievalCandidate[];
+  sessionCandidates: RetrievalCandidate[];
   archiveCandidates: RetrievalCandidate[];
   synthesis: string[];
   metadata?: RuntimeMetadata;
@@ -259,7 +260,7 @@ export type ContextPack = {
 export type RetrievalSourceSet = {
   strategies: StrategyRecord[];
   memories: MemoryRecord[];
-  intel: IntelCandidate[];
+  sessions: RetrievalCandidate[];
   archive?: RetrievalCandidate[];
 };
 
@@ -303,12 +304,78 @@ export type DecisionRecord = {
   recommendedWorker: string;
   recommendedSkills: string[];
   relevantMemoryIds: string[];
-  relevantIntelIds: string[];
+  relevantSessionIds: string[];
   fallbackOrder: string[];
   localFirstPlan: string;
   remoteModelPlan: string;
   budgetLimit: DecisionBudget;
   contextPack: ContextPack;
+  metadata?: RuntimeMetadata;
+};
+
+export type RuntimeUserModel = {
+  id: string;
+  displayName?: string;
+  communicationStyle?: string;
+  interruptionThreshold?: "low" | "medium" | "high";
+  reportVerbosity?: "brief" | "balanced" | "detailed";
+  confirmationBoundary?: "strict" | "balanced" | "light";
+  reportPolicy?: TaskReportPolicy;
+  createdAt: number;
+  updatedAt: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type AgentRecord = {
+  id: string;
+  name: string;
+  description?: string;
+  avatarUrl?: string;
+  roleBase?: string;
+  memoryNamespace: string;
+  skillIds: string[];
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type AgentLocalOverlay = {
+  id: string;
+  agentId: string;
+  communicationStyle?: string;
+  reportPolicy?: TaskReportPolicy;
+  notes?: string;
+  updatedAt: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type SurfaceRecord = {
+  id: string;
+  channel: string;
+  accountId: string;
+  label: string;
+  ownerKind: SurfaceOwnerKind;
+  ownerId?: string;
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type SurfaceRoleOverlay = {
+  id: string;
+  surfaceId: string;
+  role: string;
+  businessGoal?: string;
+  tone?: string;
+  initiative?: "low" | "medium" | "high";
+  allowedTopics: string[];
+  restrictedTopics: string[];
+  reportTarget?: string;
+  localBusinessPolicy?: RuntimeMetadata;
+  createdAt: number;
+  updatedAt: number;
   metadata?: RuntimeMetadata;
 };
 
@@ -499,6 +566,169 @@ export type CapabilityGovernanceSnapshot = {
   metadata?: RuntimeMetadata;
 };
 
+export type TeamKnowledgeRecord = {
+  id: string;
+  namespace: "private" | "team-shareable";
+  title: string;
+  summary: string;
+  tags: string[];
+  sourceRuntimeId?: string;
+  createdAt: number;
+  updatedAt: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type RuntimeManifestEnvelope = {
+  schemaVersion: "v1";
+  type: "runtime-manifest";
+  sourceRuntimeId: string;
+  generatedAt: number;
+  payload: RuntimeManifest;
+  metadata?: RuntimeMetadata;
+};
+
+export type NewsDigestEnvelope = {
+  schemaVersion: "v1";
+  type: "news-digest";
+  sourceRuntimeId: string;
+  generatedAt: number;
+  payload: {
+    digestItems: IntelDigestItem[];
+  };
+  metadata?: RuntimeMetadata;
+};
+
+export type TeamKnowledgeEnvelope = {
+  schemaVersion: "v1";
+  type: "team-knowledge";
+  sourceRuntimeId: string;
+  generatedAt: number;
+  payload: {
+    records: TeamKnowledgeRecord[];
+  };
+  metadata?: RuntimeMetadata;
+};
+
+export type CoordinatorSuggestionEnvelope = {
+  schemaVersion: "v1";
+  type: "coordinator-suggestion";
+  sourceRuntimeId: string;
+  generatedAt: number;
+  payload: {
+    id: string;
+    title: string;
+    summary: string;
+    taskId?: string;
+    metadata?: RuntimeMetadata;
+  };
+  metadata?: RuntimeMetadata;
+};
+
+export type SharedStrategyPackage = {
+  schemaVersion: "v1";
+  type: "shared-strategy-package";
+  sourceRuntimeId: string;
+  generatedAt: number;
+  payload: {
+    strategies: StrategyRecord[];
+  };
+  metadata?: RuntimeMetadata;
+};
+
+export type TeamKnowledgePackage = {
+  schemaVersion: "v1";
+  type: "team-knowledge-package";
+  sourceRuntimeId: string;
+  generatedAt: number;
+  payload: {
+    records: TeamKnowledgeRecord[];
+  };
+  metadata?: RuntimeMetadata;
+};
+
+export type RoleOptimizationPackage = {
+  schemaVersion: "v1";
+  type: "role-optimization-package";
+  sourceRuntimeId: string;
+  generatedAt: number;
+  payload: {
+    surfaceId?: string;
+    agentId?: string;
+    summary: string;
+    proposedOverlay: Partial<SurfaceRoleOverlay>;
+  };
+  metadata?: RuntimeMetadata;
+};
+
+export type RuntimePolicyOverlayPackage = {
+  schemaVersion: "v1";
+  type: "runtime-policy-overlay-package";
+  sourceRuntimeId: string;
+  generatedAt: number;
+  payload: {
+    route?: string;
+    policy: RuntimeMetadata;
+  };
+  metadata?: RuntimeMetadata;
+};
+
+export type FederationPackageState =
+  | "received"
+  | "validated"
+  | "shadowed"
+  | "recommended"
+  | "adopted"
+  | "rejected"
+  | "expired"
+  | "reverted";
+
+export type FederationInboundPackage =
+  | CoordinatorSuggestionEnvelope
+  | SharedStrategyPackage
+  | TeamKnowledgePackage
+  | RoleOptimizationPackage
+  | RuntimePolicyOverlayPackage;
+
+export type FederationInboxRecord = {
+  id: string;
+  packageType: FederationInboundPackage["type"];
+  sourceRuntimeId: string;
+  state: FederationPackageState;
+  summary: string;
+  sourcePath?: string;
+  validationErrors: string[];
+  receivedAt: number;
+  validatedAt?: number;
+  shadowedAt?: number;
+  recommendedAt?: number;
+  adoptedAt?: number;
+  rejectedAt?: number;
+  expiredAt?: number;
+  revertedAt?: number;
+  updatedAt: number;
+  payload: FederationInboundPackage;
+  metadata?: RuntimeMetadata;
+};
+
+export type FederationSyncCursor = {
+  lastPushedAt?: number;
+  lastPulledAt?: number;
+  lastOutboxEventId?: string;
+  lastInboxEnvelopeId?: string;
+  updatedAt: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type RuntimeFederationStore = {
+  version: "v1";
+  inbox: FederationInboxRecord[];
+  sharedStrategies: StrategyRecord[];
+  teamKnowledge: TeamKnowledgeRecord[];
+  syncCursor?: FederationSyncCursor;
+  lastImportedAt?: number;
+  metadata?: RuntimeMetadata;
+};
+
 export type RuntimeTaskDefaults = {
   defaultBudgetMode: BudgetMode;
   defaultRetrievalMode: RetrievalMode;
@@ -550,6 +780,17 @@ export type RuntimeGovernanceStore = {
   version: "v1";
   entries: GovernanceRegistryEntry[];
   shadowEvaluations: ShadowEvaluationRecord[];
+  lastImportedAt?: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type RuntimeUserConsoleStore = {
+  version: "v1";
+  userModel: RuntimeUserModel;
+  agents: AgentRecord[];
+  agentOverlays: AgentLocalOverlay[];
+  surfaces: SurfaceRecord[];
+  surfaceRoleOverlays: SurfaceRoleOverlay[];
   lastImportedAt?: number;
   metadata?: RuntimeMetadata;
 };

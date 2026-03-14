@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
-
 import type {
   DecisionConfig,
   DecisionTaskInput,
-  IntelCandidate,
   MemoryRecord,
   RetrievalCandidate,
   RetrievalSourceSet,
@@ -81,16 +79,15 @@ function buildSources(): RetrievalSourceSet {
     },
   ];
 
-  const intel: IntelCandidate[] = [
+  const sessions: RetrievalCandidate[] = [
     {
-      id: "intel-runtime",
-      domain: "github",
-      sourceId: "repo:openclaw/openclaw",
-      title: "runtime refactor notes",
-      summary: "shared/runtime 可复用为统一 decision/retrieval core。",
+      id: "session-runtime",
+      plane: "session",
+      recordId: "session-runtime",
+      title: "recent runtime control session",
+      excerpt: "shared/runtime 可复用为统一 decision/retrieval core。",
       score: 91,
-      selected: true,
-      createdAt: 1,
+      sourceRef: "session:web:user-console",
     },
   ];
 
@@ -105,7 +102,7 @@ function buildSources(): RetrievalSourceSet {
     },
   ];
 
-  return { strategies, memories, intel, archive };
+  return { strategies, memories, sessions, archive };
 }
 
 const baseTask: DecisionTaskInput = {
@@ -135,14 +132,14 @@ const config: DecisionConfig = {
 describe("buildDecisionRetrievalQuery", () => {
   it("keeps system1 on strategy and memory only", () => {
     const query = buildDecisionRetrievalQuery(baseTask, "system1", config);
-    expect(query.planes).toEqual(["strategy", "memory"]);
+    expect(query.planes).toEqual(["strategy", "memory", "session"]);
     expect(query.route).toBe("coder");
     expect(query.topicHints).toContain("coder");
   });
 
-  it("expands system2 to intel and archive in deep mode", () => {
+  it("expands system2 to session and archive in deep mode", () => {
     const query = buildDecisionRetrievalQuery(baseTask, "system2", config);
-    expect(query.planes).toEqual(["strategy", "memory", "intel", "archive"]);
+    expect(query.planes).toEqual(["strategy", "memory", "session", "archive"]);
   });
 });
 
@@ -189,8 +186,8 @@ describe("buildDecisionRecord", () => {
     expect(decision.relevantMemoryIds).toEqual(
       expect.arrayContaining(["memory-execution", "memory-efficiency"]),
     );
-    expect(decision.relevantIntelIds).toEqual([]);
-    expect(decision.contextPack.summary).toBe("strategy=1 | memory=2 | intel=0 | archive=0");
+    expect(decision.relevantSessionIds).toEqual(["session-runtime"]);
+    expect(decision.contextPack.summary).toBe("strategy=1 | memory=2 | session=1 | archive=0");
   });
 
   it("rebuilds context for system2 when the task needs escalation", () => {
@@ -210,8 +207,8 @@ describe("buildDecisionRecord", () => {
 
     expect(decision.builtAt).toBe(456);
     expect(decision.thinkingLane).toBe("system2");
-    expect(decision.relevantIntelIds).toEqual(["intel-runtime"]);
-    expect(decision.contextPack.summary).toBe("strategy=1 | memory=2 | intel=1 | archive=1");
+    expect(decision.relevantSessionIds).toEqual(["session-runtime"]);
+    expect(decision.contextPack.summary).toBe("strategy=1 | memory=2 | session=1 | archive=1");
   });
 
   it("supports compatibility mode with a prebuilt context pack", () => {
@@ -240,7 +237,7 @@ describe("buildDecisionPromptBlock", () => {
 
     expect(promptBlock).toContain("决策内核输出：");
     expect(promptBlock).toContain("推荐执行者：main");
-    expect(promptBlock).toContain("上下文摘要：strategy=1 | memory=2 | intel=0 | archive=0");
+    expect(promptBlock).toContain("上下文摘要：strategy=1 | memory=2 | session=1 | archive=0");
     expect(promptBlock).toContain("route=coder");
   });
 });

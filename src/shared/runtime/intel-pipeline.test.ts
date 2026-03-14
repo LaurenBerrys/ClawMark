@@ -28,7 +28,7 @@ async function withTempRoot(
 }
 
 describe("runtime intel pipeline", () => {
-  it("dedupes candidates, enforces 20 -> 10, and writes knowledge/source-trust memories", async () => {
+  it("dedupes candidates and selects the daily panel push without writing memory", async () => {
     await withTempRoot("openclaw-runtime-intel-", async (_root, env) => {
       const now = 1_700_330_000_000;
       const inputs = Array.from({ length: 22 }, (_value, index) => ({
@@ -71,25 +71,19 @@ describe("runtime intel pipeline", () => {
       expect(aiCandidates).toHaveLength(20);
       expect(selectedCandidates).toHaveLength(10);
       expect(aiDigestItems).toHaveLength(10);
-      expect(aiDigestItems.filter((entry) => entry.exploit)).toHaveLength(8);
-      expect(aiDigestItems.filter((entry) => !entry.exploit)).toHaveLength(2);
-      expect(result.knowledgeMemoryIds).toHaveLength(10);
-      expect(result.sourceTrustMemoryIds.length).toBeGreaterThan(0);
       expect(intelStore.sourceProfiles.map((entry) => entry.label)).toEqual([
         "source-explore",
         "source-core",
       ]);
-      expect(memoryStore.memories.some((entry) => entry.tags.includes("source-trust"))).toBe(true);
+      expect(memoryStore.memories).toHaveLength(0);
       expect(
         aiCandidates.filter(
-          (entry) =>
-            entry.title === "AI signal 2" && entry.url === "https://example.com/ai/2",
+          (entry) => entry.title === "AI signal 2" && entry.url === "https://example.com/ai/2",
         ),
       ).toHaveLength(1);
       expect(
         aiCandidates.find(
-          (entry) =>
-            entry.title === "AI signal 2" && entry.url === "https://example.com/ai/2",
+          (entry) => entry.title === "AI signal 2" && entry.url === "https://example.com/ai/2",
         )?.score,
       ).toBeGreaterThan(5);
     });

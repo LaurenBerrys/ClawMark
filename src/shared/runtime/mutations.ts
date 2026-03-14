@@ -5,7 +5,6 @@ import type {
   MetaLearningRecord,
   RuntimeGovernanceStore,
   RuntimeMemoryStore,
-  RuntimeMetadata,
   RuntimeTaskStore,
   ShadowEvaluationRecord,
   StrategyRecord,
@@ -32,14 +31,20 @@ function normalizeText(value: unknown): string {
 }
 
 function uniqueStrings(values: Array<string | null | undefined> | null | undefined): string[] {
-  if (!values?.length) return [];
+  if (!values?.length) {
+    return [];
+  }
   const seen = new Set<string>();
   const output: string[] = [];
   for (const value of values) {
     const text = normalizeText(value);
-    if (!text) continue;
+    if (!text) {
+      continue;
+    }
     const key = text.toLowerCase();
-    if (seen.has(key)) continue;
+    if (seen.has(key)) {
+      continue;
+    }
     seen.add(key);
     output.push(text);
   }
@@ -48,7 +53,9 @@ function uniqueStrings(values: Array<string | null | undefined> | null | undefin
 
 function truncateText(value: string, maxLength: number): string {
   const text = normalizeText(value);
-  if (!text || text.length <= maxLength) return text;
+  if (!text || text.length <= maxLength) {
+    return text;
+  }
   return `${text.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…`;
 }
 
@@ -67,12 +74,6 @@ function buildStableId(prefix: string, parts: Array<string | number | null | und
     .filter(Boolean)
     .join("|");
   return `${prefix}_${hashText(seed || prefix)}`;
-}
-
-function clampPercent(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  if (value <= 1) return Math.max(0, Math.min(100, Math.round(value * 100)));
-  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 function upsertById<T extends { id: string }>(entries: T[], next: T): T {
@@ -106,12 +107,7 @@ function buildTaskSummary(task: TaskRecord, review?: TaskReview | null): string 
 }
 
 function buildTaskTags(task: TaskRecord): string[] {
-  return uniqueStrings([
-    ...(task.tags ?? []),
-    ...task.skillIds,
-    task.route,
-    task.worker,
-  ]);
+  return uniqueStrings([...(task.tags ?? []), ...task.skillIds, task.route, task.worker]);
 }
 
 function upsertMemory(store: RuntimeMemoryStore, entry: MemoryRecord): MemoryRecord {
@@ -126,15 +122,28 @@ function upsertMemory(store: RuntimeMemoryStore, entry: MemoryRecord): MemoryRec
     tags: uniqueStrings([...(existing.tags ?? []), ...(entry.tags ?? [])]),
     confidence: Math.max(existing.confidence, entry.confidence),
     version: Math.max(existing.version, entry.version),
-    invalidatedBy: uniqueStrings([...(existing.invalidatedBy ?? []), ...(entry.invalidatedBy ?? [])]),
-    sourceEventIds: uniqueStrings([...(existing.sourceEventIds ?? []), ...(entry.sourceEventIds ?? [])]),
-    sourceTaskIds: uniqueStrings([...(existing.sourceTaskIds ?? []), ...(entry.sourceTaskIds ?? [])]),
-    sourceIntelIds: uniqueStrings([...(existing.sourceIntelIds ?? []), ...(entry.sourceIntelIds ?? [])]),
+    invalidatedBy: uniqueStrings([
+      ...(existing.invalidatedBy ?? []),
+      ...(entry.invalidatedBy ?? []),
+    ]),
+    sourceEventIds: uniqueStrings([
+      ...(existing.sourceEventIds ?? []),
+      ...(entry.sourceEventIds ?? []),
+    ]),
+    sourceTaskIds: uniqueStrings([
+      ...(existing.sourceTaskIds ?? []),
+      ...(entry.sourceTaskIds ?? []),
+    ]),
+    sourceIntelIds: uniqueStrings([
+      ...(existing.sourceIntelIds ?? []),
+      ...(entry.sourceIntelIds ?? []),
+    ]),
     derivedFromMemoryIds: uniqueStrings([
       ...(existing.derivedFromMemoryIds ?? []),
       ...(entry.derivedFromMemoryIds ?? []),
     ]),
-    lastReinforcedAt: Math.max(existing.lastReinforcedAt ?? 0, entry.lastReinforcedAt ?? 0) || undefined,
+    lastReinforcedAt:
+      Math.max(existing.lastReinforcedAt ?? 0, entry.lastReinforcedAt ?? 0) || undefined,
     decayScore:
       existing.decayScore == null
         ? entry.decayScore
@@ -158,17 +167,29 @@ function upsertStrategy(store: RuntimeMemoryStore, entry: StrategyRecord): Strat
     skillIds: uniqueStrings([...(existing.skillIds ?? []), ...(entry.skillIds ?? [])]),
     confidence: Math.max(existing.confidence, entry.confidence),
     version: Math.max(existing.version, entry.version),
-    invalidatedBy: uniqueStrings([...(existing.invalidatedBy ?? []), ...(entry.invalidatedBy ?? [])]),
-    sourceEventIds: uniqueStrings([...(existing.sourceEventIds ?? []), ...(entry.sourceEventIds ?? [])]),
-    sourceTaskIds: uniqueStrings([...(existing.sourceTaskIds ?? []), ...(entry.sourceTaskIds ?? [])]),
-    sourceIntelIds: uniqueStrings([...(existing.sourceIntelIds ?? []), ...(entry.sourceIntelIds ?? [])]),
+    invalidatedBy: uniqueStrings([
+      ...(existing.invalidatedBy ?? []),
+      ...(entry.invalidatedBy ?? []),
+    ]),
+    sourceEventIds: uniqueStrings([
+      ...(existing.sourceEventIds ?? []),
+      ...(entry.sourceEventIds ?? []),
+    ]),
+    sourceTaskIds: uniqueStrings([
+      ...(existing.sourceTaskIds ?? []),
+      ...(entry.sourceTaskIds ?? []),
+    ]),
+    sourceIntelIds: uniqueStrings([
+      ...(existing.sourceIntelIds ?? []),
+      ...(entry.sourceIntelIds ?? []),
+    ]),
     derivedFromMemoryIds: uniqueStrings([
       ...(existing.derivedFromMemoryIds ?? []),
       ...(entry.derivedFromMemoryIds ?? []),
     ]),
     measuredEffect: {
-      ...(existing.measuredEffect ?? {}),
-      ...(entry.measuredEffect ?? {}),
+      ...existing.measuredEffect,
+      ...entry.measuredEffect,
     },
     updatedAt: Math.max(existing.updatedAt, entry.updatedAt),
   };
@@ -194,7 +215,10 @@ function upsertEvolutionMemory(
   const merged: EvolutionMemoryRecord = {
     ...existing,
     ...entry,
-    sourceTaskIds: uniqueStrings([...(existing.sourceTaskIds ?? []), ...(entry.sourceTaskIds ?? [])]),
+    sourceTaskIds: uniqueStrings([
+      ...(existing.sourceTaskIds ?? []),
+      ...(entry.sourceTaskIds ?? []),
+    ]),
     sourceReviewIds: uniqueStrings([
       ...(existing.sourceReviewIds ?? []),
       ...(entry.sourceReviewIds ?? []),
@@ -223,8 +247,8 @@ function upsertShadowEvaluation(
     observationCount: Math.max(existing.observationCount, entry.observationCount),
     updatedAt: Math.max(existing.updatedAt, entry.updatedAt),
     metadata: {
-      ...(existing.metadata ?? {}),
-      ...(entry.metadata ?? {}),
+      ...existing.metadata,
+      ...entry.metadata,
     },
   };
   return upsertById(store.shadowEvaluations, merged);
@@ -310,9 +334,7 @@ export function distillTaskOutcomeToMemory(
   const summary = buildTaskSummary(task, review);
   if (
     !summary ||
-    (task.status !== "completed" &&
-      task.status !== "blocked" &&
-      task.status !== "waiting_user")
+    (task.status !== "completed" && task.status !== "blocked" && task.status !== "waiting_user")
   ) {
     return { memories: [], strategies: [], metaLearning: [] };
   }
@@ -320,7 +342,6 @@ export function distillTaskOutcomeToMemory(
   const tags = buildTaskTags(task);
   const success = task.status === "completed";
   const decisionMemoryIds = input.decision?.relevantMemoryIds ?? [];
-  const decisionIntelIds = input.decision?.relevantIntelIds ?? [];
   const baseMemoryId = buildStableId(success ? "execution_memory" : "avoidance_memory", [
     task.route,
     summary,
@@ -351,7 +372,7 @@ export function distillTaskOutcomeToMemory(
     invalidatedBy: [],
     sourceEventIds: [],
     sourceTaskIds: [task.id],
-    sourceIntelIds: uniqueStrings([...(task.intelRefs ?? []), ...decisionIntelIds]),
+    sourceIntelIds: [],
     derivedFromMemoryIds: uniqueStrings([...(task.memoryRefs ?? []), ...decisionMemoryIds]),
     lastReinforcedAt: now,
     decayScore: success ? 8 : 24,
@@ -378,7 +399,7 @@ export function distillTaskOutcomeToMemory(
     invalidatedBy: [],
     sourceEventIds: [],
     sourceTaskIds: [task.id],
-    sourceIntelIds: uniqueStrings([...(task.intelRefs ?? []), ...decisionIntelIds]),
+    sourceIntelIds: [],
     derivedFromMemoryIds: uniqueStrings([
       executionMemory.id,
       ...(task.memoryRefs ?? []),
@@ -405,14 +426,15 @@ export function distillTaskOutcomeToMemory(
     fallback: truncateText(task.blockedReason || task.lastError || "worker:main", 180) || undefined,
     triggerConditions: truncateText(task.goal || task.title, 180) || undefined,
     recommendedPath: truncateText(task.planSummary || task.nextAction || summary, 200) || undefined,
-    fallbackPath: truncateText(task.blockedReason || task.lastError || "worker:main", 200) || undefined,
+    fallbackPath:
+      truncateText(task.blockedReason || task.lastError || "worker:main", 200) || undefined,
     thinkingLane: input.decision?.thinkingLane || "system1",
     confidence: success ? 78 : 48,
     version: 1,
     invalidatedBy: [],
     sourceEventIds: [],
     sourceTaskIds: [task.id],
-    sourceIntelIds: uniqueStrings([...(task.intelRefs ?? []), ...decisionIntelIds]),
+    sourceIntelIds: [],
     derivedFromMemoryIds: [executionMemory.id, efficiencyMemory.id],
     measuredEffect: {
       successCount: success ? 1 : 0,
@@ -493,7 +515,9 @@ export function invalidateMemoryLineage(
   let pending = [...targetIds];
   while (pending.length > 0) {
     const currentId = pending.pop();
-    if (!currentId) continue;
+    if (!currentId) {
+      continue;
+    }
     for (const memory of stores.memoryStore.memories) {
       if (memory.id !== currentId && !memory.derivedFromMemoryIds.includes(currentId)) {
         continue;
@@ -518,7 +542,10 @@ export function invalidateMemoryLineage(
       continue;
     }
     invalidatedStrategyIds.add(strategy.id);
-    strategy.invalidatedBy = uniqueStrings([...(strategy.invalidatedBy ?? []), input.reasonEventId]);
+    strategy.invalidatedBy = uniqueStrings([
+      ...(strategy.invalidatedBy ?? []),
+      input.reasonEventId,
+    ]);
     strategy.confidence = Math.max(5, Math.round(strategy.confidence * 0.5));
     strategy.updatedAt = now;
   }
@@ -545,12 +572,18 @@ export function invalidateMemoryLineage(
   }
 
   for (const task of stores.taskStore.tasks) {
-    if (isTerminalTaskStatus(task.status)) continue;
+    if (isTerminalTaskStatus(task.status)) {
+      continue;
+    }
     const matchedMemoryIds = uniqueStrings(
       (task.memoryRefs ?? []).filter((memoryId) => invalidatedMemoryIds.has(memoryId)),
     );
-    if (matchedMemoryIds.length === 0) continue;
-    task.memoryRefs = (task.memoryRefs ?? []).filter((memoryId) => !invalidatedMemoryIds.has(memoryId));
+    if (matchedMemoryIds.length === 0) {
+      continue;
+    }
+    task.memoryRefs = (task.memoryRefs ?? []).filter(
+      (memoryId) => !invalidatedMemoryIds.has(memoryId),
+    );
     task.status = "queued";
     task.nextRunAt = now;
     task.blockedReason = "相关记忆已失效，任务将重新规划。";
@@ -770,8 +803,9 @@ export function maybeAutoApplyLowRiskEvolution(
   const adoptedIds: string[] = [];
 
   for (const evolution of stores.memoryStore.evolutionMemory) {
-    const evaluations = stores.governanceStore.shadowEvaluations.filter((entry) =>
-      entry.candidateRef === evolution.id || entry.candidateRef === evolution.candidateRef,
+    const evaluations = stores.governanceStore.shadowEvaluations.filter(
+      (entry) =>
+        entry.candidateRef === evolution.id || entry.candidateRef === evolution.candidateRef,
     );
     const observationCount = evaluations.reduce(
       (count, entry) => Math.max(count, entry.observationCount),
@@ -839,19 +873,23 @@ export function materializeAdoptedEvolutionStrategies(
   const strategyIds: string[] = [];
 
   for (const evolution of stores.memoryStore.evolutionMemory) {
-    if (evolution.adoptionState !== "adopted") continue;
+    if (evolution.adoptionState !== "adopted") {
+      continue;
+    }
     if (
       evolution.candidateType !== "route_default_lane" &&
       evolution.candidateType !== "route_skill_bundle"
     ) {
       continue;
     }
-    const metadata = (evolution.metadata ?? {}) as RuntimeMetadata;
+    const metadata = evolution.metadata ?? {};
     const route = normalizeText(metadata.route) || "general";
     const worker = normalizeText(metadata.worker) || "main";
     const lane = normalizeText(metadata.lane) === "system2" ? "system2" : "system1";
     const skillIds = Array.isArray(metadata.skillIds)
-      ? uniqueStrings(metadata.skillIds.filter((value): value is string => typeof value === "string"))
+      ? uniqueStrings(
+          metadata.skillIds.filter((value): value is string => typeof value === "string"),
+        )
       : [];
     const strategy = upsertStrategy(stores.memoryStore, {
       id: buildStableId("adopted_evolution_strategy", [route, worker, lane, skillIds.join("|")]),
@@ -885,7 +923,7 @@ export function materializeAdoptedEvolutionStrategies(
       },
     });
     evolution.metadata = {
-      ...(evolution.metadata ?? {}),
+      ...evolution.metadata,
       materializedStrategyId: strategy.id,
       materializedAt: now,
     };
@@ -937,7 +975,7 @@ export function reviewRuntimeEvolution(
     now,
   });
   stores.governanceStore.metadata = {
-    ...(stores.governanceStore.metadata ?? {}),
+    ...stores.governanceStore.metadata,
     enabled: stores.governanceStore.metadata?.enabled !== false,
     autoApplyLowRisk: stores.governanceStore.metadata?.autoApplyLowRisk !== false,
     reviewIntervalHours: Number(stores.governanceStore.metadata?.reviewIntervalHours) || 12,

@@ -43,7 +43,7 @@ function buildTask(now: number, overrides: Partial<TaskRecord> = {}): TaskRecord
     worker: "main",
     skillIds: ["patch-edit", "test-verify"],
     memoryRefs: [],
-    intelRefs: ["intel-1"],
+    artifactRefs: ["artifact-1"],
     recurring: false,
     maintenance: false,
     planSummary: "Persist runtime artifacts into the authoritative store.",
@@ -112,7 +112,7 @@ describe("runtime mutations", () => {
         buildTask(now + 100, {
           id: "task-replan",
           status: "running",
-          memoryRefs: [distilled.memories[0]!.id],
+          memoryRefs: [distilled.memories[0].id],
           updatedAt: now + 100,
         }),
       ];
@@ -120,7 +120,7 @@ describe("runtime mutations", () => {
 
       const result = invalidateMemoryLineage(
         {
-          memoryIds: [distilled.memories[0]!.id],
+          memoryIds: [distilled.memories[0].id],
           reasonEventId: "event-memory-invalid",
           now: now + 200,
         },
@@ -130,7 +130,7 @@ describe("runtime mutations", () => {
       const nextTaskStore = loadRuntimeTaskStore({ env, now: now + 200 });
       const nextMemoryStore = loadRuntimeMemoryStore({ env, now: now + 200 });
 
-      expect(result.invalidatedMemoryIds).toContain(distilled.memories[0]!.id);
+      expect(result.invalidatedMemoryIds).toContain(distilled.memories[0].id);
       expect(result.invalidatedStrategyIds.length).toBeGreaterThan(0);
       expect(result.requeuedTaskIds).toEqual(["task-replan"]);
       expect(nextTaskStore.tasks[0]?.status).toBe("queued");

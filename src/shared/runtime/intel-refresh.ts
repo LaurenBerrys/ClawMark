@@ -1,5 +1,9 @@
-import type { RuntimeMetadata } from "./contracts.js";
-import { runRuntimeIntelPipeline, type IntelDomain, type RuntimeIntelCandidateInput } from "./intel-pipeline.js";
+import type { RuntimeIntelStore, RuntimeMetadata } from "./contracts.js";
+import {
+  runRuntimeIntelPipeline,
+  type IntelDomain,
+  type RuntimeIntelCandidateInput,
+} from "./intel-pipeline.js";
 import {
   appendRuntimeEvent,
   loadRuntimeIntelStore,
@@ -43,8 +47,40 @@ export type RuntimeIntelRefreshOptions = RuntimeStoreOptions & {
   githubToken?: string;
 };
 
+export type RuntimeIntelPanelSource = {
+  id: string;
+  domain: IntelDomain;
+  kind: "rss" | "github_search";
+  label: string;
+  priority: number;
+  enabled: boolean;
+};
+
+export type RuntimeIntelPanelConfig = {
+  enabled: boolean;
+  refreshMinutes: number;
+  dailyPushEnabled: boolean;
+  dailyPushItemCount: number;
+  dailyPushHourLocal: number;
+  dailyPushMinuteLocal: number;
+  selectedSourceIds: string[];
+};
+
+export type ConfigureRuntimeIntelPanelInput = {
+  enabled?: boolean;
+  refreshMinutes?: number;
+  dailyPushEnabled?: boolean;
+  dailyPushItemCount?: number;
+  dailyPushHourLocal?: number;
+  dailyPushMinuteLocal?: number;
+  selectedSourceIds?: string[];
+};
+
 const DEFAULT_REFRESH_MINUTES = 180;
 const DEFAULT_GITHUB_SEARCH_WINDOW_DAYS = 7;
+const DEFAULT_DAILY_PUSH_ITEM_COUNT = 10;
+const DEFAULT_DAILY_PUSH_HOUR_LOCAL = 9;
+const DEFAULT_DAILY_PUSH_MINUTE_LOCAL = 0;
 
 export const DEFAULT_RUNTIME_INTEL_DOMAINS: RuntimeIntelDomainDefinition[] = [
   {
@@ -52,10 +88,34 @@ export const DEFAULT_RUNTIME_INTEL_DOMAINS: RuntimeIntelDomainDefinition[] = [
     label: "Tech",
     keywords: ["technology", "tech", "startup", "chip", "software", "cloud", "developer"],
     sources: [
-      { id: "hn-frontpage", kind: "rss", label: "Hacker News", url: "https://hnrss.org/frontpage", priority: 1.0 },
-      { id: "techcrunch", kind: "rss", label: "TechCrunch", url: "https://techcrunch.com/feed/", priority: 0.9 },
-      { id: "theverge", kind: "rss", label: "The Verge", url: "https://www.theverge.com/rss/index.xml", priority: 0.8 },
-      { id: "arstechnica", kind: "rss", label: "Ars Technica", url: "https://feeds.arstechnica.com/arstechnica/index", priority: 0.8 },
+      {
+        id: "hn-frontpage",
+        kind: "rss",
+        label: "Hacker News",
+        url: "https://hnrss.org/frontpage",
+        priority: 1.0,
+      },
+      {
+        id: "techcrunch",
+        kind: "rss",
+        label: "TechCrunch",
+        url: "https://techcrunch.com/feed/",
+        priority: 0.9,
+      },
+      {
+        id: "theverge",
+        kind: "rss",
+        label: "The Verge",
+        url: "https://www.theverge.com/rss/index.xml",
+        priority: 0.8,
+      },
+      {
+        id: "arstechnica",
+        kind: "rss",
+        label: "Ars Technica",
+        url: "https://feeds.arstechnica.com/arstechnica/index",
+        priority: 0.8,
+      },
     ],
   },
   {
@@ -63,10 +123,34 @@ export const DEFAULT_RUNTIME_INTEL_DOMAINS: RuntimeIntelDomainDefinition[] = [
     label: "AI",
     keywords: ["ai", "artificial intelligence", "model", "agent", "llm", "inference", "gpu"],
     sources: [
-      { id: "openai-news", kind: "rss", label: "OpenAI", url: "https://openai.com/news/rss.xml", priority: 1.0 },
-      { id: "anthropic-news", kind: "rss", label: "Anthropic", url: "https://www.anthropic.com/news/rss.xml", priority: 0.95 },
-      { id: "mit-ai", kind: "rss", label: "MIT Technology Review", url: "https://www.technologyreview.com/topic/artificial-intelligence/feed/", priority: 0.85 },
-      { id: "google-ai", kind: "rss", label: "Google AI", url: "https://blog.google/technology/ai/rss/", priority: 0.8 },
+      {
+        id: "openai-news",
+        kind: "rss",
+        label: "OpenAI",
+        url: "https://openai.com/news/rss.xml",
+        priority: 1.0,
+      },
+      {
+        id: "anthropic-news",
+        kind: "rss",
+        label: "Anthropic",
+        url: "https://www.anthropic.com/news/rss.xml",
+        priority: 0.95,
+      },
+      {
+        id: "mit-ai",
+        kind: "rss",
+        label: "MIT Technology Review",
+        url: "https://www.technologyreview.com/topic/artificial-intelligence/feed/",
+        priority: 0.85,
+      },
+      {
+        id: "google-ai",
+        kind: "rss",
+        label: "Google AI",
+        url: "https://blog.google/technology/ai/rss/",
+        priority: 0.8,
+      },
     ],
   },
   {
@@ -74,10 +158,34 @@ export const DEFAULT_RUNTIME_INTEL_DOMAINS: RuntimeIntelDomainDefinition[] = [
     label: "Business",
     keywords: ["business", "market", "company", "funding", "finance", "policy", "economy"],
     sources: [
-      { id: "reuters-business", kind: "rss", label: "Reuters Business", url: "https://feeds.reuters.com/reuters/businessNews", priority: 1.0 },
-      { id: "cnbc-business", kind: "rss", label: "CNBC Business", url: "https://www.cnbc.com/id/10001147/device/rss/rss.html", priority: 0.9 },
-      { id: "reuters-top", kind: "rss", label: "Reuters Top", url: "https://feeds.reuters.com/reuters/topNews", priority: 0.75 },
-      { id: "marketwatch", kind: "rss", label: "MarketWatch", url: "https://feeds.marketwatch.com/marketwatch/topstories/", priority: 0.75 },
+      {
+        id: "reuters-business",
+        kind: "rss",
+        label: "Reuters Business",
+        url: "https://feeds.reuters.com/reuters/businessNews",
+        priority: 1.0,
+      },
+      {
+        id: "cnbc-business",
+        kind: "rss",
+        label: "CNBC Business",
+        url: "https://www.cnbc.com/id/10001147/device/rss/rss.html",
+        priority: 0.9,
+      },
+      {
+        id: "reuters-top",
+        kind: "rss",
+        label: "Reuters Top",
+        url: "https://feeds.reuters.com/reuters/topNews",
+        priority: 0.75,
+      },
+      {
+        id: "marketwatch",
+        kind: "rss",
+        label: "MarketWatch",
+        url: "https://feeds.marketwatch.com/marketwatch/topstories/",
+        priority: 0.75,
+      },
     ],
   },
   {
@@ -90,6 +198,142 @@ export const DEFAULT_RUNTIME_INTEL_DOMAINS: RuntimeIntelDomainDefinition[] = [
   },
 ];
 
+function clampInteger(value: number, fallback: number, minimum: number, maximum: number): number {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(minimum, Math.min(maximum, Math.trunc(value)));
+}
+
+export function listRuntimeIntelSourceDefinitions(): Array<
+  Omit<RuntimeIntelPanelSource, "enabled">
+> {
+  return DEFAULT_RUNTIME_INTEL_DOMAINS.flatMap((domain) =>
+    domain.sources.map((source) => ({
+      id: source.id,
+      domain: domain.id,
+      kind: source.kind,
+      label: source.label,
+      priority: source.priority,
+    })),
+  );
+}
+
+export function resolveRuntimeIntelPanelConfig(
+  store: Pick<RuntimeIntelStore, "enabled" | "metadata">,
+): RuntimeIntelPanelConfig {
+  const metadata = store.metadata;
+  const selectedSourceIds = uniqueStrings(
+    Array.isArray(metadata?.selectedSourceIds)
+      ? metadata.selectedSourceIds.filter((value): value is string => typeof value === "string")
+      : listRuntimeIntelSourceDefinitions().map((source) => source.id),
+  );
+  return {
+    enabled: store.enabled,
+    refreshMinutes: readRefreshMinutes(metadata),
+    dailyPushEnabled: metadata?.dailyPushEnabled !== false,
+    dailyPushItemCount: clampInteger(
+      Number(metadata?.dailyPushItemCount),
+      DEFAULT_DAILY_PUSH_ITEM_COUNT,
+      1,
+      50,
+    ),
+    dailyPushHourLocal: clampInteger(
+      Number(metadata?.dailyPushHourLocal),
+      DEFAULT_DAILY_PUSH_HOUR_LOCAL,
+      0,
+      23,
+    ),
+    dailyPushMinuteLocal: clampInteger(
+      Number(metadata?.dailyPushMinuteLocal),
+      DEFAULT_DAILY_PUSH_MINUTE_LOCAL,
+      0,
+      59,
+    ),
+    selectedSourceIds,
+  };
+}
+
+export function listRuntimeIntelPanelSources(
+  store: Pick<RuntimeIntelStore, "enabled" | "metadata">,
+): RuntimeIntelPanelSource[] {
+  const config = resolveRuntimeIntelPanelConfig(store);
+  const selected = new Set(config.selectedSourceIds);
+  return listRuntimeIntelSourceDefinitions().map((source) => ({
+    ...source,
+    enabled: selected.has(source.id),
+  }));
+}
+
+export function configureRuntimeIntelPanel(
+  input: ConfigureRuntimeIntelPanelInput,
+  opts: RuntimeStoreOptions = {},
+): { configuredAt: number; config: RuntimeIntelPanelConfig; sources: RuntimeIntelPanelSource[] } {
+  const now = resolveNow(opts.now);
+  const store = loadRuntimeIntelStore({
+    ...opts,
+    now,
+  });
+  const current = resolveRuntimeIntelPanelConfig(store);
+  const knownSourceIds = new Set(listRuntimeIntelSourceDefinitions().map((source) => source.id));
+  const selectedSourceIds =
+    input.selectedSourceIds == null
+      ? current.selectedSourceIds
+      : uniqueStrings(input.selectedSourceIds).filter((sourceId) => knownSourceIds.has(sourceId));
+  store.enabled = input.enabled ?? current.enabled;
+  store.metadata = {
+    ...store.metadata,
+    refreshMinutes: clampInteger(Number(input.refreshMinutes), current.refreshMinutes, 5, 24 * 60),
+    dailyPushEnabled: input.dailyPushEnabled ?? current.dailyPushEnabled,
+    dailyPushItemCount: clampInteger(
+      Number(input.dailyPushItemCount),
+      current.dailyPushItemCount,
+      1,
+      50,
+    ),
+    dailyPushHourLocal: clampInteger(
+      Number(input.dailyPushHourLocal),
+      current.dailyPushHourLocal,
+      0,
+      23,
+    ),
+    dailyPushMinuteLocal: clampInteger(
+      Number(input.dailyPushMinuteLocal),
+      current.dailyPushMinuteLocal,
+      0,
+      59,
+    ),
+    selectedSourceIds,
+  };
+  const saved = saveRuntimeIntelStore(store, {
+    ...opts,
+    now,
+  });
+  const config = resolveRuntimeIntelPanelConfig(saved);
+  const sources = listRuntimeIntelPanelSources(saved);
+  appendRuntimeEvent(
+    "runtime_intel_configured",
+    {
+      enabled: config.enabled,
+      refreshMinutes: config.refreshMinutes,
+      dailyPushEnabled: config.dailyPushEnabled,
+      dailyPushItemCount: config.dailyPushItemCount,
+      dailyPushHourLocal: config.dailyPushHourLocal,
+      dailyPushMinuteLocal: config.dailyPushMinuteLocal,
+      selectedSourceIds: config.selectedSourceIds,
+    },
+    {
+      ...opts,
+      now,
+    },
+  );
+  return {
+    configuredAt: now,
+    config,
+    sources,
+  };
+}
+
 function resolveNow(now?: number): number {
   return Number.isFinite(now) ? Number(now) : Date.now();
 }
@@ -99,8 +343,12 @@ function normalizeText(value: unknown): string {
 }
 
 function clampPercent(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  if (value <= 1) return Math.max(0, Math.min(100, Math.round(value * 100)));
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  if (value <= 1) {
+    return Math.max(0, Math.min(100, Math.round(value * 100)));
+  }
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
@@ -109,9 +357,13 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
   const output: string[] = [];
   for (const value of values) {
     const text = normalizeText(value);
-    if (!text) continue;
+    if (!text) {
+      continue;
+    }
     const key = text.toLowerCase();
-    if (seen.has(key)) continue;
+    if (seen.has(key)) {
+      continue;
+    }
     seen.add(key);
     output.push(text);
   }
@@ -126,7 +378,9 @@ function intersectionSize(
   const rightSet = new Set(uniqueStrings(right));
   let count = 0;
   for (const entry of leftSet) {
-    if (rightSet.has(entry)) count += 1;
+    if (rightSet.has(entry)) {
+      count += 1;
+    }
   }
   return count;
 }
@@ -145,34 +399,46 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
+    .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&#x27;/gi, "'")
     .replace(/&#x2F;/gi, "/");
 }
 
 function stripHtml(text: string): string {
-  return decodeHtmlEntities(String(text || "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  return decodeHtmlEntities(String(text || "").replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function extractKeywordTags(text: string, extra: string[] = []): string[] {
   const source = `${normalizeText(text)} ${uniqueStrings(extra).join(" ")}`.toLowerCase();
-  if (!source) return [];
+  if (!source) {
+    return [];
+  }
   const english = source.match(/[a-z][a-z0-9._-]{2,}/g) ?? [];
   const chinese = source.match(/[\u4e00-\u9fff]{2,6}/g) ?? [];
   return uniqueStrings([...english, ...chinese]).slice(0, 24);
 }
 
 function scoreRecency(timestamp: number, now: number, windowHours = 72): number {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return 0;
+  if (!Number.isFinite(timestamp) || timestamp <= 0) {
+    return 0;
+  }
   const ageHours = Math.max(0, (now - timestamp) / (60 * 60 * 1000));
-  if (ageHours >= windowHours) return 0;
+  if (ageHours >= windowHours) {
+    return 0;
+  }
   return Math.round((1 - ageHours / windowHours) * 100);
 }
 
 function parseOptionalTimestamp(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value !== "string") return undefined;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value !== "string") {
+    return undefined;
+  }
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
@@ -181,14 +447,18 @@ function extractXmlTagValue(block: string, tagNames: string[]): string {
   for (const name of tagNames) {
     const pattern = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, "i");
     const match = String(block || "").match(pattern);
-    if (match?.[1]) return stripHtml(match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1"));
+    if (match?.[1]) {
+      return stripHtml(match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1"));
+    }
   }
   return "";
 }
 
 function extractXmlLink(block: string): string {
   const hrefMatch = String(block || "").match(/<link[^>]+href=["']([^"']+)["'][^>]*\/?>/i);
-  if (hrefMatch?.[1]) return hrefMatch[1].trim();
+  if (hrefMatch?.[1]) {
+    return hrefMatch[1].trim();
+  }
   return normalizeText(extractXmlTagValue(block, ["link", "id"]));
 }
 
@@ -205,7 +475,9 @@ function parseFeedEntries(xmlText: string): Array<{
       title: extractXmlTagValue(block, ["title"]),
       summary: extractXmlTagValue(block, ["description", "summary", "content:encoded", "content"]),
       url: extractXmlLink(block),
-      publishedAt: parseOptionalTimestamp(extractXmlTagValue(block, ["pubDate", "published", "updated"])),
+      publishedAt: parseOptionalTimestamp(
+        extractXmlTagValue(block, ["pubDate", "published", "updated"]),
+      ),
     }))
     .filter((entry) => entry.title && entry.url);
 }
@@ -223,7 +495,9 @@ async function fetchTextWithTimeout(
       signal: controller.signal,
       headers,
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
     return await response.text();
   } finally {
     clearTimeout(timer);
@@ -243,7 +517,9 @@ async function fetchJsonWithTimeout<T>(
       signal: controller.signal,
       headers,
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
     return (await response.json()) as T;
   } finally {
     clearTimeout(timer);
@@ -283,7 +559,7 @@ function writeDomainFetchMetadata(
       : {};
   domains[domain] = value;
   return {
-    ...(metadata ?? {}),
+    ...metadata,
     domains,
   };
 }
@@ -308,11 +584,12 @@ function buildScoredCandidateInput(params: {
   const sameHash = params.existingIds.has(candidateId);
   const credibilityBase = Math.round(params.source.priority * 100);
   const credibilityScore = clampPercent(credibilityBase);
-  let importanceBoost = /launch|release|funding|raising|security|policy|benchmark|earnings|acquisition|agent|model|chip|gpu|open source|deploy|pricing|attack|breach|partnership/i.test(
-    params.rawText,
-  )
-    ? 28
-    : 0;
+  let importanceBoost =
+    /launch|release|funding|raising|security|policy|benchmark|earnings|acquisition|agent|model|chip|gpu|open source|deploy|pricing|attack|breach|partnership/i.test(
+      params.rawText,
+    )
+      ? 28
+      : 0;
   const starCount = Number(params.extraMetadata?.starCount ?? 0);
   if (Number.isFinite(starCount) && starCount > 0) {
     importanceBoost += Math.min(24, Math.round(Math.log10(starCount + 1) * 8));
@@ -322,16 +599,17 @@ function buildScoredCandidateInput(params: {
     38 + keywordHits * 14 + importanceBoost + scoreRecency(publishedAt, params.now, 24 * 5) * 0.18,
   );
   const noveltyScore = clampPercent(
-    sameHash ? 8 : 52 + scoreRecency(publishedAt, params.now, 24 * 7) * 0.28 + Math.max(0, 18 - keywordHits * 2),
+    sameHash
+      ? 8
+      : 52 +
+          scoreRecency(publishedAt, params.now, 24 * 7) * 0.28 +
+          Math.max(0, 18 - keywordHits * 2),
   );
   const relevanceScore = clampPercent(
     25 + keywordHits * 18 + intersectionSize(params.tags, params.domain.keywords) * 10,
   );
   const overallScore = clampPercent(
-    credibilityScore * 0.24 +
-      importanceScore * 0.31 +
-      noveltyScore * 0.2 +
-      relevanceScore * 0.25,
+    credibilityScore * 0.24 + importanceScore * 0.31 + noveltyScore * 0.2 + relevanceScore * 0.25,
   );
   const actionability =
     overallScore >= 82
@@ -361,7 +639,7 @@ function buildScoredCandidateInput(params: {
       actionability,
       judgement: `${params.domain.label} signal: ${actionability}; credibility ${credibilityScore} / novelty ${noveltyScore} / importance ${importanceScore}.`,
       tags: params.tags,
-      ...(params.extraMetadata ?? {}),
+      ...params.extraMetadata,
     },
   };
 }
@@ -374,14 +652,9 @@ async function fetchRssCandidates(params: {
   candidateLimitPerDomain: number;
   now: number;
 }): Promise<RuntimeIntelCandidateInput[]> {
-  const xml = await fetchTextWithTimeout(
-    params.fetchImpl,
-    params.source.url ?? "",
-    20_000,
-    {
-      "user-agent": "openclaw-runtime/1.0",
-    },
-  );
+  const xml = await fetchTextWithTimeout(params.fetchImpl, params.source.url ?? "", 20_000, {
+    "user-agent": "openclaw-runtime/1.0",
+  });
   return parseFeedEntries(xml)
     .slice(0, params.candidateLimitPerDomain * 2)
     .map((entry) => {
@@ -453,7 +726,8 @@ async function fetchGitHubCandidates(params: {
         title: fullName,
         summary,
         url: normalizeText(item.html_url) || `https://github.com/${fullName}`,
-        publishedAt: parseOptionalTimestamp(item.pushed_at) ?? parseOptionalTimestamp(item.created_at),
+        publishedAt:
+          parseOptionalTimestamp(item.pushed_at) ?? parseOptionalTimestamp(item.created_at),
         rawText,
         tags: extractKeywordTags(rawText, [
           ...params.domain.keywords,
@@ -473,7 +747,9 @@ async function fetchGitHubCandidates(params: {
 }
 
 function resolveRequestedDomains(domains?: IntelDomain[]): RuntimeIntelDomainDefinition[] {
-  if (!domains?.length) return DEFAULT_RUNTIME_INTEL_DOMAINS;
+  if (!domains?.length) {
+    return DEFAULT_RUNTIME_INTEL_DOMAINS;
+  }
   const requested = new Set(domains);
   return DEFAULT_RUNTIME_INTEL_DOMAINS.filter((entry) => requested.has(entry.id));
 }
@@ -491,8 +767,10 @@ export async function refreshRuntimeIntelPipeline(
     ...opts,
     now,
   });
-  const refreshMinutes = readRefreshMinutes(intelStore.metadata);
+  const panelConfig = resolveRuntimeIntelPanelConfig(intelStore);
+  const refreshMinutes = panelConfig.refreshMinutes;
   const selectedDomains = resolveRequestedDomains(opts.domains);
+  const enabledSourceIds = new Set(panelConfig.selectedSourceIds);
   const existingIds = new Set(intelStore.candidates.map((entry) => entry.id));
   const inputs: RuntimeIntelCandidateInput[] = [];
   const results: RuntimeIntelRefreshDomainResult[] = [];
@@ -518,7 +796,7 @@ export async function refreshRuntimeIntelPipeline(
 
     const domainInputs: RuntimeIntelCandidateInput[] = [];
     const errors: string[] = [];
-    for (const source of domain.sources) {
+    for (const source of domain.sources.filter((entry) => enabledSourceIds.has(entry.id))) {
       try {
         const fetched =
           source.kind === "github_search"
@@ -555,7 +833,7 @@ export async function refreshRuntimeIntelPipeline(
       lastFetchedAt: now,
       refreshMinutes,
       lastError: errors.length > 0 ? errors.join(" | ") : undefined,
-      sourceCount: domain.sources.length,
+      sourceCount: domain.sources.filter((entry) => enabledSourceIds.has(entry.id)).length,
       fetchedCount: domainInputs.length,
     });
     results.push({
@@ -576,8 +854,6 @@ export async function refreshRuntimeIntelPipeline(
       : {
           candidates: intelStore.candidates,
           digestItems: intelStore.digestItems,
-          knowledgeMemoryIds: [],
-          sourceTrustMemoryIds: [],
         };
 
   const nextStore = loadRuntimeIntelStore({

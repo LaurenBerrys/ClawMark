@@ -11,18 +11,24 @@ import {
 import { resolveRuntimeServiceVersion } from "../../version.js";
 import { syncRuntimeCapabilityRegistry } from "./capability-plane.js";
 import {
+  type FederationInboxRecord,
+  type FederationPackageState,
+  type FederationSyncCursor,
   FORMAL_MEMORY_TYPES,
   MEMORY_LAYERS,
+  type RuntimeUserModel,
   type FormalMemoryType,
   type GovernanceState,
   type InstanceManifest,
   type IntelCandidate,
-  type IntelDigestEnvelope,
+  type NewsDigestEnvelope,
   type RuntimeGovernanceStore,
   type RuntimeIntelStore,
   type RuntimeMemoryStore,
   type RuntimeManifest,
   type RuntimeMetadata,
+  type ShadowEvaluationRecord,
+  type SurfaceRecord,
   type RuntimeTaskStore,
   type StrategyDigestEnvelope,
   type StrategyRecord,
@@ -30,10 +36,17 @@ import {
   type TaskStatus,
 } from "./contracts.js";
 import {
+  DEFAULT_RUNTIME_INTEL_DOMAINS,
+  listRuntimeIntelPanelSources,
+  resolveRuntimeIntelPanelConfig,
+} from "./intel-refresh.js";
+import {
+  loadRuntimeFederationStore,
   loadRuntimeGovernanceStore,
   loadRuntimeIntelStore,
   loadRuntimeMemoryStore,
   loadRuntimeTaskStore,
+  loadRuntimeUserConsoleStore,
   saveRuntimeStoreBundle,
 } from "./store.js";
 import { buildTaskRecordSnapshot } from "./task-artifacts.js";
@@ -52,11 +65,11 @@ const IMPORTS_ROOT_SEGMENTS = ["imports", "legacy-runtime"] as const;
 const FEDERATION_ROOT_SEGMENTS = ["federation"] as const;
 const DEFAULT_FEDERATION_ALLOWED_PUSH_SCOPES = [
   "shareable_derived",
-  "review_summary",
-  "metrics",
   "shadow_telemetry",
   "strategy_digest",
-  "intel_digest",
+  "news_digest",
+  "capability_governance",
+  "team_shareable_knowledge",
 ] as const;
 const DEFAULT_FEDERATION_BLOCKED_PUSH_SCOPES = [
   "raw_chat",
@@ -89,6 +102,7 @@ type LegacyAutopilotTask = Record<string, unknown> & {
   assignee?: string;
   skillHints?: string[];
   memoryRefs?: string[];
+  artifactRefs?: string[];
   intelRefs?: string[];
   recurring?: boolean;
   maintenance?: boolean;
@@ -346,10 +360,10 @@ export type RuntimeMemoryListResult = {
 
 export type RuntimeRetrievalStatus = {
   generatedAt: number;
-  planes: Array<"strategy" | "memory" | "intel" | "archive">;
+  planes: Array<"strategy" | "memory" | "session" | "archive">;
   layers: typeof MEMORY_LAYERS;
-  system1DefaultPlanes: Array<"strategy" | "memory">;
-  system2DefaultPlanes: Array<"strategy" | "memory" | "intel" | "archive">;
+  system1DefaultPlanes: Array<"strategy" | "memory" | "session">;
+  system2DefaultPlanes: Array<"strategy" | "memory" | "session" | "archive">;
   defaultBudgetMode: string;
   defaultRetrievalMode: string;
   maxInputTokensPerTurn: number;
@@ -357,27 +371,72 @@ export type RuntimeRetrievalStatus = {
   maxRemoteCallsPerTask: number;
 };
 
+export type RuntimeUserConsoleStatus = {
+  generatedAt: number;
+  model: RuntimeUserModel;
+  activeAgentCount: number;
+  activeSurfaceCount: number;
+  userOwnedSurfaceCount: number;
+};
+
+export type RuntimeAgentStatus = {
+  id: string;
+  name: string;
+  roleBase?: string;
+  active: boolean;
+  skillCount: number;
+  surfaceCount: number;
+  reportPolicy?: string;
+  updatedAt: number;
+};
+
+export type RuntimeSurfaceStatus = {
+  id: string;
+  label: string;
+  channel: string;
+  accountId: string;
+  ownerKind: SurfaceRecord["ownerKind"];
+  ownerId?: string;
+  active: boolean;
+  role?: string;
+  businessGoal?: string;
+  updatedAt: number;
+};
+
 export type RuntimeIntelDomainStatus = {
   id: string;
   label: string;
+  sourceCount: number;
+  enabledSourceCount: number;
   candidateCount: number;
   selectedCount: number;
   digestCount: number;
-  latestDigestAt: number | null;
+  latestDeliveryAt: number | null;
+  latestFetchAt: number | null;
+};
+
+export type RuntimeIntelSourceStatus = {
+  id: string;
+  domain: string;
+  kind: string;
+  label: string;
+  priority: number;
+  enabled: boolean;
   latestFetchAt: number | null;
 };
 
 export type RuntimeIntelStatus = {
   generatedAt: number;
   enabled: boolean;
-  digestEnabled: boolean;
-  candidateLimitPerDomain: number;
-  digestItemLimitPerDomain: number;
-  exploitItemsPerDigest: number;
-  exploreItemsPerDigest: number;
+  refreshMinutes: number;
+  dailyPushEnabled: boolean;
+  dailyPushItemCount: number;
+  dailyPushHourLocal: number;
+  dailyPushMinuteLocal: number;
   itemCount: number;
   digestCount: number;
   domains: RuntimeIntelDomainStatus[];
+  sources: RuntimeIntelSourceStatus[];
 };
 
 export type RuntimeCapabilitiesStatus = {
@@ -461,18 +520,37 @@ export type FederationRuntimeSnapshot = {
   remoteConfigured: boolean;
   manifest: RuntimeManifest;
   outboxRoot: string;
+  inboxRoot: string;
   assignmentsRoot: string;
   syncCursorPath: string;
+  syncCursor: FederationSyncCursor | null;
   pendingAssignments: number;
   outboxEnvelopeCounts: {
     runtimeManifest: number;
     strategyDigest: number;
-    intelDigest: number;
+    newsDigest: number;
     shadowTelemetry: number;
     capabilityGovernance: number;
   };
+  inbox: FederationInboxStatus;
   allowedPushScopes: string[];
   blockedPushScopes: string[];
+};
+
+export type FederationInboxStatus = {
+  total: number;
+  stateCounts: Record<FederationPackageState, number>;
+  packageTypeCounts: Record<string, number>;
+  sharedStrategyCount: number;
+  teamKnowledgeCount: number;
+  latestPackages: Array<{
+    id: string;
+    packageType: FederationInboxRecord["packageType"];
+    state: FederationPackageState;
+    summary: string;
+    sourceRuntimeId: string;
+    updatedAt: number;
+  }>;
 };
 
 export type RuntimeDashboardSnapshot = {
@@ -484,6 +562,9 @@ export type RuntimeDashboardSnapshot = {
   tasks: RuntimeTasksListResult;
   memory: RuntimeMemoryListResult;
   retrieval: RuntimeRetrievalStatus;
+  userConsole: RuntimeUserConsoleStatus;
+  agents: RuntimeAgentStatus[];
+  surfaces: RuntimeSurfaceStatus[];
   intel: RuntimeIntelStatus;
   capabilities: RuntimeCapabilitiesStatus;
   evolution: RuntimeEvolutionStatus;
@@ -521,9 +602,13 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
   const output: string[] = [];
   for (const value of values) {
     const text = toStringValue(value).trim();
-    if (!text) continue;
+    if (!text) {
+      continue;
+    }
     const key = text.toLowerCase();
-    if (seen.has(key)) continue;
+    if (seen.has(key)) {
+      continue;
+    }
     seen.add(key);
     output.push(text);
   }
@@ -647,10 +732,18 @@ function normalizeLegacyGovernanceState(value: unknown): GovernanceState {
 
 function mapShadowEvaluationStateToGovernanceState(value: unknown): GovernanceState | null {
   const normalized = toStringValue(value).trim().toLowerCase();
-  if (normalized === "shadow" || normalized === "observed") return "shadow";
-  if (normalized === "promoted") return "candidate";
-  if (normalized === "adopted") return "adopted";
-  if (normalized === "reverted") return "blocked";
+  if (normalized === "shadow" || normalized === "observed") {
+    return "shadow";
+  }
+  if (normalized === "promoted") {
+    return "candidate";
+  }
+  if (normalized === "adopted") {
+    return "adopted";
+  }
+  if (normalized === "reverted") {
+    return "blocked";
+  }
   return null;
 }
 
@@ -683,6 +776,19 @@ function countBy<T extends string>(values: Iterable<T>): Record<T, number> {
     counts[value] = (counts[value] ?? 0) + 1;
   }
   return counts;
+}
+
+function emptyFederationStateCounts(): Record<FederationPackageState, number> {
+  return {
+    received: 0,
+    validated: 0,
+    shadowed: 0,
+    recommended: 0,
+    adopted: 0,
+    rejected: 0,
+    expired: 0,
+    reverted: 0,
+  };
 }
 
 function normalizeMemoryType(value: unknown): FormalMemoryType {
@@ -776,7 +882,18 @@ function buildImportedTaskStore(location: LegacyRuntimeLocation, now: number): R
         worker: toStringValue(task.assignee) || undefined,
         skillIds: toArray<string>(task.skillHints).filter((value) => typeof value === "string"),
         memoryRefs: toArray<string>(task.memoryRefs).filter((value) => typeof value === "string"),
-        intelRefs: toArray<string>(task.intelRefs).filter((value) => typeof value === "string"),
+        artifactRefs: toArray<string>(
+          (
+            task as TaskRecord & {
+              intelRefs?: string[];
+            }
+          ).artifactRefs ??
+            (
+              task as TaskRecord & {
+                intelRefs?: string[];
+              }
+            ).intelRefs,
+        ).filter((value) => typeof value === "string"),
         recurring: task.recurring === true,
         maintenance: task.maintenance === true,
         planSummary: toStringValue(task.planSummary) || undefined,
@@ -1103,18 +1220,19 @@ function buildImportedGovernanceStore(
       const skillBundle = toArray<string>(shadowMetrics?.skillBundle).filter(
         (value) => typeof value === "string",
       );
+      const shadowState: ShadowEvaluationRecord["state"] =
+        normalizeEvolutionAdoptionState(candidate.adoptionState) === "adopted"
+          ? "adopted"
+          : normalizeEvolutionAdoptionState(candidate.adoptionState) === "candidate"
+            ? "promoted"
+            : toArray<string>(candidate.invalidatedBy).length > 0
+              ? "reverted"
+              : "shadow";
       return {
         id: `shadow_eval_${hashText(evolutionId)}`,
         candidateType: normalizeEvolutionCandidateType(candidate.candidateType),
         targetLayer: normalizeEvolutionTargetLayer(candidate.targetLayer),
-        state:
-          normalizeEvolutionAdoptionState(candidate.adoptionState) === "adopted"
-            ? "adopted"
-            : normalizeEvolutionAdoptionState(candidate.adoptionState) === "candidate"
-              ? "promoted"
-              : toArray<string>(candidate.invalidatedBy).length > 0
-                ? "reverted"
-                : "shadow",
+        state: shadowState,
         baselineRef: toStringValue(candidate.candidateRef) || undefined,
         candidateRef: evolutionId,
         expectedEffect: toStringValue(toRecord(candidate.expectedEffect)?.summary) || undefined,
@@ -1354,16 +1472,101 @@ export function buildRuntimeRetrievalStatus(
   });
   return {
     generatedAt: now,
-    planes: ["strategy", "memory", "intel", "archive"],
+    planes: ["strategy", "memory", "session", "archive"],
     layers: MEMORY_LAYERS,
-    system1DefaultPlanes: ["strategy", "memory"],
-    system2DefaultPlanes: ["strategy", "memory", "intel", "archive"],
+    system1DefaultPlanes: ["strategy", "memory", "session"],
+    system2DefaultPlanes: ["strategy", "memory", "session", "archive"],
     defaultBudgetMode: taskStore.defaults.defaultBudgetMode,
     defaultRetrievalMode: taskStore.defaults.defaultRetrievalMode,
     maxInputTokensPerTurn: taskStore.defaults.maxInputTokensPerTurn,
     maxContextChars: taskStore.defaults.maxContextChars,
     maxRemoteCallsPerTask: taskStore.defaults.maxRemoteCallsPerTask,
   };
+}
+
+export function buildRuntimeUserConsoleStatus(
+  opts: RuntimeStateOptions = {},
+): RuntimeUserConsoleStatus {
+  const now = resolveNow(opts.now);
+  const store = loadRuntimeUserConsoleStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
+  return {
+    generatedAt: now,
+    model: store.userModel,
+    activeAgentCount: store.agents.filter((agent) => agent.active).length,
+    activeSurfaceCount: store.surfaces.filter((surface) => surface.active).length,
+    userOwnedSurfaceCount: store.surfaces.filter((surface) => surface.ownerKind === "user").length,
+  };
+}
+
+export function buildRuntimeAgentStatuses(opts: RuntimeStateOptions = {}): RuntimeAgentStatus[] {
+  const now = resolveNow(opts.now);
+  const store = loadRuntimeUserConsoleStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
+  const overlaysByAgentId = new Map(
+    store.agentOverlays.map((overlay) => [overlay.agentId, overlay]),
+  );
+  const surfaceCounts = countBy(
+    store.surfaces
+      .filter((surface) => surface.ownerKind === "agent" && surface.ownerId)
+      .map((surface) => surface.ownerId as string),
+  );
+  return [...store.agents]
+    .map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      roleBase: agent.roleBase,
+      active: agent.active,
+      skillCount: agent.skillIds.length,
+      surfaceCount: surfaceCounts[agent.id] ?? 0,
+      reportPolicy: overlaysByAgentId.get(agent.id)?.reportPolicy,
+      updatedAt: agent.updatedAt,
+    }))
+    .toSorted(
+      (left, right) => right.updatedAt - left.updatedAt || left.name.localeCompare(right.name),
+    );
+}
+
+export function buildRuntimeSurfaceStatuses(
+  opts: RuntimeStateOptions = {},
+): RuntimeSurfaceStatus[] {
+  const now = resolveNow(opts.now);
+  const store = loadRuntimeUserConsoleStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
+  const overlaysBySurfaceId = new Map(
+    store.surfaceRoleOverlays.map((overlay) => [overlay.surfaceId, overlay]),
+  );
+  return [...store.surfaces]
+    .map((surface) => {
+      const overlay = overlaysBySurfaceId.get(surface.id);
+      return {
+        id: surface.id,
+        label: surface.label,
+        channel: surface.channel,
+        accountId: surface.accountId,
+        ownerKind: surface.ownerKind,
+        ownerId: surface.ownerId,
+        active: surface.active,
+        role: overlay?.role,
+        businessGoal: overlay?.businessGoal,
+        updatedAt: Math.max(surface.updatedAt, overlay?.updatedAt ?? surface.updatedAt),
+      } satisfies RuntimeSurfaceStatus;
+    })
+    .toSorted(
+      (left, right) =>
+        Number(right.active) - Number(left.active) ||
+        right.updatedAt - left.updatedAt ||
+        left.label.localeCompare(right.label),
+    );
 }
 
 export function buildRuntimeIntelStatus(opts: RuntimeStateOptions = {}): RuntimeIntelStatus {
@@ -1373,24 +1576,46 @@ export function buildRuntimeIntelStatus(opts: RuntimeStateOptions = {}): Runtime
     homedir: opts.homedir,
     now,
   });
-  const detectedDomainIds = new Set<IntelCandidate["domain"]>();
-  for (const candidate of intelStore.candidates) detectedDomainIds.add(candidate.domain);
-  for (const digestItem of intelStore.digestItems) detectedDomainIds.add(digestItem.domain);
-  for (const sourceProfile of intelStore.sourceProfiles)
+  const panelConfig = resolveRuntimeIntelPanelConfig(intelStore);
+  const panelSources = listRuntimeIntelPanelSources(intelStore);
+  const detectedDomainIds = new Set<IntelCandidate["domain"]>(
+    DEFAULT_RUNTIME_INTEL_DOMAINS.map((entry) => entry.id),
+  );
+  for (const candidate of intelStore.candidates) {
+    detectedDomainIds.add(candidate.domain);
+  }
+  for (const digestItem of intelStore.digestItems) {
+    detectedDomainIds.add(digestItem.domain);
+  }
+  for (const sourceProfile of intelStore.sourceProfiles) {
     detectedDomainIds.add(sourceProfile.domain);
-  const domainIds = (
-    detectedDomainIds.size > 0 ? [...detectedDomainIds] : [...RUNTIME_INTEL_DOMAIN_ORDER]
-  ).toSorted(
+  }
+  const domainIds = [...detectedDomainIds].toSorted(
     (left, right) =>
       RUNTIME_INTEL_DOMAIN_ORDER.indexOf(left) - RUNTIME_INTEL_DOMAIN_ORDER.indexOf(right),
   );
-  const domains = domainIds.map((domainId) => {
-    const profile = intelStore.sourceProfiles.find((entry) => entry.domain === domainId);
+  const sources = panelSources.map((source) => {
+    const profile = intelStore.sourceProfiles.find(
+      (entry) => entry.domain === source.domain && entry.label === source.id,
+    );
     const metadata = toRecord(profile?.metadata);
+    return {
+      id: source.id,
+      domain: source.domain,
+      kind: source.kind,
+      label: source.label,
+      priority: source.priority,
+      enabled: source.enabled,
+      latestFetchAt: toNumber(metadata?.latestFetchAt ?? metadata?.lastFetchedAt, 0) || null,
+    } satisfies RuntimeIntelSourceStatus;
+  });
+  const domains = domainIds.map((domainId) => {
+    const domainDefinition = DEFAULT_RUNTIME_INTEL_DOMAINS.find((entry) => entry.id === domainId);
+    const domainSources = sources.filter((entry) => entry.domain === domainId);
     return {
       id: domainId,
       label:
-        profile?.label ||
+        domainDefinition?.label ||
         (domainId === "ai"
           ? "AI"
           : domainId === "github"
@@ -1398,29 +1623,34 @@ export function buildRuntimeIntelStatus(opts: RuntimeStateOptions = {}): Runtime
             : domainId === "tech"
               ? "Tech"
               : "Business"),
+      sourceCount: domainSources.length,
+      enabledSourceCount: domainSources.filter((entry) => entry.enabled).length,
       candidateCount: intelStore.candidates.filter((entry) => entry.domain === domainId).length,
       selectedCount: intelStore.candidates.filter(
         (entry) => entry.domain === domainId && entry.selected,
       ).length,
       digestCount: intelStore.digestItems.filter((entry) => entry.domain === domainId).length,
-      latestDigestAt:
+      latestDeliveryAt:
         intelStore.digestItems
           .filter((entry) => entry.domain === domainId)
           .reduce((latest, entry) => Math.max(latest, entry.createdAt), 0) || null,
-      latestFetchAt: toNumber(metadata?.latestFetchAt ?? metadata?.lastFetchedAt, 0) || null,
+      latestFetchAt:
+        domainSources.reduce((latest, entry) => Math.max(latest, entry.latestFetchAt || 0), 0) ||
+        null,
     } satisfies RuntimeIntelDomainStatus;
   });
   return {
     generatedAt: now,
-    enabled: intelStore.enabled,
-    digestEnabled: intelStore.digestEnabled,
-    candidateLimitPerDomain: intelStore.candidateLimitPerDomain,
-    digestItemLimitPerDomain: intelStore.digestItemLimitPerDomain,
-    exploitItemsPerDigest: intelStore.exploitItemsPerDigest,
-    exploreItemsPerDigest: intelStore.exploreItemsPerDigest,
+    enabled: panelConfig.enabled,
+    refreshMinutes: panelConfig.refreshMinutes,
+    dailyPushEnabled: panelConfig.dailyPushEnabled,
+    dailyPushItemCount: panelConfig.dailyPushItemCount,
+    dailyPushHourLocal: panelConfig.dailyPushHourLocal,
+    dailyPushMinuteLocal: panelConfig.dailyPushMinuteLocal,
     itemCount: intelStore.candidates.length,
     digestCount: intelStore.digestItems.length,
     domains,
+    sources,
   };
 }
 
@@ -1438,6 +1668,11 @@ export function buildRuntimeCapabilitiesStatus(
     homedir: opts.homedir,
   });
   const config = opts.config ?? null;
+  const userConsoleStore = loadRuntimeUserConsoleStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
   const stateCounts = emptyGovernanceStateCounts();
   const governanceStore = loadRuntimeGovernanceStore({
     env: opts.env,
@@ -1460,7 +1695,9 @@ export function buildRuntimeCapabilitiesStatus(
     }
     for (const entry of governanceStore.shadowEvaluations) {
       const state = mapShadowEvaluationStateToGovernanceState(entry.state);
-      if (state) stateCounts[state] += 1;
+      if (state) {
+        stateCounts[state] += 1;
+      }
     }
   }
 
@@ -1471,6 +1708,7 @@ export function buildRuntimeCapabilitiesStatus(
   const mcp = toRecord(config?.mcp);
   const agentCount =
     authoritativeEntries.filter((entry) => entry.registryType === "agent").length ||
+    userConsoleStore.agents.length ||
     toArray(toRecord(agents)?.list).length;
   const skillCount =
     authoritativeEntries.filter((entry) => entry.registryType === "skill").length ||
@@ -1711,10 +1949,14 @@ function readFederationConfigRecord(
   config: Record<string, unknown> | null,
 ): Record<string, unknown> | null {
   const direct = toRecord(config?.federation);
-  if (direct) return direct;
+  if (direct) {
+    return direct;
+  }
   const runtime = toRecord(config?.runtime);
   const runtimeFederation = toRecord(runtime?.federation);
-  if (runtimeFederation) return runtimeFederation;
+  if (runtimeFederation) {
+    return runtimeFederation;
+  }
   const brain = toRecord(config?.brain);
   return toRecord(brain?.federation);
 }
@@ -1728,7 +1970,9 @@ function parseScopeList(value: unknown): string[] {
         .filter(Boolean),
     );
   }
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {
+    return [];
+  }
   return uniqueStrings(
     value.map((entry) => (typeof entry === "string" ? entry.trim() : "")).filter(Boolean),
   );
@@ -1764,7 +2008,7 @@ function resolveFederationPushPolicy(config: Record<string, unknown> | null): {
   );
   const remoteConfigured =
     typeof remote?.enabled === "boolean"
-      ? remote.enabled === true &&
+      ? remote.enabled &&
         uniqueStrings([
           toStringValue(remote.url),
           toStringValue(remote.endpoint),
@@ -1809,23 +2053,55 @@ export function buildFederationRuntimeSnapshot(
     });
   const federationRoot = resolver.resolveDataPath(...FEDERATION_ROOT_SEGMENTS);
   const outboxRoot = path.join(federationRoot, "outbox");
+  const inboxRoot = path.join(federationRoot, "inbox");
   const assignmentsRoot = path.join(federationRoot, "assignments");
   const federationPolicy = resolveFederationPushPolicy(opts.config ?? null);
+  const federationStore = loadRuntimeFederationStore({
+    env: opts.env,
+    homedir: opts.homedir,
+    now,
+  });
+  const inboxStateCounts = emptyFederationStateCounts();
+  for (const entry of federationStore.inbox) {
+    inboxStateCounts[entry.state] += 1;
+  }
   return {
     generatedAt: now,
     enabled: federationPolicy.enabled,
     remoteConfigured: federationPolicy.remoteConfigured,
     manifest: runtimeManifest,
     outboxRoot,
+    inboxRoot,
     assignmentsRoot,
     syncCursorPath: path.join(federationRoot, "sync-cursor.json"),
+    syncCursor: federationStore.syncCursor ?? null,
     pendingAssignments: countJsonFiles(assignmentsRoot),
     outboxEnvelopeCounts: {
       runtimeManifest: countJsonFiles(path.join(outboxRoot, "runtime-manifest")),
       strategyDigest: countJsonFiles(path.join(outboxRoot, "strategy-digest")),
-      intelDigest: countJsonFiles(path.join(outboxRoot, "intel-digest")),
+      newsDigest: countJsonFiles(path.join(outboxRoot, "news-digest")),
       shadowTelemetry: countJsonFiles(path.join(outboxRoot, "shadow-telemetry")),
       capabilityGovernance: countJsonFiles(path.join(outboxRoot, "capability-governance")),
+    },
+    inbox: {
+      total: federationStore.inbox.length,
+      stateCounts: inboxStateCounts,
+      packageTypeCounts: countBy(federationStore.inbox.map((entry) => entry.packageType)),
+      sharedStrategyCount: federationStore.sharedStrategies.length,
+      teamKnowledgeCount: federationStore.teamKnowledge.length,
+      latestPackages: [...federationStore.inbox]
+        .toSorted(
+          (left, right) => right.updatedAt - left.updatedAt || left.id.localeCompare(right.id),
+        )
+        .slice(0, 6)
+        .map((entry) => ({
+          id: entry.id,
+          packageType: entry.packageType,
+          state: entry.state,
+          summary: entry.summary,
+          sourceRuntimeId: entry.sourceRuntimeId,
+          updatedAt: entry.updatedAt,
+        })),
     },
     allowedPushScopes: federationPolicy.allowedPushScopes,
     blockedPushScopes: federationPolicy.blockedPushScopes,
@@ -1855,6 +2131,9 @@ export function buildRuntimeDashboardSnapshot(
     tasks: buildRuntimeTasksList(opts),
     memory: buildRuntimeMemoryList(opts),
     retrieval: buildRuntimeRetrievalStatus(opts),
+    userConsole: buildRuntimeUserConsoleStatus(opts),
+    agents: buildRuntimeAgentStatuses(opts),
+    surfaces: buildRuntimeSurfaceStatuses(opts),
     intel: buildRuntimeIntelStatus(opts),
     capabilities: buildRuntimeCapabilitiesStatus(opts),
     evolution: buildRuntimeEvolutionStatus(opts),
@@ -1878,9 +2157,7 @@ export function buildLatestStrategyDigestEnvelope(
   };
 }
 
-export function buildLatestIntelDigestEnvelope(
-  opts: RuntimeStateOptions = {},
-): IntelDigestEnvelope {
+export function buildLatestNewsDigestEnvelope(opts: RuntimeStateOptions = {}): NewsDigestEnvelope {
   const now = resolveNow(opts.now);
   const intelStore = loadRuntimeIntelStore({
     env: opts.env,
@@ -1888,11 +2165,22 @@ export function buildLatestIntelDigestEnvelope(
     now,
   });
   return {
-    id: `intel-digest-${now}`,
-    digestItems: [...intelStore.digestItems]
-      .toSorted((left, right) => right.createdAt - left.createdAt)
-      .slice(0, 40),
+    schemaVersion: "v1",
+    type: "news-digest",
+    sourceRuntimeId: buildRuntimeManifest({
+      instanceManifest: resolveInstanceManifest({
+        env: opts.env,
+        homedir: opts.homedir,
+      }),
+      runtimeVersion: resolveRuntimeServiceVersion(opts.env ?? process.env),
+      generatedAt: now,
+    }).instanceId,
     generatedAt: now,
+    payload: {
+      digestItems: [...intelStore.digestItems]
+        .toSorted((left, right) => right.createdAt - left.createdAt)
+        .slice(0, 40),
+    },
   };
 }
 

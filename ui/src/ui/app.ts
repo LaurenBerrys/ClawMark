@@ -61,6 +61,7 @@ import type { ExecApprovalsFile, ExecApprovalsSnapshot } from "./controllers/exe
 import {
   applyRuntimeLegacyImport as applyRuntimeLegacyImportInternal,
   loadRuntime as loadRuntimeInternal,
+  syncRuntimeFederationRemote as syncRuntimeFederationRemoteInternal,
 } from "./controllers/runtime.ts";
 import type { SkillMessage } from "./controllers/skills.ts";
 import type { GatewayBrowserClient, GatewayHelloOk } from "./gateway.ts";
@@ -591,6 +592,12 @@ export class OpenClawApp extends LitElement {
   async applyRuntimeLegacyImport() {
     await applyRuntimeLegacyImportInternal(
       this as unknown as Parameters<typeof applyRuntimeLegacyImportInternal>[0],
+    );
+  }
+
+  async syncRuntimeFederationRemote() {
+    await syncRuntimeFederationRemoteInternal(
+      this as unknown as Parameters<typeof syncRuntimeFederationRemoteInternal>[0],
     );
   }
 
