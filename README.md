@@ -1,6 +1,49 @@
 # 🌐 Managed OpenClaw Runtime v6
 
-> **The Sovereign Execution Layer for Decentralized AI Intelligence.**
+[English](#english) | [简体中文](#managed-openclaw-runtime-v6-zh)
+
+---
+
+## Managed OpenClaw Runtime v6 (ZH)
+
+> **去中心化 AI 智能的受控执行主权层。**
+
+Managed OpenClaw Runtime v6 是一个高性能、具备主权特性的 AI 运行时环境，旨在为 AI 执行、记忆和策略提供绝对的治理能力。与传统的“应用”不同，这是一个系统级的运行时，强制执行“本地优先”的真理策略。
+
+### 🏛 核心支柱
+
+#### 1. 主权边界 (Sovereignty Boundary)
+
+**运行时实例**是绝对的隔离单元。所有正式记忆、衍生策略和任务状态都通过加密方式绑定到本地实例根目录。没有遥测，没有泄露——主权即设计。
+
+#### 2. 内存内核 (六层架构)
+
+基于 SQL+WAL 的高并发真理引擎，统一管理：
+
+- **知识与用户内核**：私有、权威的用户建模与知识存储。
+- **策略与学习**：动态执行剧本与元学习循环。
+- **进化记忆**：自我优化的路径选择与稳定性缓冲区。
+
+#### 3. 受控决策引擎
+
+**双路推理 (System 1 & System 2)**，由严格的**能力授权矩阵**管控。每个技能、Agent 和 MCP 工具都运行在本地采用协议（候选 → 已采用 → 核心）之下。
+
+#### 4. 自主任务循环
+
+一个持续、韧性的执行权力机构，负责规划、执行和深度评审。具备由记忆失效触发的重新规划能力，确保任务能实时适应变化的环境。
+
+---
+
+### 🚀 核心架构能力
+
+- **弹性生态**：具备隔离记忆命名空间和角色局部优化的托管 Agent。
+- **联邦就绪**：集成了受控制品同步平面，可与公司级 Brain OS 进行安全同步（第二阶段）。
+- **能力总线**：由宿主治理的 MCP 集成，确保工具执行的绝对安全。
+- **自我进化**：风险管控下的检索与决策策略自动化优化。
+
+---
+
+## <a name="english"></a>English Version
 
 Managed OpenClaw Runtime v6 is a high-performance, sovereign AI runtime environment designed to provide absolute governance over AI execution, memory, and strategy. Unlike traditional "apps," this is a system-level runtime that enforces a local-first truth policy.
 
