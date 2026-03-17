@@ -1,7 +1,7 @@
 {
-  "name": "openclaw",
+  "name": "clawmark-runtime",
   "version": "2026.3.12",
-  "description": "Multi-channel AI gateway with extensible messaging integrations",
+  "description": "Sovereign Execution Layer and Managed AI Runtime v6 (爪痕)",
   "keywords": [],
   "homepage": "https://github.com/openclaw/openclaw#readme",
   "bugs": {
