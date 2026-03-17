@@ -36,6 +36,22 @@ describe("buildTaskRecordSnapshot", () => {
     expect(record.artifactRefs).toEqual(["artifact-1"]);
     expect(record.recurring).toBe(true);
     expect(record.maintenance).toBe(false);
+    expect(record.rootTaskId).toBe("task-1");
+  });
+
+  it("preserves explicit parent/root task lineage", () => {
+    const record = buildTaskRecordSnapshot({
+      id: "task-child",
+      rootTaskId: "task-root",
+      parentTaskId: "task-parent",
+      title: "Derived task",
+      route: "ops",
+      createdAt: 10,
+      updatedAt: 20,
+    });
+
+    expect(record.rootTaskId).toBe("task-root");
+    expect(record.parentTaskId).toBe("task-parent");
   });
 });
 
@@ -204,10 +220,35 @@ describe("buildTaskLifecycleArtifacts", () => {
       },
     });
 
-    expect(artifacts.taskRecord.activeRunId).toBe(artifacts.taskRun.id);
+    expect(artifacts.taskRecord.activeRunId).toBeUndefined();
     expect(artifacts.taskRecord.latestReviewId).toBe(artifacts.taskReview?.id);
     expect(artifacts.taskStep?.kind).toBe("review");
     expect(artifacts.taskReview?.outcome).toBe("success");
     expect(artifacts.shareableReview?.generatedAt).toBe(1001);
+  });
+
+  it("keeps activeRunId only while the task is still actively executing", () => {
+    const artifacts = buildTaskLifecycleArtifacts({
+      now: 2000,
+      task: {
+        id: "task-running",
+        title: "Keep the active run pointer for live execution",
+        route: "coder",
+        status: "running",
+        priority: "high",
+        budgetMode: "balanced",
+        retrievalMode: "light",
+        createdAt: 1900,
+        updatedAt: 2000,
+      },
+      run: {
+        status: "running",
+        thinkingLane: "system1",
+        startedAt: 1950,
+        updatedAt: 2000,
+      },
+    });
+
+    expect(artifacts.taskRecord.activeRunId).toBe(artifacts.taskRun.id);
   });
 });

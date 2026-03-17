@@ -1,9 +1,16 @@
 import type {
   IntelCandidate,
   IntelDigestItem,
+  IntelItemRankRecord,
   IntelSourceProfile,
   IntelTopicProfile,
+  IntelUsefulnessRecord,
 } from "./contracts.js";
+import {
+  DEFAULT_RUNTIME_INFO_DOMAINS,
+  normalizeRuntimeInfoDomain,
+  type RuntimeInfoDomain,
+} from "./intel-domains.js";
 import {
   appendRuntimeEvent,
   loadRuntimeIntelStore,
@@ -11,12 +18,15 @@ import {
   type RuntimeStoreOptions,
 } from "./store.js";
 
-const INTEL_DOMAINS = ["tech", "ai", "business", "github"] as const;
 const DIGEST_HISTORY_RETENTION_DAYS = 14;
 const DIGEST_HISTORY_RETENTION_ITEMS = 400;
+const RANK_HISTORY_RETENTION_DAYS = 14;
+const RANK_HISTORY_RETENTION_ITEMS = 800;
 const RECENT_DIGEST_TOPIC_WINDOW_DAYS = 5;
 
-export type IntelDomain = (typeof INTEL_DOMAINS)[number];
+const INTEL_DOMAINS = DEFAULT_RUNTIME_INFO_DOMAINS;
+
+export type IntelDomain = RuntimeInfoDomain;
 
 export type RuntimeIntelCandidateInput = {
   id?: string;
@@ -90,16 +100,7 @@ function buildStableId(prefix: string, parts: Array<string | number | null | und
 }
 
 function normalizeDomain(value: string): IntelDomain {
-  const normalized = normalizeText(value).toLowerCase();
-  if (
-    normalized === "tech" ||
-    normalized === "ai" ||
-    normalized === "business" ||
-    normalized === "github"
-  ) {
-    return normalized;
-  }
-  return "tech";
+  return normalizeRuntimeInfoDomain(value);
 }
 
 function clampPercent(value: number): number {
@@ -129,18 +130,6 @@ function buildLocalDateKey(now: number): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function readDailyPushEnabled(metadata: Record<string, unknown> | undefined): boolean {
-  return metadata?.dailyPushEnabled !== false;
-}
-
-function readDailyPushItemCount(metadata: Record<string, unknown> | undefined): number {
-  const raw = Number(metadata?.dailyPushItemCount);
-  if (!Number.isFinite(raw)) {
-    return 10;
-  }
-  return Math.max(1, Math.min(50, Math.trunc(raw)));
 }
 
 function readNumericMetadata(metadata: Record<string, unknown> | undefined, key: string): number {
@@ -198,6 +187,8 @@ function normalizeCandidate(input: RuntimeIntelCandidateInput, now: number): Int
 
 type DigestRankingContext = {
   sourceTrustScores: Map<string, number>;
+  sourceUsefulnessScores: Map<string, number>;
+  topicWeightScores: Map<string, number>;
   recentSourceCounts: Map<string, number>;
   recentTopicCounts: Map<string, number>;
 };
@@ -285,15 +276,57 @@ function buildSourceTrustSignals(
 function buildDigestRankingContext(
   digestItems: IntelDigestItem[],
   sourceProfiles: IntelSourceProfile[],
+  topicProfiles: IntelTopicProfile[],
+  usefulnessRecords: IntelUsefulnessRecord[],
   domain: IntelDomain,
   now: number,
 ): DigestRankingContext {
   const recentSignals = buildRecentDigestSignals(digestItems, domain, now);
   return {
     sourceTrustScores: buildSourceTrustSignals(sourceProfiles, domain),
+    sourceUsefulnessScores: buildUsefulnessSignals(usefulnessRecords, domain),
+    topicWeightScores: buildTopicWeightSignals(topicProfiles, domain),
     recentSourceCounts: recentSignals.sourceCounts,
     recentTopicCounts: recentSignals.topicCounts,
   };
+}
+
+function buildUsefulnessSignals(
+  usefulnessRecords: IntelUsefulnessRecord[],
+  domain: IntelDomain,
+): Map<string, number> {
+  const grouped = new Map<string, number[]>();
+  for (const record of usefulnessRecords) {
+    if (record.domain !== domain) {
+      continue;
+    }
+    const scores = grouped.get(record.sourceId) ?? [];
+    scores.push(Math.max(0, Math.min(100, Number(record.usefulnessScore ?? 0))));
+    grouped.set(record.sourceId, scores);
+  }
+  const output = new Map<string, number>();
+  for (const [sourceId, scores] of grouped.entries()) {
+    output.set(sourceId, Math.max(-12, Math.min(16, averageNumber(scores) / 8 - 6)));
+  }
+  return output;
+}
+
+function buildTopicWeightSignals(
+  topicProfiles: IntelTopicProfile[],
+  domain: IntelDomain,
+): Map<string, number> {
+  const output = new Map<string, number>();
+  for (const profile of topicProfiles) {
+    if (profile.domain !== domain) {
+      continue;
+    }
+    const topic = normalizeText(profile.topic).toLowerCase();
+    if (!topic) {
+      continue;
+    }
+    output.set(topic, Math.max(-10, Math.min(18, Number(profile.weight ?? 0) / 8 - 5)));
+  }
+  return output;
 }
 
 function rankDomainCandidates(
@@ -304,16 +337,44 @@ function rankDomainCandidates(
   return candidates
     .map((candidate) => {
       const topicFingerprint = buildTopicFingerprint(candidate);
+      const topicTokens = extractTopicTokens(
+        [candidate.title, candidate.summary].filter(Boolean).join(" "),
+      );
+      const matchedTopics = topicTokens.filter((topic) =>
+        context.topicWeightScores.has(topic.toLowerCase()),
+      );
       const sourceRecencyCount = context.recentSourceCounts.get(candidate.sourceId) ?? 0;
       const recentTopicCount = context.recentTopicCounts.get(topicFingerprint) ?? 0;
       const sourceTrustBoost = Math.max(
         -16,
         Math.min(16, Number(context.sourceTrustScores.get(candidate.sourceId) ?? 0)),
       );
+      const sourceUsefulnessBoost = Math.max(
+        -12,
+        Math.min(16, Number(context.sourceUsefulnessScores.get(candidate.sourceId) ?? 0)),
+      );
+      const topicWeightBoost = Math.max(
+        -10,
+        Math.min(
+          18,
+          averageNumber(
+            matchedTopics.length > 0
+              ? matchedTopics.map(
+                  (topic) => context.topicWeightScores.get(topic.toLowerCase()) ?? 0,
+                )
+              : [0],
+          ),
+        ),
+      );
       const sourceDiversityBoost = Math.max(0, 9 - sourceRecencyCount * 3);
       const recentTopicPenalty = recentTopicCount * 10;
       const selectionScore =
-        Number(candidate.score ?? 0) + sourceTrustBoost + sourceDiversityBoost - recentTopicPenalty;
+        Number(candidate.score ?? 0) +
+        sourceTrustBoost +
+        sourceUsefulnessBoost +
+        topicWeightBoost +
+        sourceDiversityBoost -
+        recentTopicPenalty;
       const noveltyScore =
         readNumericMetadata(candidate.metadata, "noveltyScore") || candidate.score || 0;
       const explorationScore =
@@ -329,8 +390,11 @@ function rankDomainCandidates(
           selectionScore,
           explorationScore,
           sourceTrustBoost,
+          sourceUsefulnessBoost,
+          topicWeightBoost,
           sourceDiversityBoost,
           recentTopicPenalty,
+          matchedTopics,
           recencyScore: scoreRecency(candidate.createdAt, now, 24 * 7),
         },
       } satisfies IntelCandidate;
@@ -352,6 +416,14 @@ function pruneDigestHistory(digestItems: IntelDigestItem[], now: number): IntelD
     .filter((entry) => Number.isFinite(entry.createdAt) && now - entry.createdAt <= retentionMs)
     .toSorted((left, right) => right.createdAt - left.createdAt)
     .slice(0, DIGEST_HISTORY_RETENTION_ITEMS);
+}
+
+function pruneRankHistory(rankRecords: IntelItemRankRecord[], now: number): IntelItemRankRecord[] {
+  const retentionMs = RANK_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  return rankRecords
+    .filter((entry) => Number.isFinite(entry.createdAt) && now - entry.createdAt <= retentionMs)
+    .toSorted((left, right) => right.createdAt - left.createdAt)
+    .slice(0, RANK_HISTORY_RETENTION_ITEMS);
 }
 
 function upsertById<T extends { id: string }>(entries: T[], next: T): T {
@@ -449,6 +521,8 @@ function buildDigestItem(
     createdAt: now,
     metadata: {
       ...candidate.metadata,
+      candidateId: candidate.id,
+      candidateScore: clampPercent(candidate.score ?? 0),
       digestDate: buildLocalDateKey(now),
       topicFingerprint:
         normalizeText(candidate.metadata?.topicFingerprint) || buildTopicFingerprint(candidate),
@@ -456,11 +530,84 @@ function buildDigestItem(
   };
 }
 
-function selectDailyDigestCandidates(
+function appendRankHistoryEntries(
+  rankRecords: IntelItemRankRecord[],
+  candidates: IntelCandidate[],
+  selected: { exploit: IntelCandidate[]; explore: IntelCandidate[] },
+  now: number,
+): IntelItemRankRecord[] {
+  const selectionRankById = new Map(
+    [...candidates]
+      .toSorted((left, right) => {
+        const leftScore =
+          readNumericMetadata(left.metadata, "selectionScore") || left.score || 0;
+        const rightScore =
+          readNumericMetadata(right.metadata, "selectionScore") || right.score || 0;
+        return (
+          rightScore - leftScore ||
+          (right.score ?? 0) - (left.score ?? 0) ||
+          right.createdAt - left.createdAt
+        );
+      })
+      .map((candidate, index) => [candidate.id, index + 1] as const),
+  );
+  const explorationRankById = new Map(
+    [...candidates]
+      .toSorted((left, right) => {
+        const leftScore = readNumericMetadata(left.metadata, "explorationScore");
+        const rightScore = readNumericMetadata(right.metadata, "explorationScore");
+        return (
+          rightScore - leftScore ||
+          (right.score ?? 0) - (left.score ?? 0) ||
+          right.createdAt - left.createdAt
+        );
+      })
+      .map((candidate, index) => [candidate.id, index + 1] as const),
+  );
+  const selectedModeById = new Map<string, "exploit" | "explore">();
+  for (const candidate of selected.exploit) {
+    selectedModeById.set(candidate.id, "exploit");
+  }
+  for (const candidate of selected.explore) {
+    selectedModeById.set(candidate.id, "explore");
+  }
+  for (const candidate of candidates) {
+    rankRecords.unshift({
+      id: buildStableId("intel_rank_record", [candidate.id, now]),
+      intelId: candidate.id,
+      sourceId: candidate.sourceId,
+      domain: candidate.domain,
+      selectionRank: selectionRankById.get(candidate.id),
+      explorationRank: explorationRankById.get(candidate.id),
+      selectionScore: readNumericMetadata(candidate.metadata, "selectionScore") || candidate.score || 0,
+      explorationScore: readNumericMetadata(candidate.metadata, "explorationScore"),
+      selected: selectedModeById.has(candidate.id),
+      selectedMode: selectedModeById.get(candidate.id) ?? "none",
+      createdAt: now,
+      metadata: {
+        title: candidate.title,
+        topicFingerprint: normalizeText(candidate.metadata?.topicFingerprint) || undefined,
+        sourceTrustBoost: readNumericMetadata(candidate.metadata, "sourceTrustBoost"),
+        sourceUsefulnessBoost: readNumericMetadata(candidate.metadata, "sourceUsefulnessBoost"),
+        topicWeightBoost: readNumericMetadata(candidate.metadata, "topicWeightBoost"),
+        sourceDiversityBoost: readNumericMetadata(candidate.metadata, "sourceDiversityBoost"),
+        recentTopicPenalty: readNumericMetadata(candidate.metadata, "recentTopicPenalty"),
+        matchedTopics: Array.isArray(candidate.metadata?.matchedTopics)
+          ? candidate.metadata.matchedTopics
+          : undefined,
+      },
+    });
+  }
+  return pruneRankHistory(rankRecords, now);
+}
+
+function selectDigestCandidates(
   candidates: IntelCandidate[],
   itemLimit: number,
+  exploitItemLimit: number,
+  exploreItemLimit: number,
   maxItemsPerSource: number,
-): IntelCandidate[] {
+): { exploit: IntelCandidate[]; explore: IntelCandidate[] } {
   const ranked = [...candidates].toSorted((left, right) => {
     const leftSelection = readNumericMetadata(left.metadata, "selectionScore") || left.score || 0;
     const rightSelection =
@@ -471,38 +618,96 @@ function selectDailyDigestCandidates(
       right.createdAt - left.createdAt
     );
   });
-  const output: IntelCandidate[] = [];
+  const exploit: IntelCandidate[] = [];
+  const explore: IntelCandidate[] = [];
   const selectedIds = new Set<string>();
   const sourceCounts = new Map<string, number>();
-  for (const candidate of ranked) {
-    if (output.length >= itemLimit) {
-      break;
+  const cappedItemLimit = Math.max(0, Math.trunc(itemLimit));
+  const cappedExploitLimit = Math.max(0, Math.min(cappedItemLimit, Math.trunc(exploitItemLimit)));
+  const cappedExploreLimit = Math.max(
+    0,
+    Math.min(cappedItemLimit - cappedExploitLimit, Math.trunc(exploreItemLimit)),
+  );
+
+  function trySelect(
+    target: IntelCandidate[],
+    candidate: IntelCandidate,
+    limit: number,
+    explorationMode: boolean,
+    opts: {
+      enforceSourceCap?: boolean;
+      enforceExploreTopicGate?: boolean;
+    } = {},
+  ) {
+    if (target.length >= limit || selectedIds.has(candidate.id)) {
+      return;
     }
     const sourceId = normalizeText(candidate.sourceId) || "unknown-source";
     const count = sourceCounts.get(sourceId) ?? 0;
-    if (count >= maxItemsPerSource) {
-      continue;
+    if (opts.enforceSourceCap !== false && count >= maxItemsPerSource) {
+      return;
     }
-    output.push(candidate);
+    const topicPenalty = readNumericMetadata(candidate.metadata, "recentTopicPenalty");
+    if (
+      explorationMode &&
+      opts.enforceExploreTopicGate !== false &&
+      topicPenalty > 20 &&
+      exploit.length + explore.length < cappedItemLimit
+    ) {
+      return;
+    }
+    target.push(candidate);
     selectedIds.add(candidate.id);
     sourceCounts.set(sourceId, count + 1);
   }
-  if (output.length >= itemLimit) {
-    return output;
-  }
-  // Prefer per-source diversity first, then backfill remaining slots so the
-  // digest does not collapse to a small packet when only a few sources exist.
+
   for (const candidate of ranked) {
-    if (output.length >= itemLimit) {
-      break;
-    }
-    if (selectedIds.has(candidate.id)) {
+    trySelect(exploit, candidate, cappedExploitLimit, false);
+  }
+
+  const explorationRanked = [...ranked].toSorted((left, right) => {
+    const leftScore = readNumericMetadata(left.metadata, "explorationScore");
+    const rightScore = readNumericMetadata(right.metadata, "explorationScore");
+    return rightScore - leftScore || (right.score ?? 0) - (left.score ?? 0) || right.createdAt - left.createdAt;
+  });
+  for (const candidate of explorationRanked) {
+    trySelect(explore, candidate, cappedExploreLimit, true);
+  }
+
+  for (const candidate of ranked) {
+    if (exploit.length < cappedExploitLimit) {
+      trySelect(exploit, candidate, cappedExploitLimit, false);
       continue;
     }
-    output.push(candidate);
-    selectedIds.add(candidate.id);
+    if (explore.length < cappedExploreLimit) {
+      trySelect(explore, candidate, cappedExploreLimit, true);
+    }
   }
-  return output;
+
+  if (exploit.length < cappedExploitLimit) {
+    for (const candidate of ranked) {
+      trySelect(exploit, candidate, cappedExploitLimit, false, {
+        enforceSourceCap: false,
+      });
+      if (exploit.length >= cappedExploitLimit) {
+        break;
+      }
+    }
+  }
+
+  if (explore.length < cappedExploreLimit) {
+    for (const candidate of explorationRanked) {
+      trySelect(explore, candidate, cappedExploreLimit, true, {
+        enforceSourceCap: false,
+        enforceExploreTopicGate: false,
+      });
+      if (explore.length >= cappedExploreLimit) {
+        break;
+      }
+    }
+  }
+
+  return { exploit, explore };
 }
 
 export function runRuntimeIntelPipeline(
@@ -514,6 +719,12 @@ export function runRuntimeIntelPipeline(
     ...opts,
     now,
   });
+  if (!intelStore.enabled) {
+    return {
+      candidates: intelStore.candidates,
+      digestItems: [],
+    };
+  }
   const incoming = inputs.map((input) => normalizeCandidate(input, now));
   const mergedCandidates = limitCandidatesPerDomain(
     dedupeCandidates([...intelStore.candidates, ...incoming]),
@@ -528,7 +739,14 @@ export function runRuntimeIntelPipeline(
   for (const domain of INTEL_DOMAINS) {
     const domainCandidates = rankDomainCandidates(
       mergedCandidates.filter((candidate) => candidate.domain === domain),
-      buildDigestRankingContext(intelStore.digestItems, intelStore.sourceProfiles, domain, now),
+      buildDigestRankingContext(
+        intelStore.digestItems,
+        intelStore.sourceProfiles,
+        intelStore.topicProfiles,
+        intelStore.usefulnessRecords,
+        domain,
+        now,
+      ),
       now,
     );
     const rankedById = new Map(domainCandidates.map((candidate) => [candidate.id, candidate]));
@@ -552,32 +770,68 @@ export function runRuntimeIntelPipeline(
     }
   }
 
-  if (readDailyPushEnabled(intelStore.metadata)) {
-    const selected = selectDailyDigestCandidates(
-      [...rankedCandidatesById.values()],
-      readDailyPushItemCount(intelStore.metadata),
-      Math.max(
-        1,
-        Math.trunc(readNumericMetadata(intelStore.metadata, "maxItemsPerSourceInDigest") || 2),
-      ),
+  for (const candidate of mergedCandidates) {
+    candidate.selected = false;
+  }
+
+  if (intelStore.digestEnabled) {
+    const maxItemsPerSource = Math.max(
+      1,
+      Math.trunc(readNumericMetadata(intelStore.metadata, "maxItemsPerSourceInDigest") || 2),
     );
-    const selectedIds = new Set(selected.map((candidate) => candidate.id));
-    for (const candidate of mergedCandidates) {
-      candidate.selected = selectedIds.has(candidate.id);
-    }
-    for (const candidate of selected) {
-      const digestItem = buildDigestItem(candidate, true, now);
-      digestItems.push(digestItem);
-      upsertById(intelStore.digestItems, digestItem);
+    for (const domain of INTEL_DOMAINS) {
+      const selected = selectDigestCandidates(
+        [...rankedCandidatesById.values()].filter((candidate) => candidate.domain === domain),
+        intelStore.digestItemLimitPerDomain,
+        intelStore.exploitItemsPerDigest,
+        intelStore.exploreItemsPerDigest,
+        maxItemsPerSource,
+      );
+      intelStore.rankRecords = appendRankHistoryEntries(
+        intelStore.rankRecords,
+        [...rankedCandidatesById.values()].filter((candidate) => candidate.domain === domain),
+        selected,
+        now,
+      );
+      for (const candidate of selected.exploit) {
+        candidate.selected = true;
+        const digestItem = buildDigestItem(candidate, true, now);
+        digestItems.push(digestItem);
+        upsertById(intelStore.digestItems, digestItem);
+      }
+      for (const candidate of selected.explore) {
+        candidate.selected = true;
+        const digestItem = buildDigestItem(candidate, false, now);
+        digestItems.push(digestItem);
+        upsertById(intelStore.digestItems, digestItem);
+      }
     }
   } else {
-    for (const candidate of mergedCandidates) {
-      candidate.selected = false;
+    for (const domain of INTEL_DOMAINS) {
+      intelStore.rankRecords = appendRankHistoryEntries(
+        intelStore.rankRecords,
+        [...rankedCandidatesById.values()].filter((candidate) => candidate.domain === domain),
+        {
+          exploit: [],
+          explore: [],
+        },
+        now,
+      );
     }
+  }
+
+  const selectedCandidateIds = new Set(
+    digestItems
+      .map((item) => item.metadata?.candidateId)
+      .filter((value): value is string => typeof value === "string"),
+  );
+  for (const candidate of mergedCandidates) {
+    candidate.selected = selectedCandidateIds.has(candidate.id);
   }
 
   intelStore.lastImportedAt = now;
   intelStore.digestItems = pruneDigestHistory(intelStore.digestItems, now);
+  intelStore.rankRecords = pruneRankHistory(intelStore.rankRecords, now);
   saveRuntimeIntelStore(intelStore, {
     ...opts,
     now,

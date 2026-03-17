@@ -12,6 +12,7 @@ import type {
   ThinkingLane,
 } from "./contracts.js";
 import { buildContextPack, buildRouteDomains } from "./retrieval-orchestrator.js";
+import type { RuntimeCapabilityPolicy } from "./capability-plane.js";
 
 type StrategyInsight = {
   id?: string;
@@ -23,9 +24,36 @@ type StrategyInsight = {
   fallback?: string;
 };
 
+type DecisionPreferenceSource = "user-model" | "session-working-preference";
+
+type DecisionUserPreferenceField =
+  | "communicationStyle"
+  | "reportPolicy"
+  | "reportVerbosity"
+  | "interruptionThreshold"
+  | "confirmationBoundary";
+
+type DecisionUserPreferenceView = {
+  communicationStyle?: string;
+  reportPolicy?: string;
+  reportVerbosity?: string;
+  interruptionThreshold?: string;
+  confirmationBoundary?: string;
+  sources: Partial<Record<DecisionUserPreferenceField, DecisionPreferenceSource>>;
+  pendingUserModelImport: boolean;
+};
+
+type DecisionSurfacePolicyView = {
+  role: string;
+  allowedTopics: string[];
+  restrictedTopics: string[];
+  reportTarget?: string;
+};
+
 type DecisionRecordParams = {
   task: DecisionTaskInput;
   config: DecisionConfig;
+  policy?: RuntimeCapabilityPolicy;
   sources?: RetrievalSourceSet;
   contextPack?: ContextPack;
   topStrategy?: StrategyRecord | null;
@@ -104,6 +132,9 @@ function buildDecisionTopicHints(task: DecisionTaskInput): string[] {
 
   return uniqueStrings([
     resolveTaskRoute(task),
+    task.agentId,
+    task.surfaceId,
+    task.sessionId,
     task.taskKind,
     ...task.tags,
     ...buildRouteDomains(resolveTaskRoute(task)),
@@ -168,6 +199,61 @@ function readStringArray(value: unknown): string[] {
   );
 }
 
+function readMetadataString(candidate: RetrievalCandidate, key: string): string | undefined {
+  const metadata = isObject(candidate.metadata) ? candidate.metadata : {};
+  const value = metadata[key];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function readMetadataBoolean(candidate: RetrievalCandidate, key: string): boolean {
+  const metadata = isObject(candidate.metadata) ? candidate.metadata : {};
+  return metadata[key] === true;
+}
+
+function readMetadataStringArray(candidate: RetrievalCandidate, key: string): string[] {
+  const metadata = isObject(candidate.metadata) ? candidate.metadata : {};
+  return readStringArray(metadata[key]);
+}
+
+function readSessionSignalKind(candidate: RetrievalCandidate): string | undefined {
+  return readMetadataString(candidate, "sessionSignalKind");
+}
+
+function isPendingWaitingUserSignal(candidate: RetrievalCandidate): boolean {
+  return (
+    readSessionSignalKind(candidate) === "task-report" &&
+    readMetadataString(candidate, "reportKind") === "waiting_user" &&
+    readMetadataString(candidate, "reportState") === "pending" &&
+    readMetadataBoolean(candidate, "requiresUserAction")
+  );
+}
+
+function isPendingBlockedSignal(candidate: RetrievalCandidate): boolean {
+  return (
+    readSessionSignalKind(candidate) === "task-report" &&
+    readMetadataString(candidate, "reportKind") === "blocked" &&
+    readMetadataString(candidate, "reportState") === "pending"
+  );
+}
+
+function isPendingWaitingExternalSignal(candidate: RetrievalCandidate): boolean {
+  return (
+    readSessionSignalKind(candidate) === "task-report" &&
+    readMetadataString(candidate, "reportKind") === "waiting_external" &&
+    readMetadataString(candidate, "reportState") === "pending"
+  );
+}
+
+function isCoordinatorSuggestionSignal(candidate: RetrievalCandidate): boolean {
+  if (readSessionSignalKind(candidate) !== "coordinator-suggestion") {
+    return false;
+  }
+  return !(
+    readMetadataString(candidate, "taskCreationPolicy") === "disabled" &&
+    !readMetadataString(candidate, "localTaskId")
+  );
+}
+
 function isStrategyRecord(value: StrategyRecord | RetrievalCandidate): value is StrategyRecord {
   return "layer" in value && value.layer === "strategies";
 }
@@ -218,13 +304,107 @@ function readMemoryType(candidate: RetrievalCandidate): FormalMemoryType | undef
   return typeof value === "string" ? (value as FormalMemoryType) : undefined;
 }
 
+function deriveDecisionUserPreferenceView(
+  task: DecisionTaskInput,
+  sessions: RetrievalCandidate[],
+): DecisionUserPreferenceView | null {
+  const view: DecisionUserPreferenceView = {
+    sources: {},
+    pendingUserModelImport: sessions.some(
+      (candidate) =>
+        readSessionSignalKind(candidate) === "user-model-mirror" &&
+        readMetadataBoolean(candidate, "requiresUserAction"),
+    ),
+  };
+
+  const applyCandidate = (candidate: RetrievalCandidate | undefined, source: DecisionPreferenceSource) => {
+    if (!candidate) {
+      return;
+    }
+    const communicationStyle = readMetadataString(candidate, "communicationStyle");
+    const reportPolicy = readMetadataString(candidate, "reportPolicy");
+    const reportVerbosity = readMetadataString(candidate, "reportVerbosity");
+    const interruptionThreshold = readMetadataString(candidate, "interruptionThreshold");
+    const confirmationBoundary = readMetadataString(candidate, "confirmationBoundary");
+    if (communicationStyle) {
+      view.communicationStyle = communicationStyle;
+      view.sources.communicationStyle = source;
+    }
+    if (reportPolicy) {
+      view.reportPolicy = reportPolicy;
+      view.sources.reportPolicy = source;
+    }
+    if (reportVerbosity) {
+      view.reportVerbosity = reportVerbosity;
+      view.sources.reportVerbosity = source;
+    }
+    if (interruptionThreshold) {
+      view.interruptionThreshold = interruptionThreshold;
+      view.sources.interruptionThreshold = source;
+    }
+    if (confirmationBoundary) {
+      view.confirmationBoundary = confirmationBoundary;
+      view.sources.confirmationBoundary = source;
+    }
+  };
+
+  applyCandidate(
+    sessions.find((candidate) => readSessionSignalKind(candidate) === "user-model"),
+    "user-model",
+  );
+  if (task.sessionId) {
+    applyCandidate(
+      sessions.find(
+        (candidate) =>
+          readSessionSignalKind(candidate) === "session-working-preference" &&
+          readMetadataString(candidate, "sessionId") === task.sessionId,
+      ),
+      "session-working-preference",
+    );
+  }
+
+  if (
+    !view.pendingUserModelImport &&
+    !view.communicationStyle &&
+    !view.reportPolicy &&
+    !view.reportVerbosity &&
+    !view.interruptionThreshold &&
+    !view.confirmationBoundary
+  ) {
+    return null;
+  }
+  return view;
+}
+
+function deriveSurfacePolicyView(
+  task: DecisionTaskInput,
+  sessions: RetrievalCandidate[],
+): DecisionSurfacePolicyView | null {
+  const candidate = sessions.find(
+    (c) =>
+      readSessionSignalKind(c) === "surface-role-overlay" &&
+      readMetadataString(c, "surfaceId") === task.surfaceId,
+  );
+  if (!candidate) {return null;}
+
+  return {
+    role: readMetadataString(candidate, "role") || "general",
+    allowedTopics: readMetadataStringArray(candidate, "allowedTopics"),
+    restrictedTopics: readMetadataStringArray(candidate, "restrictedTopics"),
+    reportTarget: readMetadataString(candidate, "reportTarget"),
+  };
+}
+
 function isHighConfidenceExecutionMemory(candidate: RetrievalCandidate): boolean {
   const memoryType = readMemoryType(candidate);
   if (!memoryType) {
     return false;
   }
   return (
-    (memoryType === "execution" || memoryType === "efficiency" || memoryType === "completion") &&
+    (memoryType === "execution" ||
+      memoryType === "efficiency" ||
+      memoryType === "completion" ||
+      memoryType === "resource") &&
     (candidate.confidence ?? 0) >= 68
   );
 }
@@ -329,6 +509,9 @@ export function buildDecisionRetrievalQuery(
       priority: task.priority,
       budgetMode: task.budgetMode,
       retrievalMode: task.retrievalMode,
+      agentId: task.agentId,
+      sessionId: task.sessionId,
+      surfaceId: task.surfaceId,
     },
   };
 }
@@ -393,7 +576,7 @@ export function shouldUseSystem2(
     relevantMemoriesOrContext,
     relevantSessions,
   );
-  const { task, topStrategy: strategy, relevantMemories } = normalized;
+  const { task, topStrategy: strategy, relevantMemories, relevantSessions: sessions } = normalized;
   const stableSkillCount = uniqueStrings([...task.skillIds, ...(strategy?.skillIds || [])]).length;
   const highConfidenceExecutionMemories = relevantMemories.filter(
     isHighConfidenceExecutionMemory,
@@ -403,6 +586,24 @@ export function shouldUseSystem2(
   ).length;
   const consecutiveFailures = task.runState?.consecutiveFailures || 0;
   const remoteCallCount = task.runState?.remoteCallCount || 0;
+  const hasPendingUserActionSignal = sessions.some(isPendingWaitingUserSignal);
+  const hasPendingBlockedSignal = sessions.some(isPendingBlockedSignal);
+  const hasPendingWaitingExternalSignal = sessions.some(isPendingWaitingExternalSignal);
+  const hasCoordinatorSuggestion = sessions.some(isCoordinatorSuggestionSignal);
+  const preferenceView = deriveDecisionUserPreferenceView(task, sessions);
+
+  if (hasPendingUserActionSignal) {
+    return false;
+  }
+
+  if (
+    preferenceView &&
+    (hasPendingBlockedSignal || hasPendingWaitingExternalSignal) &&
+    (preferenceView.confirmationBoundary === "strict" ||
+      (preferenceView.interruptionThreshold === "low" && task.priority !== "high"))
+  ) {
+    return false;
+  }
 
   if (strategy?.thinkingLane === "system2") {
     return true;
@@ -422,6 +623,16 @@ export function shouldUseSystem2(
     stableSkillCount >= 1 &&
     highConfidenceExecutionMemories >= 1 &&
     relevantMemories.length >= 2
+  ) {
+    return false;
+  }
+
+  if (
+    !strategy &&
+    hasCoordinatorSuggestion &&
+    promptLength <= 220 &&
+    consecutiveFailures === 0 &&
+    remoteCallCount <= 1
   ) {
     return false;
   }
@@ -468,6 +679,7 @@ function normalizeDecisionRecordArgs(
   return {
     task: paramsOrTask,
     config: config as DecisionConfig,
+    policy: (paramsOrTask as Record<string, unknown>).policy as RuntimeCapabilityPolicy | undefined,
     contextPack,
     topStrategy,
     now,
@@ -505,6 +717,7 @@ export function buildDecisionRecord(
       ? buildContextPack({
           query: system1Query as RetrievalQuery,
           sources: params.sources,
+          policy: params.policy,
         })
       : undefined);
 
@@ -526,6 +739,7 @@ export function buildDecisionRecord(
     finalContextPack = buildContextPack({
       query: finalQuery,
       sources: params.sources,
+      policy: params.policy,
     });
   }
 
@@ -540,7 +754,14 @@ export function buildDecisionRecord(
     ...task.skillIds,
     ...(finalTopStrategy?.skillIds || []),
     ...buildRouteSkillHints(resolveTaskRoute(task)),
-  ]).slice(0, 12);
+  ])
+    .filter((skillId) => {
+      if (!params.policy) {return true;}
+      return params.policy.resolveExecutionStatus("skill", skillId).mode !== "blocked";
+    })
+    .slice(0, 12);
+  const preferenceView = deriveDecisionUserPreferenceView(task, finalContextPack.sessionCandidates);
+  const surfacePolicyView = deriveSurfacePolicyView(task, finalContextPack.sessionCandidates);
   const fallbackOrder = buildFallbackOrder(
     task,
     recommendedWorker,
@@ -554,9 +775,22 @@ export function buildDecisionRecord(
     `worker=${recommendedWorker}`,
     finalTopStrategy ? `strategy=${truncateText(finalTopStrategy.summary, 96)}` : "strategy=none",
     finalContextPack.summary,
+    preferenceView?.reportPolicy || preferenceView?.reportVerbosity
+      ? `prefs=${[
+          preferenceView.reportPolicy,
+          preferenceView.reportVerbosity,
+          preferenceView.interruptionThreshold,
+          preferenceView.confirmationBoundary,
+        ]
+          .filter(Boolean)
+          .join("/")}`
+      : null,
     thinkingLane === "system1"
       ? "优先快通道，直接复用稳定路径。"
       : "进入慢通道，需要显式规划、裁剪上下文并准备 fallback。",
+    surfacePolicyView && surfacePolicyView.restrictedTopics.length > 0
+      ? `surface_restricted=${surfacePolicyView.restrictedTopics.join(",")}`
+      : null,
   ].join(" | ");
 
   return {
@@ -575,10 +809,17 @@ export function buildDecisionRecord(
     metadata: {
       route: resolveTaskRoute(task),
       routeDomains: buildRouteDomains(resolveTaskRoute(task)),
+      ecologyBinding: {
+        agentId: task.agentId,
+        sessionId: task.sessionId,
+        surfaceId: task.surfaceId,
+      },
       retrievalQueryId: finalQuery?.id ?? finalContextPack.queryId,
       initialQueryId: system1Query?.id,
       topStrategyId: finalTopStrategy?.id,
       topStrategyConfidence: finalTopStrategy?.confidence,
+      userPreferenceView: preferenceView,
+      surfacePolicyView: surfacePolicyView,
       fallback: finalTopStrategy?.fallback,
       recommendedSkills,
       contextSummary: finalContextPack.summary,
@@ -593,14 +834,40 @@ export function buildDecisionPromptBlock(decision: DecisionRecord | null | undef
     return "";
   }
 
+  const metadata = isObject(decision.metadata) ? decision.metadata : {};
+  const ecologyBinding = isObject(metadata.ecologyBinding) ? metadata.ecologyBinding : {};
+  const userPreferenceView = isObject(metadata.userPreferenceView) ? metadata.userPreferenceView : {};
   const memoryLines = toContextBullet("memory", decision.contextPack.memoryCandidates);
+  const sessionLines = toContextBullet("session", decision.contextPack.sessionCandidates);
   const synthesisLines = decision.contextPack.synthesis.map((line) => `- ${line}`);
+  const ecologyParts = uniqueStrings([
+    typeof ecologyBinding.agentId === "string" ? `agent=${ecologyBinding.agentId}` : null,
+    typeof ecologyBinding.surfaceId === "string" ? `surface=${ecologyBinding.surfaceId}` : null,
+    typeof ecologyBinding.sessionId === "string" ? `session=${ecologyBinding.sessionId}` : null,
+  ]);
+  const preferenceParts = uniqueStrings([
+    typeof userPreferenceView.reportPolicy === "string"
+      ? `report=${userPreferenceView.reportPolicy}`
+      : null,
+    typeof userPreferenceView.reportVerbosity === "string"
+      ? `verbosity=${userPreferenceView.reportVerbosity}`
+      : null,
+    typeof userPreferenceView.interruptionThreshold === "string"
+      ? `interrupt=${userPreferenceView.interruptionThreshold}`
+      : null,
+    typeof userPreferenceView.confirmationBoundary === "string"
+      ? `confirm=${userPreferenceView.confirmationBoundary}`
+      : null,
+    userPreferenceView.pendingUserModelImport === true ? "pending-user-md-import" : null,
+  ]);
 
   return [
     "决策内核输出：",
     `- 决策通道：${decision.thinkingLane || "system1"}`,
     `- 决策摘要：${decision.summary}`,
     `- 推荐执行者：${decision.recommendedWorker || "main"}`,
+    ecologyParts.length ? `- 生态绑定：${ecologyParts.join(" · ")}` : "",
+    preferenceParts.length ? `- 用户偏好：${preferenceParts.join(" · ")}` : "",
     decision.recommendedSkills.length
       ? `- 推荐 skills：${decision.recommendedSkills.join(", ")}`
       : "",
@@ -610,6 +877,8 @@ export function buildDecisionPromptBlock(decision: DecisionRecord | null | undef
     decision.contextPack.summary ? `- 上下文摘要：${decision.contextPack.summary}` : "",
     memoryLines.length ? "- 相关记忆：" : "",
     ...memoryLines,
+    sessionLines.length ? "- 当前信号：" : "",
+    ...sessionLines,
     synthesisLines.length ? "- 综合上下文：" : "",
     ...synthesisLines,
   ]

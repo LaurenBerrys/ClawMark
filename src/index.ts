@@ -49,6 +49,23 @@ import {
 } from "./shared/runtime/federation-inbox.js";
 import { syncRuntimeFederationOutbox } from "./shared/runtime/federation-outbox.js";
 import { syncRuntimeFederationRemote } from "./shared/runtime/federation-sync.js";
+import {
+  dispatchRuntimeIntelDeliveries,
+  previewRuntimeIntelDeliveries,
+} from "./shared/runtime/intel-delivery.js";
+import {
+  applyRuntimeMemoryInvalidationRollback,
+  applyRuntimeMemoryLifecycleReview,
+  applyRuntimeMemoryLineageInvalidation,
+  applyRuntimeMemoryLineageReinforcement,
+  applyRuntimePinnedIntelKnowledgePromotion,
+  applyRuntimeTaskOutcomeMemoryUpdate,
+  applyRuntimeUserControlMemoryUpdate,
+} from "./shared/runtime/memory-update-engine.js";
+import {
+  buildRuntimeMemoryMarkdownMirrorStatus,
+  syncRuntimeMemoryMarkdownMirror,
+} from "./shared/runtime/memory-markdown-mirror.js";
 import { runRuntimeIntelPipeline } from "./shared/runtime/intel-pipeline.js";
 import { refreshRuntimeIntelPipeline } from "./shared/runtime/intel-refresh.js";
 import {
@@ -59,14 +76,24 @@ import {
   observeTaskOutcomeForEvolution,
   persistTaskLifecycleArtifacts,
   reviewRuntimeEvolution,
+  setRuntimeEvolutionCandidateState,
 } from "./shared/runtime/mutations.js";
+import {
+  buildRuntimeUserModelMirrorStatus,
+  markRuntimeUserModelMirrorImported,
+  readRuntimeUserModelMirrorImport,
+  syncRuntimeUserModelMirror,
+} from "./shared/runtime/user-model-mirror.js";
 import { buildContextPack, buildRouteDomains } from "./shared/runtime/retrieval-orchestrator.js";
 import {
   applyLegacyRuntimeImport,
   buildFederationRuntimeSnapshot,
   buildGovernanceSnapshotMetadata,
   buildLatestNewsDigestEnvelope,
+  buildLatestShareableMemoryEnvelopes,
+  buildLatestShareableReviewEnvelopes,
   buildLatestStrategyDigestEnvelope,
+  buildLatestTeamKnowledgeEnvelope,
   buildLegacyRuntimeImportPreview,
   buildRuntimeCapabilitiesStatus,
   buildRuntimeDashboardSnapshot,
@@ -169,7 +196,10 @@ export {
   buildFederationRuntimeSnapshot,
   buildGovernanceSnapshotMetadata,
   buildLatestNewsDigestEnvelope,
+  buildLatestShareableMemoryEnvelopes,
+  buildLatestShareableReviewEnvelopes,
   buildLatestStrategyDigestEnvelope,
+  buildLatestTeamKnowledgeEnvelope,
   buildLegacyRuntimeImportPreview,
   buildRuntimeCapabilitiesStatus,
   buildRuntimeDashboardSnapshot,
@@ -190,6 +220,10 @@ export {
   hasAuthoritativeRuntimeStore,
   isRunnableTaskStatus,
   isTerminalTaskStatus,
+  applyRuntimeMemoryInvalidationRollback,
+  applyRuntimeMemoryLifecycleReview,
+  applyRuntimeMemoryLineageInvalidation,
+  applyRuntimeMemoryLineageReinforcement,
   invalidateMemoryLineage,
   loadConfig,
   loadRuntimeGovernanceStore,
@@ -209,12 +243,22 @@ export {
   planRuntimeTask,
   PortInUseError,
   persistTaskLifecycleArtifacts,
+  previewRuntimeIntelDeliveries,
   promptYesNo,
   appendRuntimeEvent,
+  applyRuntimePinnedIntelKnowledgePromotion,
   applyRuntimeTaskResult,
+  applyRuntimeTaskOutcomeMemoryUpdate,
+  applyRuntimeUserControlMemoryUpdate,
+  dispatchRuntimeIntelDeliveries,
   distillTaskOutcomeToMemory,
   readRuntimeEvents,
   reviewRuntimeEvolution,
+  buildRuntimeUserModelMirrorStatus,
+  buildRuntimeMemoryMarkdownMirrorStatus,
+  readRuntimeUserModelMirrorImport,
+  markRuntimeUserModelMirrorImported,
+  setRuntimeEvolutionCandidateState,
   resolveInstanceManifest,
   resolvePathResolver,
   resolveRuntimeStorePaths,
@@ -232,7 +276,9 @@ export {
   buildShareableReviewEnvelope,
   shouldTaskRun,
   shouldUseSystem2,
+  syncRuntimeMemoryMarkdownMirror,
   tickRuntimeTaskLoop,
+  syncRuntimeUserModelMirror,
   upsertRuntimeTask,
   toWhatsappJid,
   waitForever,
@@ -273,8 +319,10 @@ export type {
   ShareableReviewRecord,
   StrategyDigestEnvelope,
   StrategyRecord,
+  RuntimeMcpGrantRecord,
   TaskRecord,
   TaskPriority,
+  TaskReportRecord,
   TaskReview,
   TaskRun,
   TaskStatus,
@@ -306,13 +354,48 @@ export type {
   RuntimeDashboardSnapshot,
   RuntimeEvolutionStatus,
   RuntimeImportPlan,
+  RuntimeIntelPendingDeliveryStatus,
   RuntimeIntelStatus,
   RuntimeMemoryListResult,
   RuntimeMemorySummary,
+  RuntimeMcpGrantStatus,
+  RuntimeNotifyReportSummary,
+  RuntimeNotifyStatus,
   RuntimeRetrievalStatus,
   RuntimeTaskSummary,
   RuntimeTasksListResult,
 } from "./shared/runtime/runtime-dashboard.js";
+
+export type { RuntimeUserModelMirrorStatus } from "./shared/runtime/user-model-mirror.js";
+export type {
+  RuntimeMemoryMarkdownMirrorStatus,
+  RuntimeMemoryMarkdownMirrorSyncResult,
+} from "./shared/runtime/memory-markdown-mirror.js";
+
+export type {
+  ApplyRuntimeMemoryInvalidationRollbackInput,
+  ApplyRuntimeMemoryInvalidationRollbackResult,
+  ApplyRuntimeMemoryLifecycleReviewResult,
+  ApplyRuntimeMemoryLineageInvalidationInput,
+  ApplyRuntimeMemoryLineageInvalidationResult,
+  ApplyRuntimeMemoryLineageReinforcementInput,
+  ApplyRuntimeMemoryLineageReinforcementResult,
+  ApplyRuntimePinnedIntelKnowledgePromotionInput,
+  ApplyRuntimePinnedIntelKnowledgePromotionResult,
+  ApplyRuntimeTaskOutcomeMemoryUpdateInput,
+  ApplyRuntimeTaskOutcomeMemoryUpdateResult,
+  ApplyRuntimeUserControlMemoryUpdateInput,
+  ApplyRuntimeUserControlMemoryUpdateResult,
+  RuntimeMemoryUpdateKind,
+  RuntimeMemoryUpdateSummary,
+} from "./shared/runtime/memory-update-engine.js";
+
+export type {
+  RuntimeIntelDeliveryDispatchResult,
+  RuntimeIntelDeliveryItem,
+  RuntimeIntelDeliveryKind,
+  RuntimeIntelDeliveryPreview,
+} from "./shared/runtime/intel-delivery.js";
 
 const isMain = isMainModule({
   currentFile: fileURLToPath(import.meta.url),

@@ -6,11 +6,16 @@ import type {
   RetrievalSourceSet,
   StrategyRecord,
 } from "./contracts.js";
+import type { RuntimeCapabilityPolicy } from "./capability-plane.js";
 
 type ScoredRecord<T> = {
   record: T;
   score: number;
 };
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function uniqueStrings(values: Array<string | undefined | null>): string[] {
   const seen = new Set<string>();
@@ -80,6 +85,36 @@ function countTextHits(parts: Array<string | undefined>, hints: string[]): numbe
   return hits;
 }
 
+function readMetadataString(metadata: Record<string, unknown>, key: string): string | undefined {
+  const value = metadata[key];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function readMetadataStringArray(metadata: Record<string, unknown>, key: string): string[] {
+  const value = metadata[key];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    .map((entry) => entry.trim());
+}
+
+function readMetadataBoolean(metadata: Record<string, unknown>, key: string): boolean {
+  return metadata[key] === true;
+}
+
+function normalizeSessionSignal(value: number | undefined, multiplier: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  const numeric = Number(value);
+  if (numeric <= 1) {
+    return numeric * multiplier;
+  }
+  return numeric / Math.max(1, multiplier / 2);
+}
+
 function scoreMemoryRecord(record: MemoryRecord, query: RetrievalQuery, hints: string[]): number {
   if (record.invalidatedBy.length > 0) {
     return -1000;
@@ -110,6 +145,7 @@ function scoreStrategyRecord(
   record: StrategyRecord,
   query: RetrievalQuery,
   hints: string[],
+  policy?: RuntimeCapabilityPolicy,
 ): number {
   if (record.invalidatedBy.length > 0) {
     return -1000;
@@ -126,6 +162,29 @@ function scoreStrategyRecord(
     score += 4;
   }
   score += countTextHits([record.summary, record.worker, ...record.skillIds], hints) * 8;
+
+  if (policy) {
+    const workerStatus = policy.resolveExecutionStatus("agent", record.worker);
+    if (workerStatus.mode === "blocked") {
+      score -= 1000;
+    } else if (workerStatus.mode === "shadow_only" || workerStatus.mode === "candidate_only") {
+      score -= 48;
+    } else if (workerStatus.state === "core") {
+      score += 32;
+    } else if (workerStatus.state === "adopted") {
+      score += 16;
+    }
+
+    for (const skillId of record.skillIds) {
+      const skillStatus = policy.resolveExecutionStatus("skill", skillId);
+      if (skillStatus.mode === "blocked") {
+        score -= 200;
+      } else if (skillStatus.mode === "shadow_only" || skillStatus.mode === "candidate_only") {
+        score -= 12;
+      }
+    }
+  }
+
   return score;
 }
 
@@ -145,9 +204,153 @@ function scoreArchiveCandidate(
   return score;
 }
 
+function scoreSessionCandidate(
+  record: RetrievalCandidate,
+  query: RetrievalQuery,
+  hints: string[],
+): number {
+  let score = normalizeSessionSignal(record.score, 24);
+  score += normalizeSessionSignal(record.confidence, 12);
+
+  const metadata = isObject(record.metadata) ? record.metadata : {};
+  const sessionSignalKind = readMetadataString(metadata, "sessionSignalKind");
+  const taskId = readMetadataString(metadata, "taskId");
+  const route = readMetadataString(metadata, "route");
+  const candidateState = readMetadataString(metadata, "candidateState");
+  const reportKind = readMetadataString(metadata, "reportKind");
+  const reportState = readMetadataString(metadata, "reportState");
+  const taskCreationPolicy = readMetadataString(metadata, "taskCreationPolicy");
+  const localTaskId = readMetadataString(metadata, "localTaskId");
+  const sessionId = readMetadataString(metadata, "sessionId");
+  const agentId = readMetadataString(metadata, "agentId");
+  const surfaceId = readMetadataString(metadata, "surfaceId");
+  const observedSessionIds = readMetadataStringArray(metadata, "observedSessionIds").map((entry) =>
+    entry.toLowerCase(),
+  );
+  const queryMetadata = isObject(query.metadata) ? query.metadata : {};
+  const querySessionId = readMetadataString(queryMetadata, "sessionId");
+  const queryAgentId = readMetadataString(queryMetadata, "agentId");
+  const querySurfaceId = readMetadataString(queryMetadata, "surfaceId");
+
+  if (query.taskId && taskId === query.taskId) {
+    score += 32;
+  }
+  if (query.route && route === query.route) {
+    score += 18;
+  }
+  if (query.route && record.sourceRef?.includes(query.route)) {
+    score += 8;
+  }
+  if (readMetadataBoolean(metadata, "requiresUserAction")) {
+    score += 20;
+  }
+  if (querySessionId && sessionId === querySessionId) {
+    score += 28;
+  } else if (querySessionId && observedSessionIds.includes(querySessionId.toLowerCase())) {
+    score += 20;
+  } else if (querySessionId && sessionId) {
+    score -= 6;
+  }
+  if (queryAgentId && agentId === queryAgentId) {
+    score += 18;
+  } else if (queryAgentId && agentId) {
+    score -= 4;
+  }
+  if (querySurfaceId && surfaceId === querySurfaceId) {
+    score += 22;
+  } else if (querySurfaceId && surfaceId) {
+    score -= 6;
+  }
+
+  switch (sessionSignalKind) {
+    case "task-report":
+      score += 22;
+      break;
+    case "coordinator-suggestion":
+      score += 18;
+      break;
+    case "user-model-optimization":
+    case "role-optimization":
+      score += 14;
+      break;
+    case "user-model-mirror":
+      score += 16;
+      break;
+    case "session-working-preference":
+      score += 8;
+      if (querySessionId && sessionId === querySessionId) {
+        score += 12;
+      }
+      break;
+    case "user-model":
+      score += 6;
+      if (querySessionId || queryAgentId || querySurfaceId) {
+        score += 8;
+      }
+      break;
+    case "surface":
+    case "agent":
+      score += 4;
+      break;
+    default:
+      break;
+  }
+
+  if (
+    sessionSignalKind === "coordinator-suggestion" &&
+    taskCreationPolicy === "disabled" &&
+    !localTaskId
+  ) {
+    score -= 26;
+  }
+
+  switch (candidateState) {
+    case "recommended":
+      score += 18;
+      break;
+    case "shadow":
+      score += 10;
+      break;
+    default:
+      break;
+  }
+
+  switch (reportKind) {
+    case "waiting_user":
+      score += 22;
+      break;
+    case "blocked":
+      score += 18;
+      break;
+    case "waiting_external":
+      score += 12;
+      break;
+    case "completion":
+      score += 4;
+      break;
+    default:
+      break;
+  }
+
+  switch (reportState) {
+    case "pending":
+      score += 14;
+      break;
+    case "delivered":
+      score += 8;
+      break;
+    default:
+      break;
+  }
+
+  score += countTextHits([record.title, record.excerpt, record.sourceRef], hints) * 6;
+  return score;
+}
+
 export function buildStructuredMatches(params: {
   query: RetrievalQuery;
   sources: RetrievalSourceSet;
+  policy?: RuntimeCapabilityPolicy;
 }): {
   strategies: Array<ScoredRecord<StrategyRecord>>;
   memories: Array<ScoredRecord<MemoryRecord>>;
@@ -155,35 +358,54 @@ export function buildStructuredMatches(params: {
   archive: Array<ScoredRecord<RetrievalCandidate>>;
 } {
   const hints = buildQueryHints(params.query);
-  const strategies = params.sources.strategies
-    .map((record) => ({ record, score: scoreStrategyRecord(record, params.query, hints) }))
-    .filter((entry) => entry.score > 0)
-    .toSorted((left, right) => right.score - left.score);
-  const memories = params.sources.memories
-    .map((record) => ({ record, score: scoreMemoryRecord(record, params.query, hints) }))
-    .filter((entry) => entry.score > 0)
-    .toSorted((left, right) => right.score - left.score);
-  const sessions = (params.sources.sessions ?? [])
-    .map((record) => ({
-      record: {
-        ...record,
-        plane: "session" as const,
-      },
-      score: scoreArchiveCandidate(
-        {
-          ...record,
-          plane: "session",
-        },
-        params.query,
-        hints,
-      ),
-    }))
-    .filter((entry) => entry.score > 0)
-    .toSorted((left, right) => right.score - left.score);
-  const archive = (params.sources.archive ?? [])
-    .map((record) => ({ record, score: scoreArchiveCandidate(record, params.query, hints) }))
-    .filter((entry) => entry.score > 0)
-    .toSorted((left, right) => right.score - left.score);
+  const _limit = clampLimit(params.query.maxCandidatesPerPlane, 4);
+  const planes = new Set(params.query.planes);
+
+  // Safety: System 1 does not pull heavy archive
+  if (params.query.thinkingLane !== "system2") {
+    planes.delete("archive");
+  }
+
+  const strategies = planes.has("strategy")
+    ? params.sources.strategies
+        .map((record) => ({
+          record,
+          score: scoreStrategyRecord(record, params.query, hints, params.policy),
+        }))
+        .filter((entry) => entry.score > 0)
+        .toSorted((left, right) => right.score - left.score)
+    : [];
+  const memories = planes.has("memory")
+    ? params.sources.memories
+        .map((record) => ({ record, score: scoreMemoryRecord(record, params.query, hints) }))
+        .filter((entry) => entry.score > 0)
+        .toSorted((left, right) => right.score - left.score)
+    : [];
+  const sessions = planes.has("session")
+    ? (params.sources.sessions ?? [])
+        .map((record) => ({
+          record: {
+            ...record,
+            plane: "session" as const,
+          },
+          score: scoreSessionCandidate(
+            {
+              ...record,
+              plane: "session",
+            },
+            params.query,
+            hints,
+          ),
+        }))
+        .filter((entry) => entry.score > 0)
+        .toSorted((left, right) => right.score - left.score)
+    : [];
+  const archive = planes.has("archive")
+    ? (params.sources.archive ?? [])
+        .map((record) => ({ record, score: scoreArchiveCandidate(record, params.query, hints) }))
+        .filter((entry) => entry.score > 0)
+        .toSorted((left, right) => right.score - left.score)
+    : [];
 
   return { strategies, memories, sessions, archive };
 }
@@ -265,13 +487,29 @@ export function buildHybridCandidateGeneration(params: {
   };
 }
 
-export function buildContextPack(params: {
+export type BuildContextPackParams = {
   query: RetrievalQuery;
   sources: RetrievalSourceSet;
-}): ContextPack {
-  const structured = buildStructuredMatches(params);
+  policy?: RuntimeCapabilityPolicy;
+};
+
+export function buildContextPack(params: BuildContextPackParams): ContextPack {
+  const query = params.query;
+  const thinkingLane = query.thinkingLane;
+  const planes = new Set(query.planes);
+
+  // Safety: Only System 2 can pull heavy archive by default in v6
+  if (thinkingLane !== "system2") {
+    planes.delete("archive");
+  }
+
+  const structured = buildStructuredMatches({
+    query: { ...query, planes: Array.from(planes) }, // Pass filtered planes to structured matches
+    sources: params.sources,
+    policy: params.policy,
+  });
   const hybrid = buildHybridCandidateGeneration({
-    query: params.query,
+    query,
     structured,
   });
   const summary = [

@@ -84,7 +84,7 @@ describe("compareTaskQueueOrder", () => {
       },
     ];
 
-    const ordered = tasks.sort(compareTaskQueueOrder).map((task) => task.id);
+    const ordered = tasks.toSorted(compareTaskQueueOrder).map((task) => task.id);
     expect(ordered).toEqual([
       "queued-high",
       "blocked-normal",

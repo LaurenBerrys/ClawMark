@@ -15,6 +15,11 @@ import { normalizeTaskStatus } from "./task-loop.js";
 
 export type TaskRecordSnapshotInput = {
   id?: string | null;
+  rootTaskId?: string | null;
+  parentTaskId?: string | null;
+  agentId?: string | null;
+  surfaceId?: string | null;
+  sessionId?: string | null;
   title?: string | null;
   route?: string | null;
   status?: string | null;
@@ -31,6 +36,7 @@ export type TaskRecordSnapshotInput = {
   intelRefs?: Array<string | null | undefined> | null;
   recurring?: boolean | null;
   maintenance?: boolean | null;
+  scheduleIntervalMinutes?: number | null;
   planSummary?: string | null;
   nextAction?: string | null;
   blockedReason?: string | null;
@@ -49,6 +55,9 @@ export type TaskRecordSnapshotInput = {
 export type TaskRunSnapshotInput = {
   id?: string | null;
   taskId: string;
+  agentId?: string | null;
+  surfaceId?: string | null;
+  sessionId?: string | null;
   status?: string | null;
   thinkingLane?: string | null;
   startedAt?: number | null;
@@ -68,6 +77,9 @@ export type TaskStepSnapshotInput = {
   id?: string | null;
   taskId: string;
   runId: string;
+  agentId?: string | null;
+  surfaceId?: string | null;
+  sessionId?: string | null;
   kind?: string | null;
   status?: string | null;
   idempotencyKey: string;
@@ -293,9 +305,17 @@ export function buildTaskRecordSnapshot(
   const updatedAt = toTimestamp(input.updatedAt, createdAt);
   const route = normalizeText(input.route) || "general";
   const title = normalizeText(input.title) || "Untitled task";
+  const taskId = normalizeText(input.id) || buildStableId("task", [route, title, createdAt]);
+  const parentTaskId = normalizeText(input.parentTaskId) || undefined;
+  const rootTaskId = normalizeText(input.rootTaskId) || parentTaskId || taskId;
 
   return {
-    id: normalizeText(input.id) || buildStableId("task", [route, title, createdAt]),
+    id: taskId,
+    rootTaskId,
+    parentTaskId,
+    agentId: normalizeText(input.agentId) || undefined,
+    surfaceId: normalizeText(input.surfaceId) || undefined,
+    sessionId: normalizeText(input.sessionId) || undefined,
     title,
     route,
     status: normalizeTaskStatus(input.status, "queued"),
@@ -313,6 +333,10 @@ export function buildTaskRecordSnapshot(
     artifactRefs: uniqueStrings(input.artifactRefs ?? input.intelRefs),
     recurring: input.recurring === true,
     maintenance: input.maintenance === true,
+    scheduleIntervalMinutes:
+      Number.isFinite(input.scheduleIntervalMinutes) && Number(input.scheduleIntervalMinutes) > 0
+        ? Math.round(Number(input.scheduleIntervalMinutes))
+        : undefined,
     planSummary: normalizeText(input.planSummary) || undefined,
     nextAction: normalizeText(input.nextAction) || undefined,
     blockedReason: normalizeText(input.blockedReason) || undefined,
@@ -357,6 +381,9 @@ export function buildTaskRunSnapshot(input: TaskRunSnapshotInput, now = Date.now
         normalizeText(input.concurrencyKey),
       ]),
     taskId: normalizeText(input.taskId) || "task_unknown",
+    agentId: normalizeText(input.agentId) || undefined,
+    surfaceId: normalizeText(input.surfaceId) || undefined,
+    sessionId: normalizeText(input.sessionId) || undefined,
     status,
     thinkingLane: normalizeThinkingLane(input.thinkingLane),
     startedAt,
@@ -385,6 +412,9 @@ export function buildTaskStepSnapshot(input: TaskStepSnapshotInput): TaskStep {
       ]),
     taskId: normalizeText(input.taskId) || "task_unknown",
     runId: normalizeText(input.runId) || "run_unknown",
+    agentId: normalizeText(input.agentId) || undefined,
+    surfaceId: normalizeText(input.surfaceId) || undefined,
+    sessionId: normalizeText(input.sessionId) || undefined,
     kind: normalizeTaskStepKind(input.kind),
     status: normalizeTaskStepStatus(input.status),
     idempotencyKey: normalizeText(input.idempotencyKey) || "step_idempotency_unknown",
@@ -494,6 +524,9 @@ export function buildTaskLifecycleArtifacts(
   const taskRun = buildTaskRunSnapshot(
     {
       taskId: taskRecord.id,
+      agentId: taskRecord.agentId,
+      surfaceId: taskRecord.surfaceId,
+      sessionId: taskRecord.sessionId,
       status: taskRecord.status,
       startedAt: taskRecord.updatedAt,
       updatedAt: taskRecord.updatedAt,
@@ -505,6 +538,9 @@ export function buildTaskLifecycleArtifacts(
     ? buildTaskStepSnapshot({
         taskId: taskRecord.id,
         runId: taskRun.id,
+        agentId: taskRecord.agentId,
+        surfaceId: taskRecord.surfaceId,
+        sessionId: taskRecord.sessionId,
         ...input.step,
       })
     : undefined;
@@ -523,11 +559,13 @@ export function buildTaskLifecycleArtifacts(
   const shareableReview = taskReview
     ? buildShareableReviewEnvelope(taskReview, input.shareableReview || undefined)
     : undefined;
+  const keepActiveRunId =
+    taskRecord.status === "planning" || taskRecord.status === "running";
 
   return {
     taskRecord: {
       ...taskRecord,
-      activeRunId: taskRun.id,
+      activeRunId: keepActiveRunId ? taskRun.id : undefined,
       latestReviewId: taskReview?.id || taskRecord.latestReviewId,
     },
     taskRun,

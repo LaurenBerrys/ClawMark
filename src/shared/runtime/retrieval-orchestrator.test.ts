@@ -22,7 +22,9 @@ const strategies: StrategyRecord[] = [
     version: 1,
     invalidatedBy: [],
     sourceEventIds: [],
-    sourceTaskIds: ["task-coder"],
+    sourceTaskIds: [],
+    sourceReviewIds: [],
+    sourceSessionIds: [],
     sourceIntelIds: [],
     derivedFromMemoryIds: [],
     createdAt: 1,
@@ -44,7 +46,9 @@ const memories: MemoryRecord[] = [
     version: 1,
     invalidatedBy: [],
     sourceEventIds: [],
-    sourceTaskIds: ["task-coder"],
+    sourceTaskIds: [],
+    sourceReviewIds: [],
+    sourceSessionIds: [],
     sourceIntelIds: [],
     derivedFromMemoryIds: [],
     createdAt: 1,
@@ -75,7 +79,10 @@ const archive: RetrievalCandidate[] = [
   },
 ];
 
-function buildQuery(thinkingLane: RetrievalQuery["thinkingLane"]): RetrievalQuery {
+function buildQuery(
+  thinkingLane: RetrievalQuery["thinkingLane"],
+  overrides: Partial<RetrievalQuery> = {},
+): RetrievalQuery {
   return {
     id: `query:${thinkingLane}`,
     taskId: "task-coder",
@@ -89,6 +96,7 @@ function buildQuery(thinkingLane: RetrievalQuery["thinkingLane"]): RetrievalQuer
     worker: "main",
     topicHints: ["coder", "runtime", "build", "github"],
     maxCandidatesPerPlane: 4,
+    ...overrides,
   };
 }
 
@@ -136,5 +144,184 @@ describe("buildContextPack", () => {
     expect(contextPack.archiveCandidates[0]?.title).toBe("workspace migration note");
     expect(contextPack.synthesis).toContain("top-session=runtime refactor notes");
     expect(contextPack.synthesis).toContain("top-archive=workspace migration note");
+  });
+
+  it("prioritizes actionable runtime session signals over passive notes", () => {
+    const contextPack = buildContextPack({
+      query: buildQuery("system1"),
+      sources: {
+        strategies,
+        memories,
+        sessions: [
+          {
+            id: "session-note-generic",
+            plane: "session",
+            recordId: "session-note-generic",
+            title: "approval note for workspace migration",
+            excerpt: "Need approval to continue the runtime workspace migration for coder work.",
+            score: 0.98,
+            confidence: 0.95,
+            sourceRef: "runtime-session-note",
+          },
+          {
+            id: "session-task-report",
+            plane: "session",
+            recordId: "report-task-coder",
+            title: "Task waiting for user confirmation",
+            excerpt: "Need approval to continue the runtime workspace migration for coder work.",
+            score: 0.9,
+            confidence: 96,
+            sourceRef: "runtime-task-report",
+            metadata: {
+              sessionSignalKind: "task-report",
+              taskId: "task-coder",
+              route: "coder",
+              requiresUserAction: true,
+              reportKind: "waiting_user",
+              reportState: "pending",
+            },
+          },
+          {
+            id: "session-coordinator",
+            plane: "session",
+            recordId: "coord-coder",
+            title: "Coordinator suggestion: keep the task blocked until approval",
+            excerpt: "Shared routing says to wait for operator approval before resuming coder work.",
+            score: 0.82,
+            confidence: 84,
+            sourceRef: "runtime-coordinator-suggestion",
+            metadata: {
+              sessionSignalKind: "coordinator-suggestion",
+              taskId: "task-coder",
+              route: "coder",
+            },
+          },
+          {
+            id: "session-coordinator-blocked",
+            plane: "session",
+            recordId: "coord-coder-blocked",
+            title: "Coordinator suggestion: open a surface task",
+            excerpt: "The sales surface asked to queue a local follow-up, but local task creation is disabled.",
+            score: 0.88,
+            confidence: 84,
+            sourceRef: "runtime-coordinator-suggestion",
+            metadata: {
+              sessionSignalKind: "coordinator-suggestion",
+              route: "coder",
+              surfaceId: "surface-sales",
+              taskCreationPolicy: "disabled",
+              escalationTarget: "surface-owner",
+              materializationBlocked: true,
+            },
+          },
+          {
+            id: "session-user-model-mirror",
+            plane: "session",
+            recordId: "runtime-user-model-mirror",
+            title: "Pending USER.md import",
+            excerpt: "Manual USER.md edits are waiting to be imported into the authoritative Runtime user model.",
+            score: 0.93,
+            confidence: 92,
+            sourceRef: "runtime-user-model-mirror",
+            metadata: {
+              sessionSignalKind: "user-model-mirror",
+              requiresUserAction: true,
+              mirrorPath: "/tmp/instance/config/USER.md",
+            },
+          },
+        ],
+        archive,
+      },
+    });
+
+    expect(contextPack.sessionCandidates[0]?.recordId).toBe("report-task-coder");
+    expect(contextPack.sessionCandidates[1]?.recordId).toBe("coord-coder");
+    expect(contextPack.sessionCandidates[2]?.recordId).toBe("runtime-user-model-mirror");
+    expect(contextPack.sessionCandidates[3]?.recordId).toBe("coord-coder-blocked");
+    expect(contextPack.sessionCandidates).toHaveLength(4);
+  });
+
+  it("prioritizes session and ecology-bound signals for the active task binding", () => {
+    const contextPack = buildContextPack({
+      query: buildQuery("system1", {
+        metadata: {
+          sessionId: "session-sales",
+          agentId: "agent-sales",
+          surfaceId: "surface-sales",
+        },
+      }),
+      sources: {
+        strategies,
+        memories,
+        sessions: [
+          {
+            id: "session-pref-other",
+            plane: "session",
+            recordId: "session-other",
+            title: "Other session preference",
+            excerpt: "reply_and_proactive for another coder session",
+            score: 0.97,
+            confidence: 95,
+            sourceRef: "runtime-session-working-preference",
+            metadata: {
+              sessionSignalKind: "session-working-preference",
+              sessionId: "session-other",
+              route: "coder",
+              reportPolicy: "reply_and_proactive",
+            },
+          },
+          {
+            id: "session-pref-sales",
+            plane: "session",
+            recordId: "session-sales",
+            title: "Sales session preference",
+            excerpt: "Use detailed updates and keep strict confirmation for the active sales session.",
+            score: 0.72,
+            confidence: 90,
+            sourceRef: "runtime-session-working-preference",
+            metadata: {
+              sessionSignalKind: "session-working-preference",
+              sessionId: "session-sales",
+              route: "coder",
+              reportVerbosity: "detailed",
+              interruptionThreshold: "low",
+              confirmationBoundary: "strict",
+            },
+          },
+          {
+            id: "session-role-sales",
+            plane: "session",
+            recordId: "role-sales",
+            title: "Role recommended: Sales surface",
+            excerpt: "The active sales surface should stay on the operator-reviewed route.",
+            score: 0.74,
+            confidence: 82,
+            sourceRef: "runtime-role-optimization",
+            metadata: {
+              sessionSignalKind: "role-optimization",
+              candidateState: "recommended",
+              route: "coder",
+              surfaceId: "surface-sales",
+              agentId: "agent-sales",
+            },
+          },
+          {
+            id: "session-note-generic",
+            plane: "session",
+            recordId: "note-generic",
+            title: "Generic runtime note",
+            excerpt: "Shared runtime notes for coder work.",
+            score: 0.98,
+            confidence: 96,
+            sourceRef: "runtime-session-note",
+          },
+        ],
+        archive,
+      },
+    });
+
+    expect(contextPack.sessionCandidates[0]?.recordId).toBe("role-sales");
+    expect(contextPack.sessionCandidates[1]?.recordId).toBe("session-sales");
+    expect(contextPack.sessionCandidates[2]?.recordId).toBe("session-other");
   });
 });

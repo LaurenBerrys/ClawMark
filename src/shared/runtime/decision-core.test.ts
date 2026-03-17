@@ -31,6 +31,8 @@ function buildSources(): RetrievalSourceSet {
       invalidatedBy: [],
       sourceEventIds: [],
       sourceTaskIds: ["task-coder"],
+      sourceReviewIds: [],
+      sourceSessionIds: [],
       sourceIntelIds: [],
       derivedFromMemoryIds: [],
       createdAt: 1,
@@ -53,6 +55,8 @@ function buildSources(): RetrievalSourceSet {
       invalidatedBy: [],
       sourceEventIds: [],
       sourceTaskIds: ["task-coder"],
+      sourceReviewIds: [],
+      sourceSessionIds: [],
       sourceIntelIds: [],
       derivedFromMemoryIds: [],
       createdAt: 1,
@@ -72,6 +76,29 @@ function buildSources(): RetrievalSourceSet {
       invalidatedBy: [],
       sourceEventIds: [],
       sourceTaskIds: ["task-coder"],
+      sourceReviewIds: [],
+      sourceSessionIds: [],
+      sourceIntelIds: [],
+      derivedFromMemoryIds: [],
+      createdAt: 1,
+      updatedAt: 1,
+    },
+    {
+      id: "memory-resource",
+      layer: "memories",
+      memoryType: "resource",
+      route: "coder",
+      summary: "优先沿用 reviewer worker 和 patch-edit 技能组合。",
+      detail: "已验证可复用资源：worker=reviewer | skills=patch-edit/test-verify。",
+      scope: "tech",
+      tags: ["worker", "skills"],
+      confidence: 74,
+      version: 1,
+      invalidatedBy: [],
+      sourceEventIds: [],
+      sourceTaskIds: ["task-coder"],
+      sourceReviewIds: [],
+      sourceSessionIds: [],
       sourceIntelIds: [],
       derivedFromMemoryIds: [],
       createdAt: 1,
@@ -110,6 +137,9 @@ const baseTask: DecisionTaskInput = {
   title: "把 shared runtime 收口到源码 core",
   goal: "抽出统一 retrieval 和 decision 模块，并恢复源码仓可构建。",
   route: "coder",
+  agentId: "agent-runtime",
+  sessionId: "session-runtime",
+  surfaceId: "surface-runtime",
   priority: "normal",
   budgetMode: "balanced",
   retrievalMode: "deep",
@@ -135,6 +165,11 @@ describe("buildDecisionRetrievalQuery", () => {
     expect(query.planes).toEqual(["strategy", "memory", "session"]);
     expect(query.route).toBe("coder");
     expect(query.topicHints).toContain("coder");
+    expect(query.metadata).toMatchObject({
+      agentId: "agent-runtime",
+      sessionId: "session-runtime",
+      surfaceId: "surface-runtime",
+    });
   });
 
   it("expands system2 to session and archive in deep mode", () => {
@@ -168,6 +203,160 @@ describe("shouldUseSystem2", () => {
     });
     expect(shouldUseSystem2({ task, contextPack })).toBe(true);
   });
+
+  it("stays on system1 when the task is clearly waiting for user action", () => {
+    const task: DecisionTaskInput = {
+      ...baseTask,
+      title: "Wait for operator approval before sending the change",
+      route: "office",
+      skillIds: [],
+      runState: {
+        consecutiveFailures: 1,
+        remoteCallCount: 1,
+      },
+    };
+    const contextPack = buildContextPack({
+      query: buildDecisionRetrievalQuery(task, "system1", config),
+      sources: {
+        strategies: [],
+        memories: [],
+        sessions: [
+          {
+            id: "session-task-report",
+            plane: "session",
+            recordId: "report-office-approval",
+            title: "Task waiting for user confirmation",
+            excerpt: "Approval is required before the runtime sends the operator update.",
+            score: 0.92,
+            confidence: 96,
+            sourceRef: "runtime-task-report",
+            metadata: {
+              sessionSignalKind: "task-report",
+              taskId: "task-coder",
+              route: "office",
+              requiresUserAction: true,
+              reportKind: "waiting_user",
+              reportState: "pending",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(shouldUseSystem2({ task, contextPack })).toBe(false);
+  });
+
+  it("stays on system1 when low-interruption preferences already explain a waiting-external hold", () => {
+    const task: DecisionTaskInput = {
+      ...baseTask,
+      priority: "low",
+      runState: {
+        consecutiveFailures: 1,
+        remoteCallCount: 1,
+      },
+    };
+    const contextPack = buildContextPack({
+      query: buildDecisionRetrievalQuery(task, "system1", config),
+      sources: {
+        strategies: [],
+        memories: [],
+        sessions: [
+          {
+            id: "session-user-model",
+            plane: "session",
+            recordId: "runtime-user",
+            title: "User control context",
+            excerpt: "reply · balanced",
+            score: 0.88,
+            confidence: 92,
+            sourceRef: "runtime-user-model",
+            metadata: {
+              sessionSignalKind: "user-model",
+              reportPolicy: "reply",
+              interruptionThreshold: "medium",
+              confirmationBoundary: "balanced",
+            },
+          },
+          {
+            id: "session-working-pref",
+            plane: "session",
+            recordId: "session-runtime",
+            title: "Runtime session",
+            excerpt: "low interruption · strict confirmation",
+            score: 0.72,
+            confidence: 91,
+            sourceRef: "runtime-session-working-preference",
+            metadata: {
+              sessionSignalKind: "session-working-preference",
+              sessionId: "session-runtime",
+              interruptionThreshold: "low",
+              confirmationBoundary: "strict",
+            },
+          },
+          {
+            id: "session-waiting-external",
+            plane: "session",
+            recordId: "report-runtime-waiting-external",
+            title: "Task waiting on an external runtime dependency",
+            excerpt:
+              "The active runtime task is waiting for an external dependency before it can continue.",
+            score: 0.88,
+            confidence: 90,
+            sourceRef: "runtime-task-report",
+            metadata: {
+              sessionSignalKind: "task-report",
+              taskId: "task-coder",
+              route: "coder",
+              reportKind: "waiting_external",
+              reportState: "pending",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(shouldUseSystem2({ task, contextPack })).toBe(false);
+  });
+
+  it("does not treat task-creation-blocked coordinator suggestions as a fast-path planning signal", () => {
+    const task: DecisionTaskInput = {
+      ...baseTask,
+      title: "Review blocked surface coordination suggestion",
+      route: "sales",
+      skillIds: [],
+      runState: {
+        consecutiveFailures: 0,
+        remoteCallCount: 0,
+      },
+    };
+    const contextPack = buildContextPack({
+      query: buildDecisionRetrievalQuery(task, "system1", config),
+      sources: {
+        strategies: [],
+        memories: [],
+        sessions: [
+          {
+            id: "session-coordinator-blocked",
+            plane: "session",
+            recordId: "coord-sales-blocked",
+            title: "Coordinator suggestion: open a sales follow-up task",
+            excerpt: "The bound sales surface has local task creation disabled, so the suggestion stays in review mode.",
+            score: 0.82,
+            confidence: 84,
+            sourceRef: "runtime-coordinator-suggestion",
+            metadata: {
+              sessionSignalKind: "coordinator-suggestion",
+              route: "sales",
+              surfaceId: "surface-sales",
+              taskCreationPolicy: "disabled",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(shouldUseSystem2({ task, contextPack })).toBe(true);
+  });
 });
 
 describe("buildDecisionRecord", () => {
@@ -182,12 +371,12 @@ describe("buildDecisionRecord", () => {
     expect(decision.builtAt).toBe(123);
     expect(decision.thinkingLane).toBe("system1");
     expect(decision.recommendedWorker).toBe("main");
-    expect(decision.relevantMemoryIds).toHaveLength(2);
+    expect(decision.relevantMemoryIds).toHaveLength(3);
     expect(decision.relevantMemoryIds).toEqual(
-      expect.arrayContaining(["memory-execution", "memory-efficiency"]),
+      expect.arrayContaining(["memory-execution", "memory-efficiency", "memory-resource"]),
     );
     expect(decision.relevantSessionIds).toEqual(["session-runtime"]);
-    expect(decision.contextPack.summary).toBe("strategy=1 | memory=2 | session=1 | archive=0");
+    expect(decision.contextPack.summary).toBe("strategy=1 | memory=3 | session=1 | archive=0");
   });
 
   it("rebuilds context for system2 when the task needs escalation", () => {
@@ -208,7 +397,73 @@ describe("buildDecisionRecord", () => {
     expect(decision.builtAt).toBe(456);
     expect(decision.thinkingLane).toBe("system2");
     expect(decision.relevantSessionIds).toEqual(["session-runtime"]);
-    expect(decision.contextPack.summary).toBe("strategy=1 | memory=2 | session=1 | archive=1");
+    expect(decision.contextPack.summary).toBe("strategy=1 | memory=3 | session=1 | archive=1");
+  });
+
+  it("surfaces effective user preferences and ecology bindings in the decision output", () => {
+    const decision = buildDecisionRecord({
+      task: baseTask,
+      config,
+      sources: {
+        ...buildSources(),
+        sessions: [
+          {
+            id: "session-user-model",
+            plane: "session",
+            recordId: "runtime-user",
+            title: "User control context",
+            excerpt: "reply · balanced",
+            score: 0.88,
+            confidence: 92,
+            sourceRef: "runtime-user-model",
+            metadata: {
+              sessionSignalKind: "user-model",
+              reportPolicy: "reply",
+              reportVerbosity: "balanced",
+              interruptionThreshold: "medium",
+              confirmationBoundary: "balanced",
+            },
+          },
+          {
+            id: "session-working-pref",
+            plane: "session",
+            recordId: "session-runtime",
+            title: "Runtime session",
+            excerpt: "detailed updates for the active session",
+            score: 0.75,
+            confidence: 95,
+            sourceRef: "runtime-session-working-preference",
+            metadata: {
+              sessionSignalKind: "session-working-preference",
+              sessionId: "session-runtime",
+              reportPolicy: "reply_and_proactive",
+              reportVerbosity: "detailed",
+              interruptionThreshold: "low",
+              confirmationBoundary: "strict",
+            },
+          },
+        ],
+      },
+      now: 777,
+    });
+
+    expect(decision.metadata).toMatchObject({
+      ecologyBinding: {
+        agentId: "agent-runtime",
+        sessionId: "session-runtime",
+        surfaceId: "surface-runtime",
+      },
+      userPreferenceView: {
+        reportPolicy: "reply_and_proactive",
+        reportVerbosity: "detailed",
+        interruptionThreshold: "low",
+        confirmationBoundary: "strict",
+      },
+    });
+    expect(decision.summary).toContain("prefs=reply_and_proactive/detailed/low/strict");
+    expect(buildDecisionPromptBlock(decision)).toContain(
+      "用户偏好：report=reply_and_proactive · verbosity=detailed · interrupt=low · confirm=strict",
+    );
   });
 
   it("supports compatibility mode with a prebuilt context pack", () => {
@@ -237,7 +492,10 @@ describe("buildDecisionPromptBlock", () => {
 
     expect(promptBlock).toContain("决策内核输出：");
     expect(promptBlock).toContain("推荐执行者：main");
-    expect(promptBlock).toContain("上下文摘要：strategy=1 | memory=2 | session=1 | archive=0");
+    expect(promptBlock).toContain("生态绑定：agent=agent-runtime · surface=surface-runtime · session=session-runtime");
+    expect(promptBlock).toContain("上下文摘要：strategy=1 | memory=3 | session=1 | archive=0");
+    expect(promptBlock).toContain("当前信号");
+    expect(promptBlock).toContain("[session] recent runtime control session");
     expect(promptBlock).toContain("route=coder");
   });
 });

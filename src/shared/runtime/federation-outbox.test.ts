@@ -7,7 +7,7 @@ import { syncRuntimeFederationOutbox } from "./federation-outbox.js";
 import { runRuntimeIntelPipeline } from "./intel-pipeline.js";
 import { distillTaskOutcomeToMemory, observeTaskOutcomeForEvolution } from "./mutations.js";
 import { buildFederationRuntimeSnapshot } from "./runtime-dashboard.js";
-import { loadRuntimeFederationStore } from "./store.js";
+import { loadRuntimeFederationStore, loadRuntimeTaskStore, saveRuntimeTaskStore } from "./store.js";
 
 async function withTempRoot(
   prefix: string,
@@ -62,7 +62,12 @@ describe("runtime federation outbox", () => {
             url: "https://brain.example.test/runtime",
           },
           push: {
-            allowedScopes: ["shareable_derived", "strategy_digest", "news_digest"],
+            allowedScopes: [
+              "shareable_derived",
+              "strategy_digest",
+              "news_digest",
+              "team_shareable_knowledge",
+            ],
             blockedScopes: ["raw_chat", "secrets"],
           },
         },
@@ -123,6 +128,10 @@ describe("runtime federation outbox", () => {
         },
         { env, now },
       );
+      const taskStore = loadRuntimeTaskStore({ env, now });
+      taskStore.tasks = [task];
+      taskStore.reviews = [review];
+      saveRuntimeTaskStore(taskStore, { env, now });
       observeTaskOutcomeForEvolution(
         {
           task,
@@ -147,6 +156,12 @@ describe("runtime federation outbox", () => {
       await expect(fs.readFile(result.runtimeManifestPath, "utf8")).resolves.toContain(
         '"manifestVersion": "v1"',
       );
+      await expect(fs.readFile(result.shareableReviewPaths[0], "utf8")).resolves.toContain(
+        '"shareScope": "shareable_derived"',
+      );
+      await expect(fs.readFile(result.shareableMemoryPaths[0], "utf8")).resolves.toContain(
+        '"shareScope": "shareable_derived"',
+      );
       await expect(fs.readFile(result.strategyDigestPath, "utf8")).resolves.toContain(
         '"strategies"',
       );
@@ -158,18 +173,49 @@ describe("runtime federation outbox", () => {
       await expect(fs.readFile(result.capabilityGovernancePath, "utf8")).resolves.toContain(
         '"entries"',
       );
+      await expect(fs.readFile(result.capabilityGovernancePath, "utf8")).resolves.toContain(
+        '"mcpGrants"',
+      );
+      await expect(fs.readFile(result.teamKnowledgePath!, "utf8")).resolves.toContain(
+        '"type": "team-knowledge"',
+      );
+      await expect(fs.readFile(result.teamKnowledgePath!, "utf8")).resolves.toContain(
+        '"sourceKind": "meta_learning"',
+      );
       expect(snapshot.outboxEnvelopeCounts.runtimeManifest).toBe(1);
+      expect(snapshot.outboxEnvelopeCounts.shareableReview).toBe(1);
+      expect(snapshot.outboxEnvelopeCounts.shareableMemory).toBeGreaterThan(0);
       expect(snapshot.outboxEnvelopeCounts.strategyDigest).toBe(1);
       expect(snapshot.outboxEnvelopeCounts.newsDigest).toBe(1);
       expect(snapshot.outboxEnvelopeCounts.shadowTelemetry).toBe(1);
       expect(snapshot.outboxEnvelopeCounts.capabilityGovernance).toBe(1);
+      expect(snapshot.outboxEnvelopeCounts.teamKnowledge).toBe(1);
+      expect(snapshot.outboxPreview.latestShareableReviews).toHaveLength(1);
+      expect(snapshot.outboxPreview.latestShareableMemories.length).toBeGreaterThan(0);
+      expect(snapshot.outboxPreview.latestTeamKnowledge.length).toBeGreaterThan(0);
       expect(snapshot.remoteConfigured).toBe(false);
-      expect(
-        loadRuntimeFederationStore({
-          env,
-          now,
-        }).syncCursor?.lastPushedAt,
-      ).toBe(now);
+      expect(result.journalRoot).toContain("outbox-journal");
+      expect(result.latestOutboxEventId).toBeTruthy();
+      expect(result.pendingOutboxEventCount).toBeGreaterThan(0);
+      expect(result.pendingEvents.length).toBe(result.pendingOutboxEventCount);
+      const federationStore = loadRuntimeFederationStore({
+        env,
+        now,
+      });
+      expect(federationStore.syncCursor?.lastPushedAt).toBeUndefined();
+      expect(federationStore.syncCursor?.lastOutboxEventId).toBeUndefined();
+      expect(federationStore.syncCursor?.metadata?.localOutboxHeadEventId).toBe(
+        result.latestOutboxEventId,
+      );
+
+      const secondResult = syncRuntimeFederationOutbox({
+        env,
+        now: now + 1_000,
+        config,
+      });
+      expect(secondResult.latestOutboxEventId).toBe(result.latestOutboxEventId);
+      expect(secondResult.pendingOutboxEventCount).toBe(result.pendingOutboxEventCount);
+      expect(secondResult.pendingEvents).toHaveLength(result.pendingEvents.length);
 
       const configuredSnapshot = buildFederationRuntimeSnapshot({
         env,
@@ -181,6 +227,7 @@ describe("runtime federation outbox", () => {
         "shareable_derived",
         "strategy_digest",
         "news_digest",
+        "team_shareable_knowledge",
       ]);
       expect(configuredSnapshot.blockedPushScopes).toEqual([
         "raw_chat",

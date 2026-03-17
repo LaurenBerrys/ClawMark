@@ -27,6 +27,21 @@ export type BudgetMode = "strict" | "balanced" | "deep";
 export type RetrievalMode = "off" | "light" | "deep";
 export type TaskReportPolicy = "silent" | "reply" | "proactive" | "reply_and_proactive";
 export type SurfaceOwnerKind = "user" | "agent";
+export type SurfaceReportTarget = "runtime-user" | "surface-owner";
+export type SurfaceLocalBusinessPolicyTaskCreation = "disabled" | "recommend_only";
+export type SurfaceLocalBusinessPolicyEscalationTarget = "runtime-user" | "surface-owner";
+export type SurfaceLocalBusinessPolicyPrivacyBoundary = "user-local" | "agent-local";
+
+export type SurfaceLocalBusinessPolicy = {
+  runtimeCoreBinding: "forbidden";
+  formalMemoryWrite: false;
+  userModelWrite: false;
+  surfaceRoleWrite: false;
+  taskCreation: SurfaceLocalBusinessPolicyTaskCreation;
+  escalationTarget: SurfaceLocalBusinessPolicyEscalationTarget;
+  privacyBoundary: SurfaceLocalBusinessPolicyPrivacyBoundary;
+  roleScope: string;
+};
 
 export const TASK_STATUSES = [
   "queued",
@@ -58,13 +73,27 @@ export type EvolutionCandidateType =
   | "intel_source"
   | "strategy_refresh"
   | "prompt_context_policy"
-  | "worker_routing";
+  | "worker_routing"
+  | "retrieval_policy";
+
+export const EVOLUTION_OPTIMIZATION_METRICS = [
+  "success",
+  "completion",
+  "token",
+  "latency",
+  "interruption",
+  "regression_risk",
+] as const;
+
+export type EvolutionOptimizationMetric = (typeof EVOLUTION_OPTIMIZATION_METRICS)[number];
 
 export type RuntimeMetadata = Record<string, unknown>;
 
 export type SourceLineage = {
   sourceEventIds: string[];
   sourceTaskIds: string[];
+  sourceReviewIds: string[];
+  sourceSessionIds: string[];
   sourceIntelIds: string[];
   derivedFromMemoryIds: string[];
 };
@@ -73,6 +102,11 @@ export type VersionedConfidence = {
   confidence: number;
   version: number;
   invalidatedBy: string[];
+};
+
+export type LifecycleMetrics = {
+  lastReinforcedAt?: number;
+  decayScore?: number;
 };
 
 export type MemoryRecord = SourceLineage &
@@ -95,7 +129,8 @@ export type MemoryRecord = SourceLineage &
   };
 
 export type StrategyRecord = SourceLineage &
-  VersionedConfidence & {
+  VersionedConfidence &
+  LifecycleMetrics & {
     id: string;
     layer: "strategies";
     route: string;
@@ -113,39 +148,61 @@ export type StrategyRecord = SourceLineage &
     metadata?: RuntimeMetadata;
   };
 
-export type MetaLearningRecord = {
-  id: string;
-  layer: "meta_learning";
-  summary: string;
-  hypothesis?: string;
-  adoptedAs?: "strategy" | "memory" | "policy" | "shadow";
-  sourceTaskIds: string[];
-  sourceReviewIds: string[];
-  sourceMemoryIds: string[];
-  createdAt: number;
-  updatedAt: number;
-  metadata?: RuntimeMetadata;
-};
+export type MetaLearningRecord = SourceLineage &
+  VersionedConfidence &
+  LifecycleMetrics & {
+    id: string;
+    layer: "meta_learning";
+    summary: string;
+    hypothesis?: string;
+    adoptedAs?: "strategy" | "memory" | "policy" | "shadow";
+    createdAt: number;
+    updatedAt: number;
+    metadata?: RuntimeMetadata;
+  };
 
-export type EvolutionMemoryRecord = {
-  id: string;
-  layer: "evolution_memory";
-  candidateType: EvolutionCandidateType;
-  targetLayer: "decision" | "task_loop" | "intel" | "retrieval" | "governance";
-  summary: string;
-  adoptionState: Exclude<GovernanceState, "blocked" | "core">;
-  baselineRef?: string;
-  candidateRef?: string;
-  sourceTaskIds: string[];
-  sourceReviewIds: string[];
-  sourceShadowTelemetryIds: string[];
-  createdAt: number;
-  updatedAt: number;
-  metadata?: RuntimeMetadata;
+export type EvolutionMemoryRecord = SourceLineage &
+  VersionedConfidence &
+  LifecycleMetrics & {
+    id: string;
+    layer: "evolution_memory";
+    candidateType: EvolutionCandidateType;
+    targetLayer: "decision" | "task_loop" | "intel" | "retrieval" | "governance";
+    summary: string;
+    adoptionState: Exclude<GovernanceState, "blocked" | "core">;
+    baselineRef?: string;
+    candidateRef?: string;
+    sourceShadowTelemetryIds: string[];
+    createdAt: number;
+    updatedAt: number;
+    optimizedMetrics?: EvolutionOptimizationMetric[];
+    metadata?: RuntimeMetadata;
+  };
+
+export type RuntimeEvolutionObservationMetrics = {
+  observationCount: number;
+  successCount: number;
+  completionCount: number;
+  waitingUserCount: number;
+  blockedCount: number;
+  failedCount: number;
+  averageCompletionScore: number;
+  averageLatencyMs: number;
+  averageTokenEstimate: number;
+  averageInterruptionCount: number;
+  averageRemoteCallCount: number;
+  successRate: number;
+  regressionRiskScore: number;
+  lastObservedAt: number;
 };
 
 export type TaskRecord = {
   id: string;
+  rootTaskId?: string;
+  parentTaskId?: string;
+  agentId?: string;
+  surfaceId?: string;
+  sessionId?: string;
   title: string;
   route: string;
   status: TaskStatus;
@@ -161,6 +218,7 @@ export type TaskRecord = {
   artifactRefs: string[];
   recurring: boolean;
   maintenance: boolean;
+  scheduleIntervalMinutes?: number;
   planSummary?: string;
   nextAction?: string;
   blockedReason?: string;
@@ -179,6 +237,9 @@ export type TaskRecord = {
 export type TaskRun = {
   id: string;
   taskId: string;
+  agentId?: string;
+  surfaceId?: string;
+  sessionId?: string;
   status: TaskStatus;
   thinkingLane: ThinkingLane;
   startedAt: number;
@@ -195,6 +256,9 @@ export type TaskStep = {
   id: string;
   taskId: string;
   runId: string;
+  agentId?: string;
+  surfaceId?: string;
+  sessionId?: string;
   kind: "intake" | "planner" | "executor" | "recovery" | "review" | "notify";
   status: "queued" | "running" | "completed" | "failed" | "cancelled";
   idempotencyKey: string;
@@ -216,6 +280,44 @@ export type TaskReview = {
   extractedMemoryIds: string[];
   strategyCandidateIds: string[];
   createdAt: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type TaskReportKind =
+  | "waiting_user"
+  | "completion"
+  | "blocked"
+  | "waiting_external"
+  | "cancelled";
+
+export type TaskReportState = "pending" | "delivered" | "resolved";
+
+export type TaskReportRecord = {
+  id: string;
+  taskId: string;
+  runId: string;
+  reviewId?: string;
+  taskStatus: TaskStatus;
+  kind: TaskReportKind;
+  state: TaskReportState;
+  reportPolicy: TaskReportPolicy;
+  reportVerbosity?: RuntimeUserModel["reportVerbosity"];
+  interruptionThreshold?: RuntimeUserModel["interruptionThreshold"];
+  confirmationBoundary?: RuntimeUserModel["confirmationBoundary"];
+  title: string;
+  summary: string;
+  nextAction?: string;
+  requiresUserAction: boolean;
+  reportTarget?: string;
+  surfaceId?: string;
+  surfaceLabel?: string;
+  agentId?: string;
+  sessionId?: string;
+  escalationTarget?: SurfaceLocalBusinessPolicy["escalationTarget"];
+  createdAt: number;
+  updatedAt: number;
+  deliveredAt?: number;
+  resolvedAt?: number;
   metadata?: RuntimeMetadata;
 };
 
@@ -269,6 +371,9 @@ export type DecisionTaskInput = {
   title: string;
   goal?: string;
   route: string;
+  agentId?: string;
+  sessionId?: string;
+  surfaceId?: string;
   taskKind?: string;
   priority: TaskPriority;
   budgetMode: BudgetMode;
@@ -326,6 +431,33 @@ export type RuntimeUserModel = {
   metadata?: RuntimeMetadata;
 };
 
+export type RuntimeUserModelPreferencePatch = Partial<
+  Pick<
+    RuntimeUserModel,
+    | "communicationStyle"
+    | "interruptionThreshold"
+    | "reportVerbosity"
+    | "confirmationBoundary"
+    | "reportPolicy"
+  >
+>;
+
+export type RuntimeSessionWorkingPreference = {
+  id: string;
+  sessionId: string;
+  label?: string;
+  communicationStyle?: string;
+  interruptionThreshold?: "low" | "medium" | "high";
+  reportVerbosity?: "brief" | "balanced" | "detailed";
+  confirmationBoundary?: "strict" | "balanced" | "light";
+  reportPolicy?: TaskReportPolicy;
+  notes?: string;
+  expiresAt?: number;
+  createdAt: number;
+  updatedAt: number;
+  metadata?: RuntimeMetadata;
+};
+
 export type AgentRecord = {
   id: string;
   name: string;
@@ -372,16 +504,80 @@ export type SurfaceRoleOverlay = {
   initiative?: "low" | "medium" | "high";
   allowedTopics: string[];
   restrictedTopics: string[];
-  reportTarget?: string;
-  localBusinessPolicy?: RuntimeMetadata;
+  reportTarget?: SurfaceReportTarget;
+  localBusinessPolicy?: SurfaceLocalBusinessPolicy;
   createdAt: number;
   updatedAt: number;
   metadata?: RuntimeMetadata;
 };
 
+export type RoleOptimizationCandidateState =
+  | "shadow"
+  | "recommended"
+  | "adopted"
+  | "rejected"
+  | "expired"
+  | "reverted";
+
+export type RoleOptimizationCandidate = {
+  id: string;
+  surfaceId: string;
+  agentId?: string;
+  ownerKind: SurfaceOwnerKind;
+  summary: string;
+  reasoning: string[];
+  proposedOverlay: Partial<SurfaceRoleOverlay>;
+  observationCount: number;
+  confidence: number;
+  state: RoleOptimizationCandidateState;
+  source: "local-review" | "federation";
+  createdAt: number;
+  updatedAt: number;
+  shadowedAt?: number;
+  recommendedAt?: number;
+  adoptedAt?: number;
+  rejectedAt?: number;
+  expiredAt?: number;
+  revertedAt?: number;
+  metadata?: RuntimeMetadata;
+};
+
+export const USER_MODEL_OPTIMIZATION_FIELDS = [
+  "communicationStyle",
+  "interruptionThreshold",
+  "reportVerbosity",
+  "confirmationBoundary",
+  "reportPolicy",
+] as const;
+
+export type UserModelOptimizationField = (typeof USER_MODEL_OPTIMIZATION_FIELDS)[number];
+export type UserModelOptimizationCandidateState = RoleOptimizationCandidateState;
+
+export type UserModelOptimizationCandidate = {
+  id: string;
+  field: UserModelOptimizationField;
+  summary: string;
+  reasoning: string[];
+  proposedUserModel: RuntimeUserModelPreferencePatch;
+  observedSessionIds: string[];
+  observationCount: number;
+  confidence: number;
+  state: UserModelOptimizationCandidateState;
+  source: "local-review" | "federation";
+  createdAt: number;
+  updatedAt: number;
+  shadowedAt?: number;
+  recommendedAt?: number;
+  adoptedAt?: number;
+  rejectedAt?: number;
+  expiredAt?: number;
+  revertedAt?: number;
+  metadata?: RuntimeMetadata;
+};
+
 export type IntelCandidate = {
   id: string;
-  domain: "tech" | "ai" | "business" | "github";
+  domain: "military" | "tech" | "ai" | "business";
   sourceId: string;
   title: string;
   url?: string;
@@ -436,12 +632,53 @@ export type IntelUsefulnessRecord = {
   metadata?: RuntimeMetadata;
 };
 
+export type IntelItemRankRecord = {
+  id: string;
+  intelId: string;
+  sourceId: string;
+  domain: IntelCandidate["domain"];
+  selectionRank?: number;
+  explorationRank?: number;
+  selectionScore: number;
+  explorationScore: number;
+  selected: boolean;
+  selectedMode: "exploit" | "explore" | "none";
+  createdAt: number;
+  metadata?: RuntimeMetadata;
+};
+
 export type ManualPinnedIntelRecord = {
   id: string;
   intelId: string;
   promotedToMemoryId?: string;
   promotedBy: string;
   createdAt: number;
+  metadata?: RuntimeMetadata;
+};
+
+export type IntelDeliveryKind = "daily_digest" | "instant_alert";
+export type IntelDeliveryTargetKind = "runtime_user" | "agent" | "surface";
+
+export type IntelDeliveryTarget = {
+  id: string;
+  kind: IntelDeliveryTargetKind;
+  label: string;
+  active: boolean;
+  channel?: string;
+  ownerLabel?: string;
+  metadata?: RuntimeMetadata;
+};
+
+export type IntelDeliveryRecord = {
+  id: string;
+  kind: IntelDeliveryKind;
+  digestItemId: string;
+  targetId: string;
+  targetKind: IntelDeliveryTargetKind;
+  targetLabel: string;
+  domain: IntelCandidate["domain"];
+  title: string;
+  deliveredAt: number;
   metadata?: RuntimeMetadata;
 };
 
@@ -455,19 +692,34 @@ export type GovernanceRegistryEntry = {
   metadata?: RuntimeMetadata;
 };
 
-export type ShadowEvaluationRecord = {
+export type RuntimeMcpGrantState = "allowed" | "denied";
+
+export type RuntimeMcpGrantRecord = {
   id: string;
-  candidateType: EvolutionCandidateType;
-  targetLayer: EvolutionMemoryRecord["targetLayer"];
-  state: "observed" | "shadow" | "promoted" | "adopted" | "reverted";
-  baselineRef?: string;
-  candidateRef?: string;
-  expectedEffect?: string;
-  measuredEffect?: string;
-  observationCount: number;
+  agentId: string;
+  mcpServerId: string;
+  state: RuntimeMcpGrantState;
+  summary: string;
   updatedAt: number;
   metadata?: RuntimeMetadata;
 };
+
+export type ShadowEvaluationRecord = SourceLineage &
+  VersionedConfidence &
+  LifecycleMetrics & {
+    id: string;
+    candidateType: EvolutionCandidateType;
+    targetLayer: EvolutionMemoryRecord["targetLayer"];
+    state: "observed" | "shadow" | "promoted" | "adopted" | "reverted";
+    baselineRef?: string;
+    candidateRef?: string;
+    expectedEffect?: string;
+    measuredEffect?: string;
+    observationCount: number;
+    updatedAt: number;
+    targetMetrics?: EvolutionOptimizationMetric[];
+    metadata?: RuntimeMetadata;
+  };
 
 export type InstanceManifest = {
   version: "v1";
@@ -562,6 +814,7 @@ export type ShadowTelemetryEnvelope = {
 export type CapabilityGovernanceSnapshot = {
   id: string;
   entries: GovernanceRegistryEntry[];
+  mcpGrants: RuntimeMcpGrantRecord[];
   generatedAt: number;
   metadata?: RuntimeMetadata;
 };
@@ -609,6 +862,36 @@ export type TeamKnowledgeEnvelope = {
   metadata?: RuntimeMetadata;
 };
 
+export type FederationTaskAssignmentState =
+  | "pending"
+  | "materialized"
+  | "blocked"
+  | "applied";
+
+export type FederationTaskAssignment = {
+  schemaVersion: "v1";
+  type: "federation-task-assignment";
+  id: string;
+  title: string;
+  summary: string;
+  sourceRuntimeId: string;
+  generatedAt: number;
+  sourcePackageId?: string;
+  sourceTaskId?: string;
+  route?: string;
+  worker?: string;
+  surfaceId?: string;
+  agentId?: string;
+  state?: FederationTaskAssignmentState;
+  localTaskId?: string;
+  blockedReason?: string;
+  receivedAt?: number;
+  updatedAt?: number;
+  materializedAt?: number;
+  appliedAt?: number;
+  metadata?: RuntimeMetadata;
+};
+
 export type CoordinatorSuggestionEnvelope = {
   schemaVersion: "v1";
   type: "coordinator-suggestion";
@@ -621,6 +904,26 @@ export type CoordinatorSuggestionEnvelope = {
     taskId?: string;
     metadata?: RuntimeMetadata;
   };
+  metadata?: RuntimeMetadata;
+};
+
+export type CoordinatorSuggestionRecord = {
+  id: string;
+  title: string;
+  summary: string;
+  taskId?: string;
+  localTaskId?: string;
+  localTaskStatus?: TaskStatus | "missing";
+  sourceRuntimeId: string;
+  sourcePackageId: string;
+  createdAt: number;
+  updatedAt: number;
+  adoptedAt?: number;
+  materializedAt?: number;
+  lifecycleSyncedAt?: number;
+  lastMaterializedLocalTaskId?: string;
+  lastMaterializedAt?: number;
+  rematerializeReason?: string;
   metadata?: RuntimeMetadata;
 };
 
@@ -689,9 +992,38 @@ export type FederationInboundPackage =
   | RoleOptimizationPackage
   | RuntimePolicyOverlayPackage;
 
+export type InvalidFederationPackageEnvelope = {
+  schemaVersion: "v1";
+  type: "invalid-package";
+  sourceRuntimeId: string;
+  generatedAt: number;
+  payload: {
+    declaredType?: string;
+    sourceError?: string;
+    fileName?: string;
+    rawPreview?: string;
+  };
+  metadata?: RuntimeMetadata;
+};
+
+export type FederationInboxPackage =
+  | FederationInboundPackage
+  | InvalidFederationPackageEnvelope;
+
+export type FederationPackageRiskLevel = "low" | "medium" | "high";
+
+export type FederationPackageReview = {
+  riskLevel: FederationPackageRiskLevel;
+  autoAdoptEligible: boolean;
+  requiresReasonOnAdopt: boolean;
+  routeScope: "global" | "route";
+  summary: string;
+  signals: string[];
+};
+
 export type FederationInboxRecord = {
   id: string;
-  packageType: FederationInboundPackage["type"];
+  packageType: FederationInboxPackage["type"];
   sourceRuntimeId: string;
   state: FederationPackageState;
   summary: string;
@@ -706,7 +1038,8 @@ export type FederationInboxRecord = {
   expiredAt?: number;
   revertedAt?: number;
   updatedAt: number;
-  payload: FederationInboundPackage;
+  payload: FederationInboxPackage;
+  review?: FederationPackageReview;
   metadata?: RuntimeMetadata;
 };
 
@@ -719,9 +1052,33 @@ export type FederationSyncCursor = {
   metadata?: RuntimeMetadata;
 };
 
+export type FederationSyncAttemptStage =
+  | "prepare"
+  | "push"
+  | "pull"
+  | "persist_inbox"
+  | "sync_inbox";
+
+export type FederationSyncAttemptRecord = {
+  id: string;
+  status: "success" | "failed";
+  stage: FederationSyncAttemptStage;
+  startedAt: number;
+  completedAt: number;
+  pushUrl?: string;
+  pullUrl?: string;
+  pushedEnvelopeKeys: string[];
+  pulledPackageCount: number;
+  inboxProcessedCount: number;
+  retryable: boolean;
+  error?: string;
+  metadata?: RuntimeMetadata;
+};
+
 export type RuntimeFederationStore = {
   version: "v1";
   inbox: FederationInboxRecord[];
+  coordinatorSuggestions: CoordinatorSuggestionRecord[];
   sharedStrategies: StrategyRecord[];
   teamKnowledge: TeamKnowledgeRecord[];
   syncCursor?: FederationSyncCursor;
@@ -735,6 +1092,9 @@ export type RuntimeTaskDefaults = {
   maxInputTokensPerTurn: number;
   maxContextChars: number;
   maxRemoteCallsPerTask: number;
+  leaseDurationMs: number;
+  maxConcurrentRunsPerWorker: number;
+  maxConcurrentRunsPerRoute: number;
 };
 
 export type RuntimeTaskStore = {
@@ -744,6 +1104,7 @@ export type RuntimeTaskStore = {
   runs: TaskRun[];
   steps: TaskStep[];
   reviews: TaskReview[];
+  reports: TaskReportRecord[];
   lastImportedAt?: number;
   metadata?: RuntimeMetadata;
 };
@@ -771,6 +1132,7 @@ export type RuntimeIntelStore = {
   sourceProfiles: IntelSourceProfile[];
   topicProfiles: IntelTopicProfile[];
   usefulnessRecords: IntelUsefulnessRecord[];
+  rankRecords: IntelItemRankRecord[];
   pinnedRecords: ManualPinnedIntelRecord[];
   lastImportedAt?: number;
   metadata?: RuntimeMetadata;
@@ -779,6 +1141,7 @@ export type RuntimeIntelStore = {
 export type RuntimeGovernanceStore = {
   version: "v1";
   entries: GovernanceRegistryEntry[];
+  mcpGrants: RuntimeMcpGrantRecord[];
   shadowEvaluations: ShadowEvaluationRecord[];
   lastImportedAt?: number;
   metadata?: RuntimeMetadata;
@@ -787,10 +1150,13 @@ export type RuntimeGovernanceStore = {
 export type RuntimeUserConsoleStore = {
   version: "v1";
   userModel: RuntimeUserModel;
+  sessionWorkingPreferences: RuntimeSessionWorkingPreference[];
   agents: AgentRecord[];
   agentOverlays: AgentLocalOverlay[];
   surfaces: SurfaceRecord[];
   surfaceRoleOverlays: SurfaceRoleOverlay[];
+  roleOptimizationCandidates: RoleOptimizationCandidate[];
+  userModelOptimizationCandidates: UserModelOptimizationCandidate[];
   lastImportedAt?: number;
   metadata?: RuntimeMetadata;
 };
