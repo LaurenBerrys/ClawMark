@@ -18,10 +18,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
 </p>
 
-**OpenClaw** is a _personal AI assistant_ you run on your own devices.
-It answers you on the channels you already use (WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, iMessage, BlueBubbles, IRC, Microsoft Teams, Matrix, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, Zalo Personal, WebChat). It can speak and listen on macOS/iOS/Android, and can render a live Canvas you control. The Gateway is just the control plane — the product is the assistant.
+**OpenClaw** is a **Sovereign AI Runtime** (v6) designed for local execution sovereignty, privacy, and governance.
+It provides a managed execution layer that you run on your own hardware, owning your formal truth (memories, strategies, tasks) locally.
 
-If you want a personal, single-user assistant that feels local, fast, and always-on, this is it.
+It answers you on the channels you already use (WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, iMessage, BlueBubbles, IRC, Microsoft Teams, Matrix, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, Zalo Personal, WebChat). It can speak and listen on macOS/iOS/Android, and can render a live Canvas you control. The Gateway is the control plane — the Sovereign Runtime is the core.
 
 [Website](https://openclaw.ai) · [Docs](https://docs.openclaw.ai) · [Vision](VISION.md) · [DeepWiki](https://deepwiki.com/openclaw/openclaw) · [Getting Started](https://docs.openclaw.ai/start/getting-started) · [Updating](https://docs.openclaw.ai/install/updating) · [Showcase](https://docs.openclaw.ai/start/showcase) · [FAQ](https://docs.openclaw.ai/help/faq) · [Wizard](https://docs.openclaw.ai/start/wizard) · [Nix](https://github.com/openclaw/nix-openclaw) · [Docker](https://docs.openclaw.ai/install/docker) · [Discord](https://discord.gg/clawd)
 
@@ -125,14 +125,41 @@ Run `openclaw doctor` to surface risky/misconfigured DM policies.
 
 ## Highlights
 
+- **[Managed V6 Runtime](AGENTS.md)** — Sovereign execution core with formal memory kernel (SQL+WAL) and structured truth ownership.
 - **[Local-first Gateway](https://docs.openclaw.ai/gateway)** — single control plane for sessions, channels, tools, and events.
-- **[Multi-channel inbox](https://docs.openclaw.ai/channels)** — WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, BlueBubbles (iMessage), iMessage (legacy), IRC, Microsoft Teams, Matrix, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, Zalo Personal, WebChat, macOS, iOS/Android.
-- **[Multi-agent routing](https://docs.openclaw.ai/gateway/configuration)** — route inbound channels/accounts/peers to isolated agents (workspaces + per-agent sessions).
+- **[Governed Decision Core](src/shared/runtime/decision-core.ts)** — Structured System 1/System 2 decisions with policy-driven skill and worker gating.
+- **[Memory Kernel Lifecycle](src/shared/runtime/mutations.ts)** — Unified write chains for knowledge, execution, avoidance, and strategy memories with decay/reinforcement.
+- **[Self-Evolution Engine](src/shared/runtime/evolution-engine.ts)** — Local optimization of retrieval, context, and retrieval policies with risk-gated auto-apply.
+- **[Multi-channel inbox](https://docs.openclaw.ai/channels)** — WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, BlueBubbles (iMessage), iMessage (legacy), IRC, Microsoft Teams, Matrix, Feishu, LINE, Mattermost, Nextcloud Talk, Nostr, Synology Chat, Tlon, Twitch, Zalo, Zalo Personal, WebChat.
 - **[Voice Wake](https://docs.openclaw.ai/nodes/voicewake) + [Talk Mode](https://docs.openclaw.ai/nodes/talk)** — wake words on macOS/iOS and continuous voice on Android (ElevenLabs + system TTS fallback).
 - **[Live Canvas](https://docs.openclaw.ai/platforms/mac/canvas)** — agent-driven visual workspace with [A2UI](https://docs.openclaw.ai/platforms/mac/canvas#canvas-a2ui).
 - **[First-class tools](https://docs.openclaw.ai/tools)** — browser, canvas, nodes, cron, sessions, and Discord/Slack actions.
 - **[Companion apps](https://docs.openclaw.ai/platforms/macos)** — macOS menu bar app + iOS/Android [nodes](https://docs.openclaw.ai/nodes).
 - **[Onboarding](https://docs.openclaw.ai/start/wizard) + [skills](https://docs.openclaw.ai/tools/skills)** — wizard-driven setup with bundled/managed/workspace skills.
+
+## V6 Runtime Architecture (Managed Edition)
+
+This repository implements the **Managed OpenClaw Runtime v6**, a significant evolution focusing on local sovereignty and formal execution.
+
+### 1. Sovereignty Boundary
+
+The runtime is the unit of isolation. All formal truth (logs, events, memories, strategies, meta-learning, evolution) stays local to the instance root. The `Runtime Core` owns formal truth, while `Agents` are ecology objects within the system.
+
+### 2. Memory Kernel
+
+A unified SQLite-backed kernel provides the six-layer structure for truth:
+
+- **Knowledge & User Models**: Authoritative private user profiles and pinned knowledge.
+- **Execution & Strategy**: Historical execution patterns and derived strategies.
+- **Avoidance & Efficiency**: Learned constraints to prevent regression.
+
+### 3. Governed Execution
+
+Capability governance ensures that `skills`, `agents`, and `MCP` tools follow strict adoption tracks (Candidate -> Adopted -> Core). Decisions are gated by local policy, not remote prompts.
+
+### 4. Continuous Task Loop
+
+The autonomous loop handles Intake, Planning, Execution, and Review. It supports recovery and replanning triggered by memory invalidation, ensuring robust long-running task completion.
 
 ## Star History
 
