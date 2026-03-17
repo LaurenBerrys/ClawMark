@@ -1,0 +1,15 @@
+﻿src/shared/runtime/memory-markdown-mirror.test.ts(94,28): error TS1109: Expression expected.
+src/shared/runtime/memory-markdown-mirror.test.ts(122,28): error TS1109: Expression expected.
+src/shared/runtime/memory-markdown-mirror.test.ts(141,28): error TS1109: Expression expected.
+src/shared/runtime/memory-markdown-mirror.test.ts(156,28): error TS1109: Expression expected.
+src/shared/runtime/memory-update-engine.test.ts(350,26): error TS1109: Expression expected.
+src/shared/runtime/retrieval-orchestrator.test.ts(25,20): error TS1109: Expression expected.
+src/shared/runtime/retrieval-orchestrator.test.ts(49,20): error TS1109: Expression expected.
+src/shared/runtime/runtime-dashboard.test.ts(1056,26): error TS1109: Expression expected.
+src/shared/runtime/runtime-dashboard.test.ts(1861,38): error TS1109: Expression expected.
+src/shared/runtime/runtime-dashboard.test.ts(2016,30): error TS1109: Expression expected.
+src/shared/runtime/runtime-dashboard.test.ts(2746,30): error TS1109: Expression expected.
+src/shared/runtime/runtime-dashboard.test.ts(2911,32): error TS1109: Expression expected.
+src/shared/runtime/runtime-dashboard.test.ts(3493,24): error TS1109: Expression expected.
+src/shared/runtime/runtime-dashboard.test.ts(3652,26): error TS1109: Expression expected.
+src/shared/runtime/runtime-dashboard.test.ts(3861,26): error TS1109: Expression expected.

@@ -1,0 +1,358 @@
+﻿
+> openclaw@2026.3.12 lint
+> oxlint --type-aware
+
+
+  x eslint(curly): Expected { after 'if' condition.
+    ,-[src/daemon/paths.ts:9:14]
+  8 |   const home = resolveHomeDirFromEnv(env);
+  9 |   if (!home) throw new Error("Missing HOME");
+    :              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 10 |   return home;
+    `----
+  help: Replace `throw new Error("Missing HOME");` with `{throw new Error("Missing HOME");}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+    ,-[src/config/paths.ts:78:17]
+ 77 |   const homeDir = resolveHomeDirFromEnv(env, homedir);
+ 78 |   if (override) return resolvePathWithHome(override, { homeDir });
+    :                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 79 |   const manifest = resolveInstanceManifest({ env, homedir });
+    `----
+  help: Replace `return resolvePathWithHome(override, { homeDir });` with `{return resolvePathWithHome(override, { homeDir });}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+     ,-[src/config/paths.ts:102:17]
+ 101 |   });
+ 102 |   if (existing) return existing;
+     :                 ^^^^^^^^^^^^^^^^
+ 103 |   return resolveCanonicalConfigPath(env, resolveStateDir(env, homedir), homedir);
+     `----
+  help: Replace `return existing;` with `{return existing;}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+     ,-[src/config/paths.ts:116:17]
+ 115 |   const homeDir = resolveHomeDirFromEnv(env, homedir);
+ 116 |   if (override) return resolvePathWithHome(override, { homeDir });
+     :                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 117 |   const manifest = resolveInstanceManifest({ env, homedir });
+     `----
+  help: Replace `return resolvePathWithHome(override, { homeDir });` with `{return resolvePathWithHome(override, { homeDir });}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+     ,-[src/config/paths.ts:132:17]
+ 131 |   });
+ 132 |   if (existing) return existing;
+     :                 ^^^^^^^^^^^^^^^^
+ 133 |   if (stateOverride) return joinResolvedPath(configRoot, CONFIG_FILENAME);
+     `----
+  help: Replace `return existing;` with `{return existing;}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+     ,-[src/config/paths.ts:133:22]
+ 132 |   if (existing) return existing;
+ 133 |   if (stateOverride) return joinResolvedPath(configRoot, CONFIG_FILENAME);
+     :                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 134 |   const defaultStateDir = resolveStateDir(env, homedir);
+     `----
+  help: Replace `return joinResolvedPath(configRoot, CONFIG_FILENAME);` with `{return joinResolvedPath(configRoot, CONFIG_FILENAME);}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+     ,-[src/config/paths.ts:153:17]
+ 152 |   const homeDir = resolveHomeDirFromEnv(env, homedir);
+ 153 |   if (explicit) return [resolvePathWithHome(explicit, { homeDir })];
+     :                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 154 | 
+     `----
+  help: Replace `return [resolvePathWithHome(explicit, { homeDir })];` with `{return [resolvePathWithHome(explicit, { homeDir })];}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+     ,-[src/config/paths.ts:243:48]
+ 242 |     const parsed = Number.parseInt(envRaw, 10);
+ 243 |     if (Number.isFinite(parsed) && parsed > 0) return parsed;
+     :                                                ^^^^^^^^^^^^^^
+ 244 |   }
+     `----
+  help: Replace `return parsed;` with `{return parsed;}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+     ,-[src/config/paths.ts:247:25]
+ 246 |   if (typeof configPort === "number" && Number.isFinite(configPort)) {
+ 247 |     if (configPort > 0) return configPort;
+     :                         ^^^^^^^^^^^^^^^^^^
+ 248 |   }
+     `----
+  help: Replace `return configPort;` with `{return configPort;}`.
+
+  x eslint(no-unused-vars): Type 'FederationPackageRiskLevel' is imported but never used.
+    ,-[src/shared/runtime/store.ts:11:3]
+ 10 |   FederationInboxRecord,
+ 11 |   FederationPackageRiskLevel,
+    :   ^^^^^^^^^^^^^|^^^^^^^^^^^^
+    :                `-- 'FederationPackageRiskLevel' is imported here
+ 12 |   FederationSyncCursor,
+    `----
+  help: Consider removing this import.
+
+  x eslint(curly): Expected { after 'if' condition.
+    ,-[src/agents/workspace.ts:18:17]
+ 17 |   const trimmed = suffix?.trim();
+ 18 |   if (!trimmed) return workspaceDir;
+    :                 ^^^^^^^^^^^^^^^^^^^^
+ 19 |   return path.join(path.dirname(workspaceDir), `${path.basename(workspaceDir)}-${trimmed}`);
+    `----
+  help: Replace `return workspaceDir;` with `{return workspaceDir;}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+    ,-[src/instance/paths.ts:36:56]
+ 35 |   const trimmed = profile?.trim();
+ 36 |   if (!trimmed || trimmed.toLowerCase() === "default") return "";
+    :                                                        ^^^^^^^^^^
+ 37 |   return `-${trimmed}`;
+    `----
+  help: Replace `return "";` with `{return "";}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+    ,-[src/instance/paths.ts:58:17]
+ 57 |   const trimmed = value?.trim();
+ 58 |   if (!trimmed) return fallback;
+    :                 ^^^^^^^^^^^^^^^^
+ 59 |   return resolvePathWithHome(trimmed, { homeDir });
+    `----
+  help: Replace `return fallback;` with `{return fallback;}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+    ,-[src/instance/paths.ts:64:24]
+ 63 |   for (const value of values) {
+ 64 |     if (value?.trim()) return value;
+    :                        ^^^^^^^^^^^^^
+ 65 |   }
+    `----
+  help: Replace `return value;` with `{return value;}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+    ,-[src/instance/paths.ts:74:16]
+ 73 |   const envHome = env.OPENCLAW_HOME?.trim() || env.HOME?.trim() || env.USERPROFILE?.trim();
+ 74 |   if (envHome) return envHome;
+    :                ^^^^^^^^^^^^^^^
+ 75 |   try {
+    `----
+  help: Replace `return envHome;` with `{return envHome;}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+    ,-[src/instance/paths.ts:90:17]
+ 89 |   const trimmed = input.trim();
+ 90 |   if (!trimmed) return trimmed;
+    :                 ^^^^^^^^^^^^^^^
+ 91 |   if (trimmed.startsWith("~")) {
+    `----
+  help: Replace `return trimmed;` with `{return trimmed;}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+    ,-[src/instance/paths.ts:93:19]
+ 92 |     const homeDir = opts?.homeDir?.trim();
+ 93 |     if (!homeDir) throw new Error("Missing HOME");
+    :                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 94 |     const expanded = trimmed.replace(/^~(?=$|[\\/])/, homeDir);
+    `----
+  help: Replace `throw new Error("Missing HOME");` with `{throw new Error("Missing HOME");}`.
+
+  x eslint(curly): Expected { after 'if' condition.
+     ,-[src/instance/paths.ts:126:19]
+ 125 |   } else {
+ 126 |     if (!homeDir) throw new Error("Missing HOME");
+     :                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 127 |     const suffix = opts.profileAwareStateDir ? resolveProfileSuffix(profile) : "";
+     `----
+  help: Replace `throw new Error("Missing HOME");` with `{throw new Error("Missing HOME");}`.
+
+  x typescript-eslint(no-redundant-type-constituents): "\"blocked\"" | "\"cancelled\"" | "\"completed\"" | "\"planning\"" | "\"queued\"" | "\"ready\"" | "\"running\"" | "\"waiting_external\"" | "\"waiting_user\"" is overridden by string in this union type.
+   ,-[src/shared/runtime/task-loop.ts:6:12]
+ 5 |   id?: string | null;
+ 6 |   status?: TaskStatus | string | null;
+   :            ^^^^^^^^^^
+ 7 |   priority?: TaskPriority | string | null;
+   `----
+
+  x typescript-eslint(no-redundant-type-constituents): "\"high\"" | "\"low\"" | "\"normal\"" is overridden by string in this union type.
+   ,-[src/shared/runtime/task-loop.ts:7:14]
+ 6 |   status?: TaskStatus | string | null;
+ 7 |   priority?: TaskPriority | string | null;
+   :              ^^^^^^^^^^^^
+ 8 |   route?: string | null;
+   `----
+
+  x typescript-eslint(no-redundant-type-constituents): "\"high\"" | "\"low\"" | "\"normal\"" is overridden by string in this union type.
+    ,-[src/shared/runtime/task-loop.ts:75:10]
+ 74 | function normalizePriority(
+ 75 |   value: TaskPriority | string | null | undefined,
+    :          ^^^^^^^^^^^^
+ 76 |   fallback: TaskPriority = "normal",
+    `----
+
+  x typescript-eslint(no-redundant-type-constituents): "\"blocked\"" | "\"cancelled\"" | "\"completed\"" | "\"planning\"" | "\"queued\"" | "\"ready\"" | "\"running\"" | "\"waiting_external\"" | "\"waiting_user\"" is overridden by string in this union type.
+     ,-[src/shared/runtime/task-loop.ts:170:10]
+ 169 | export function normalizeTaskStatus(
+ 170 |   value: TaskStatus | string | null | undefined,
+     :          ^^^^^^^^^^
+ 171 |   fallback: TaskStatus = "queued",
+     `----
+
+  x typescript-eslint(no-redundant-type-constituents): "\"blocked\"" | "\"cancelled\"" | "\"completed\"" | "\"planning\"" | "\"queued\"" | "\"ready\"" | "\"running\"" | "\"waiting_external\"" | "\"waiting_user\"" is overridden by string in this union type.
+     ,-[src/shared/runtime/task-loop.ts:182:10]
+ 181 | export function normalizeOptionalTaskStatus(
+ 182 |   value: TaskStatus | string | null | undefined,
+     :          ^^^^^^^^^^
+ 183 | ): TaskStatus | null {
+     `----
+
+  x typescript-eslint(no-redundant-type-constituents): "\"blocked\"" | "\"cancelled\"" | "\"completed\"" | "\"planning\"" | "\"queued\"" | "\"ready\"" | "\"running\"" | "\"waiting_external\"" | "\"waiting_user\"" is overridden by string in this union type.
+     ,-[src/shared/runtime/task-loop.ts:191:45]
+ 190 | 
+ 191 | export function getTaskStatusAliases(value: TaskStatus | string | null | undefined): string[] {
+     :                                             ^^^^^^^^^^
+ 192 |   const normalized = normalizeOptionalTaskStatus(value);
+     `----
+
+  x typescript-eslint(no-redundant-type-constituents): "\"blocked\"" | "\"cancelled\"" | "\"completed\"" | "\"planning\"" | "\"queued\"" | "\"ready\"" | "\"running\"" | "\"waiting_external\"" | "\"waiting_user\"" is overridden by string in this union type.
+     ,-[src/shared/runtime/task-loop.ts:199:45]
+ 198 | 
+ 199 | export function isTerminalTaskStatus(value: TaskStatus | string | null | undefined): boolean {
+     :                                             ^^^^^^^^^^
+ 200 |   const status = normalizeOptionalTaskStatus(value);
+     `----
+
+  x typescript-eslint(no-redundant-type-constituents): "\"blocked\"" | "\"cancelled\"" | "\"completed\"" | "\"planning\"" | "\"queued\"" | "\"ready\"" | "\"running\"" | "\"waiting_external\"" | "\"waiting_user\"" is overridden by string in this union type.
+     ,-[src/shared/runtime/task-loop.ts:204:45]
+ 203 | 
+ 204 | export function isRunnableTaskStatus(value: TaskStatus | string | null | undefined): boolean {
+     :                                             ^^^^^^^^^^
+ 205 |   const status = normalizeOptionalTaskStatus(value);
+     `----
+
+  x typescript-eslint(no-floating-promises): Promises must be awaited, add void operator to ignore.
+      ,-[src/shared/runtime/task-engine.ts:1346:3]
+ 1345 |     ) {
+ 1346 | ,->   maybeRefreshIntelInternal({
+ 1347 | |       ...opts,
+ 1348 | |       now,
+ 1349 | `->   });
+ 1350 |       return true;
+      `----
+  help: The promise must end with a call to .catch, or end with a call to .then with a rejection handler, or be explicitly marked as ignored with the `void` operator.
+
+  x typescript-eslint(no-unnecessary-template-expression): Template literal expression is unnecessary and can be simplified.
+     ,-[src/shared/runtime/user-model-mirror.ts:172:6]
+ 171 |     "",
+ 172 |     `${USER_MODEL_SUMMARY_START}`,
+     :      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 173 |     buildUserModelSummary(userModel),
+     `----
+
+  x typescript-eslint(no-unnecessary-template-expression): Template literal expression is unnecessary and can be simplified.
+     ,-[src/shared/runtime/user-model-mirror.ts:174:6]
+ 173 |     buildUserModelSummary(userModel),
+ 174 |     `${USER_MODEL_SUMMARY_END}`,
+     :      ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 175 |     "",
+     `----
+
+  x typescript-eslint(no-unnecessary-template-expression): Template literal expression is unnecessary and can be simplified.
+     ,-[src/shared/runtime/user-model-mirror.ts:176:6]
+ 175 |     "",
+ 176 |     `${USER_MODEL_JSON_START}`,
+     :      ^^^^^^^^^^^^^^^^^^^^^^^^
+ 177 |     buildUserModelJsonBlock(userModel),
+     `----
+
+  x typescript-eslint(no-unnecessary-template-expression): Template literal expression is unnecessary and can be simplified.
+     ,-[src/shared/runtime/user-model-mirror.ts:178:6]
+ 177 |     buildUserModelJsonBlock(userModel),
+ 178 |     `${USER_MODEL_JSON_END}`,
+     :      ^^^^^^^^^^^^^^^^^^^^^^
+ 179 |     "",
+     `----
+
+  x typescript-eslint(no-base-to-string): 'input' may use Object's default stringification format ('[object Object]') when stringified.
+    ,-[src/shared/runtime/intel-refresh.test.ts:85:28]
+ 84 |       const fetchImpl: typeof fetch = async (input) => {
+ 85 |         const url = String(input);
+    :                            ^^^^^
+ 86 |         requestLog.push(url);
+    `----
+  help: Consider picking a property (e.g. `user.name`), using a formatter (or `JSON.stringify`), or implementing a custom `toString()`/`toLocaleString()` on the type.
+
+  x typescript-eslint(no-base-to-string): 'input' may use Object's default stringification format ('[object Object]') when stringified.
+     ,-[src/shared/runtime/intel-refresh.test.ts:171:28]
+ 170 |         requestCount += 1;
+ 171 |         const url = String(input);
+     :                            ^^^^^
+ 172 |         if (url.includes("defenseone.com")) {
+     `----
+  help: Consider picking a property (e.g. `user.name`), using a formatter (or `JSON.stringify`), or implementing a custom `toString()`/`toLocaleString()` on the type.
+
+  x typescript-eslint(no-base-to-string): 'input' may use Object's default stringification format ('[object Object]') when stringified.
+     ,-[src/shared/runtime/intel-refresh.test.ts:242:28]
+ 241 |       const fetchImpl: typeof fetch = async (input) => {
+ 242 |         const url = String(input);
+     :                            ^^^^^
+ 243 |         requestLog.push(url);
+     `----
+  help: Consider picking a property (e.g. `user.name`), using a formatter (or `JSON.stringify`), or implementing a custom `toString()`/`toLocaleString()` on the type.
+
+  x typescript-eslint(no-base-to-string): 'input' may use Object's default stringification format ('[object Object]') when stringified.
+     ,-[src/shared/runtime/intel-refresh.test.ts:350:28]
+ 349 |       const fetchImpl: typeof fetch = async (input) => {
+ 350 |         const url = String(input);
+     :                            ^^^^^
+ 351 |         requestLog.push(url);
+     `----
+  help: Consider picking a property (e.g. `user.name`), using a formatter (or `JSON.stringify`), or implementing a custom `toString()`/`toLocaleString()` on the type.
+
+  x typescript-eslint(no-base-to-string): 'adoptedCandidate?.metadata?.materializedStrategyId ?? ""' will use Object's default stringification format ('[object Object]') when stringified.
+     ,-[src/shared/runtime/mutations.test.ts:421:45]
+ 420 |       const adoptedCandidate = memoryStore.evolutionMemory.find((entry) => entry.id === candidate.id);
+ 421 |       const materializedStrategyId = String(adoptedCandidate?.metadata?.materializedStrategyId ?? "");
+     :                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 422 | 
+     `----
+  help: Consider picking a property (e.g. `user.name`), using a formatter (or `JSON.stringify`), or implementing a custom `toString()`/`toLocaleString()` on the type.
+
+  x typescript-eslint(no-base-to-string): 'adoptedCandidate?.metadata?.materializedStrategyId ?? ""' will use Object's default stringification format ('[object Object]') when stringified.
+     ,-[src/shared/runtime/mutations.test.ts:669:45]
+ 668 |       const adoptedCandidate = adoptedMemoryStore.evolutionMemory.find((entry) => entry.id === candidate.id);
+ 669 |       const materializedStrategyId = String(adoptedCandidate?.metadata?.materializedStrategyId ?? "");
+     :                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 670 |       expect(materializedStrategyId).toBeTruthy();
+     `----
+  help: Consider picking a property (e.g. `user.name`), using a formatter (or `JSON.stringify`), or implementing a custom `toString()`/`toLocaleString()` on the type.
+
+  x typescript-eslint(no-base-to-string): 'nextCandidate?.metadata?.materializedStrategyId ?? ""' will use Object's default stringification format ('[object Object]') when stringified.
+     ,-[src/shared/runtime/mutations.test.ts:700:21]
+ 699 |       expect(nextCandidate?.adoptionState).toBe("adopted");
+ 700 |       expect(String(nextCandidate?.metadata?.materializedStrategyId ?? "")).toBe(materializedStrategyId);
+     :                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 701 |       expect(evaluation?.state).toBe("adopted");
+     `----
+  help: Consider picking a property (e.g. `user.name`), using a formatter (or `JSON.stringify`), or implementing a custom `toString()`/`toLocaleString()` on the type.
+
+  x typescript-eslint(no-base-to-string): 'adoptedWorkerCandidate?.metadata?.materializedStrategyId ?? ""' will use Object's default stringification format ('[object Object]') when stringified.
+      ,-[src/shared/runtime/mutations.test.ts:1043:39]
+ 1042 |       );
+ 1043 |       const workerStrategyId = String(adoptedWorkerCandidate?.metadata?.materializedStrategyId ?? "");
+      :                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 1044 |       const retryStrategyId = String(adoptedRetryCandidate?.metadata?.materializedStrategyId ?? "");
+      `----
+  help: Consider picking a property (e.g. `user.name`), using a formatter (or `JSON.stringify`), or implementing a custom `toString()`/`toLocaleString()` on the type.
+
+  x typescript-eslint(no-base-to-string): 'adoptedRetryCandidate?.metadata?.materializedStrategyId ?? ""' will use Object's default stringification format ('[object Object]') when stringified.
+      ,-[src/shared/runtime/mutations.test.ts:1044:38]
+ 1043 |       const workerStrategyId = String(adoptedWorkerCandidate?.metadata?.materializedStrategyId ?? "");
+ 1044 |       const retryStrategyId = String(adoptedRetryCandidate?.metadata?.materializedStrategyId ?? "");
+      :                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 1045 |       const workerStrategy = memoryStore.strategies.find((entry) => entry.id === workerStrategyId);
+      `----
+  help: Consider picking a property (e.g. `user.name`), using a formatter (or `JSON.stringify`), or implementing a custom `toString()`/`toLocaleString()` on the type.
+
+Found 0 warnings and 40 errors.
+Finished in 7.8s on 5256 files with 136 rules using 12 threads.

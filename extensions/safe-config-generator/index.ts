@@ -1,42 +1,66 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+
 const { readFileSync, writeFileSync, copyFileSync, existsSync } = require("fs");
 const { join } = require("path");
 const { homedir } = require("os");
+
+function resolveConfigPath(): string {
+  const configRoot = process.env.OPENCLAW_CONFIG_ROOT?.trim();
+  if (configRoot) {
+    return join(configRoot, "openclaw.json");
+  }
+  const instanceRoot = process.env.OPENCLAW_INSTANCE_ROOT?.trim();
+  if (instanceRoot) {
+    return join(instanceRoot, "config", "openclaw.json");
+  }
+  return join(homedir(), ".openclaw", "openclaw.json");
+}
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) {
+    return err.message;
+  }
+  return String(err);
+}
 
 module.exports = {
   id: "safe-config-generator",
   name: "Safe Config Generator (Local Only)",
 
-  register(api) {
+  register(api: OpenClawPluginApi) {
     const routePath = "/plugins/safe-config-generator";
-    
+
     api.registerHttpRoute({
       path: routePath,
       auth: "plugin",
       match: "prefix",
-      handler(req, res) {
+      handler(req: IncomingMessage, res: ServerResponse) {
         const urlPath = (req.url || "").split("?")[0];
         const subPath = urlPath.slice(routePath.length);
 
         if (subPath === "/api/read-config") {
-          const configPath = join(homedir(), ".openclaw", "openclaw.json");
+          const configPath = resolveConfigPath();
           try {
             const content = readFileSync(configPath, "utf-8");
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ success: true, content }));
           } catch (err) {
             res.writeHead(500, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ success: false, error: err.message }));
+            res.end(JSON.stringify({ success: false, error: errorMessage(err) }));
           }
           return true;
         }
 
         if (subPath === "/api/write-config" && req.method === "POST") {
-          const chunks = [];
-          req.on("data", (chunk) => chunks.push(chunk));
+          const chunks: Buffer[] = [];
+          req.on("data", (chunk: Buffer | string) =>
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)),
+          );
           req.on("end", () => {
             try {
               const body = JSON.parse(Buffer.concat(chunks).toString());
-              const configPath = join(homedir(), ".openclaw", "openclaw.json");
+              const configPath = resolveConfigPath();
 
               // 备份
               if (existsSync(configPath)) {
@@ -49,7 +73,7 @@ module.exports = {
               res.end(JSON.stringify({ success: true }));
             } catch (err) {
               res.writeHead(500, { "Content-Type": "application/json" });
-              res.end(JSON.stringify({ success: false, error: err.message }));
+              res.end(JSON.stringify({ success: false, error: errorMessage(err) }));
             }
           });
           return true;

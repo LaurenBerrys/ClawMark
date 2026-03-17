@@ -1,14 +1,14 @@
-# 🌐 Managed OpenClaw Runtime v6
+# 🌐 ClawMark Runtime v6 (爪痕)
 
-[English](#english) | [简体中文](#managed-openclaw-runtime-v6-zh)
+[English](#english) | [简体中文](#clawmark-runtime-v6-zh)
 
 ---
 
-## Managed OpenClaw Runtime v6 (ZH)
+## ClawMark Runtime v6 (爪痕)
 
 > **去中心化 AI 智能的受控执行主权层。**
 
-Managed OpenClaw Runtime v6 是一个高性能、具备主权特性的 AI 运行时环境，旨在为 AI 执行、记忆和策略提供绝对的治理能力。与传统的“应用”不同，这是一个系统级的运行时，强制执行“本地优先”的真理策略。
+ClawMark Runtime v6 是一个高性能、具备主权特性的 AI 运行时环境，旨在为 AI 执行、记忆和策略提供绝对的治理能力。与传统的“应用”不同，这是一个系统级的运行时，强制执行“本地优先”的真理策略。
 
 ### 🏛 核心支柱
 
@@ -43,9 +43,10 @@ Managed OpenClaw Runtime v6 是一个高性能、具备主权特性的 AI 运行
 
 ---
 
-## <a name="english"></a>English Version
+## <a name="english"></a>ClawMark V6 Runtime Architecture (爪痕 Edition)
 
-Managed OpenClaw Runtime v6 is a high-performance, sovereign AI runtime environment designed to provide absolute governance over AI execution, memory, and strategy. Unlike traditional "apps," this is a system-level runtime that enforces a local-first truth policy.
+This repository implements **ClawMark Runtime v6**, a significant evolution focusing on local sovereignty and formal execution.
+ClawMark Runtime v6 is a high-performance, sovereign AI runtime environment designed to provide absolute governance over AI execution, memory, and strategy. Unlike traditional "apps," this is a system-level runtime that enforces a local-first truth policy.
 
 ## 🏛 Core Pillars
 

@@ -4,6 +4,38 @@ import type { CronModelSuggestionsState, CronState } from "./controllers/cron.ts
 import type { DevicePairingList } from "./controllers/devices.ts";
 import type { ExecApprovalRequest } from "./controllers/exec-approval.ts";
 import type { ExecApprovalsFile, ExecApprovalsSnapshot } from "./controllers/exec-approvals.ts";
+import type {
+  RuntimeAgentInput,
+  RuntimeCapabilityMcpGrantInput,
+  RuntimeCapabilityRegistryEntryInput,
+  RuntimeFederationAssignmentMaterializeInput,
+  RuntimeFederationAssignmentTransitionInput,
+  RuntimeCoordinatorSuggestionMaterializeInput,
+  RuntimeEvolutionConfigureInput,
+  RuntimeEvolutionCandidateStateInput,
+  RuntimeEvolutionVerificationAcknowledgeInput,
+  RuntimeFederationInboxMaintenanceConfigureInput,
+  RuntimeFederationRemoteMaintenanceConfigureInput,
+  RuntimeFederationPushPolicyConfigureInput,
+  RuntimeFederationPackageTransitionInput,
+  RuntimeIntelConfigureInput,
+  RuntimeIntelPinInput,
+  RuntimeIntelSourceInput,
+  RuntimeMemoryConfigureInput,
+  RuntimeMemoryInvalidationInput,
+  RuntimeMemoryReinforcementInput,
+  RuntimeMemoryRollbackInput,
+  RuntimeTaskLoopConfigureInput,
+  RuntimeTaskUpsertInput,
+  RuntimeTaskWaitingUserResponseInput,
+  RuntimeRoleOptimizationRejectInput,
+  RuntimeSessionPreferenceInput,
+  RuntimeSurfaceInput,
+  RuntimeSurfaceRoleInput,
+  RuntimeUserConsoleMaintenanceConfigureInput,
+  RuntimeUserModelOptimizationRejectInput,
+  RuntimeUserModelInput,
+} from "./controllers/runtime.ts";
 import type { SkillMessage } from "./controllers/skills.ts";
 import type { GatewayBrowserClient, GatewayHelloOk } from "./gateway.ts";
 import type { Tab } from "./navigation.ts";
@@ -18,6 +50,7 @@ import type {
   ChannelsStatusSnapshot,
   ConfigSnapshot,
   ConfigUiHints,
+  FederationRemoteSyncPreview,
   HealthSummary,
   FederationRuntimeSnapshot,
   LegacyRuntimeImportApplyResult,
@@ -28,6 +61,7 @@ import type {
   NostrProfile,
   PresenceEntry,
   RuntimeDashboardSnapshot,
+  RuntimeUserConsoleStore,
   SessionsUsageResult,
   CostUsageSummary,
   SessionUsageTimeSeries,
@@ -80,12 +114,15 @@ export type AppViewState = {
   runtimeLoading: boolean;
   runtimeError: string | null;
   runtimeSnapshot: RuntimeDashboardSnapshot | null;
+  runtimeConsoleStore: RuntimeUserConsoleStore | null;
   runtimeImportPreview: LegacyRuntimeImportReport | null;
   runtimeImportBusy: boolean;
   runtimeImportApplyResult: LegacyRuntimeImportApplyResult | null;
   federationLoading: boolean;
   federationError: string | null;
   federationStatus: FederationRuntimeSnapshot | null;
+  federationPreviewError: string | null;
+  federationPreview: FederationRemoteSyncPreview | null;
   nodesLoading: boolean;
   nodes: Array<Record<string, unknown>>;
   chatNewMessagesBelow: boolean;
@@ -325,7 +362,82 @@ export type AppViewState = {
     loadAssistantIdentity: () => Promise<void>;
     loadCron: () => Promise<void>;
     applyRuntimeLegacyImport: () => Promise<void>;
+    previewRuntimeFederationRemote: () => Promise<void>;
     syncRuntimeFederationRemote: () => Promise<void>;
+    configureRuntimeFederationPushPolicy: (
+      input: RuntimeFederationPushPolicyConfigureInput,
+    ) => Promise<void>;
+    configureRuntimeFederationInboxMaintenance: (
+      input: RuntimeFederationInboxMaintenanceConfigureInput,
+    ) => Promise<void>;
+    configureRuntimeFederationRemoteMaintenance: (
+      input: RuntimeFederationRemoteMaintenanceConfigureInput,
+    ) => Promise<void>;
+    reviewRuntimeFederationInboxMaintenance: () => Promise<void>;
+    transitionRuntimeFederationPackage: (
+      input: RuntimeFederationPackageTransitionInput,
+    ) => Promise<void>;
+    materializeRuntimeCoordinatorSuggestion: (
+      input: RuntimeCoordinatorSuggestionMaterializeInput,
+    ) => Promise<void>;
+    transitionRuntimeFederationAssignment: (
+      input: RuntimeFederationAssignmentTransitionInput,
+    ) => Promise<void>;
+    materializeRuntimeFederationAssignment: (
+      input: RuntimeFederationAssignmentMaterializeInput,
+    ) => Promise<void>;
+    saveRuntimeUserModel: (input: RuntimeUserModelInput) => Promise<void>;
+    syncRuntimeUserModelMirror: (force?: boolean) => Promise<void>;
+    importRuntimeUserModelMirror: () => Promise<void>;
+    saveRuntimeSessionPreference: (input: RuntimeSessionPreferenceInput) => Promise<void>;
+    removeRuntimeSessionPreference: (id: string) => Promise<void>;
+    saveRuntimeAgent: (input: RuntimeAgentInput) => Promise<void>;
+    removeRuntimeAgent: (id: string) => Promise<void>;
+    saveRuntimeSurface: (input: RuntimeSurfaceInput) => Promise<void>;
+    saveRuntimeSurfaceRole: (input: RuntimeSurfaceRoleInput) => Promise<void>;
+    configureRuntimeUserConsoleMaintenance: (
+      input: RuntimeUserConsoleMaintenanceConfigureInput,
+    ) => Promise<void>;
+    reviewRuntimeUserConsoleMaintenance: () => Promise<void>;
+    reviewRuntimeUserModelOptimization: () => Promise<void>;
+    adoptRuntimeUserModelOptimization: (id: string) => Promise<void>;
+    rejectRuntimeUserModelOptimization: (
+      input: RuntimeUserModelOptimizationRejectInput,
+    ) => Promise<void>;
+    reviewRuntimeRoleOptimization: () => Promise<void>;
+    adoptRuntimeRoleOptimization: (id: string) => Promise<void>;
+    rejectRuntimeRoleOptimization: (input: RuntimeRoleOptimizationRejectInput) => Promise<void>;
+    syncRuntimeCapabilities: () => Promise<void>;
+    setRuntimeCapabilityRegistryEntry: (
+      input: RuntimeCapabilityRegistryEntryInput,
+    ) => Promise<void>;
+    setRuntimeCapabilityMcpGrant: (input: RuntimeCapabilityMcpGrantInput) => Promise<void>;
+    configureRuntimeIntel: (input: RuntimeIntelConfigureInput) => Promise<void>;
+    refreshRuntimeIntel: (
+      domains?: Array<"military" | "tech" | "ai" | "business">,
+    ) => Promise<void>;
+    dispatchRuntimeIntelDeliveries: () => Promise<void>;
+    saveRuntimeIntelSource: (input: RuntimeIntelSourceInput) => Promise<void>;
+    removeRuntimeIntelSource: (id: string) => Promise<void>;
+    pinRuntimeIntel: (input: RuntimeIntelPinInput) => Promise<void>;
+    reviewRuntimeMemory: () => Promise<void>;
+    configureRuntimeMemory: (input: RuntimeMemoryConfigureInput) => Promise<void>;
+    reinforceRuntimeMemory: (input: RuntimeMemoryReinforcementInput) => Promise<void>;
+    invalidateRuntimeMemory: (input: RuntimeMemoryInvalidationInput) => Promise<void>;
+    rollbackRuntimeMemoryInvalidation: (input: RuntimeMemoryRollbackInput) => Promise<void>;
+    configureRuntimeEvolution: (input: RuntimeEvolutionConfigureInput) => Promise<void>;
+    runRuntimeEvolutionReview: () => Promise<void>;
+    acknowledgeRuntimeEvolutionVerification: (
+      input: RuntimeEvolutionVerificationAcknowledgeInput,
+    ) => Promise<void>;
+    setRuntimeEvolutionCandidateState: (
+      input: RuntimeEvolutionCandidateStateInput,
+    ) => Promise<void>;
+    configureRuntimeTaskLoop: (input: RuntimeTaskLoopConfigureInput) => Promise<void>;
+    saveRuntimeTask: (input: RuntimeTaskUpsertInput) => Promise<void>;
+    tickRuntimeTaskLoop: () => Promise<void>;
+    planRuntimeTask: (taskId: string) => Promise<void>;
+    respondRuntimeWaitingUserTask: (input: RuntimeTaskWaitingUserResponseInput) => Promise<void>;
     handleWhatsAppStart: (force: boolean) => Promise<void>;
     handleWhatsAppWait: () => Promise<void>;
     handleWhatsAppLogout: () => Promise<void>;

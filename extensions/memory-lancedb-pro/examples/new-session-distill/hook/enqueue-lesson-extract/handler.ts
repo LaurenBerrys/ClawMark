@@ -1,10 +1,28 @@
-import type { HookHandler } from "../../src/hooks/hooks.js";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-function findSessionFile(event: any): string | null {
+type HookContextEntry = {
+  sessionFile?: string;
+  sessionId?: string;
+};
+
+type HookEvent = {
+  type?: string;
+  action?: string;
+  timestamp?: number;
+  sessionKey?: string;
+  context?: {
+    previousSessionEntry?: HookContextEntry;
+    sessionEntry?: HookContextEntry;
+    commandSource?: string;
+  };
+};
+
+type HookHandler = (event: HookEvent) => Promise<void> | void;
+
+function findSessionFile(event: HookEvent): string | null {
   const prev = event.context?.previousSessionEntry;
   const curr = event.context?.sessionEntry;
 
@@ -48,9 +66,9 @@ const handler: HookHandler = async (event) => {
 
   try {
     const sessionKey = event.sessionKey || "unknown";
-    const ctxEntry = (event.context?.previousSessionEntry || event.context?.sessionEntry) as any;
-    const sessionId = (ctxEntry?.sessionId as string) || "unknown";
-    const source = (event.context?.commandSource as string) || "unknown";
+    const ctxEntry = event.context?.previousSessionEntry || event.context?.sessionEntry;
+    const sessionId = ctxEntry?.sessionId || "unknown";
+    const source = event.context?.commandSource || "unknown";
 
     const sessionFile = findSessionFile(event);
     if (!sessionFile) {
@@ -94,7 +112,7 @@ const handler: HookHandler = async (event) => {
   } catch (err) {
     console.error(
       "[enqueue-lesson-extract] Error:",
-      err instanceof Error ? err.message : String(err)
+      err instanceof Error ? err.message : String(err),
     );
   }
 };

@@ -1,5 +1,3 @@
-import type { RetrievalResult } from "./retriever.js";
-import { normalizeRecallTextKey } from "./recall-engine.js";
 import {
   DEFAULT_FINAL_SELECTION_FRESHNESS_HALF_LIFE_MS,
   type FinalSelectCandidate,
@@ -7,6 +5,8 @@ import {
   type FinalSelectSemanticThreshold,
   selectFinalTopKSetwise,
 } from "./final-topk-setwise-selection.js";
+import { normalizeRecallTextKey } from "./recall-engine.js";
+import type { RetrievalResult } from "./retriever.js";
 
 export interface AutoRecallFinalSelectionOptions {
   topK?: number;
@@ -28,7 +28,7 @@ const GENERIC_SEMANTIC_THRESHOLDS: FinalSelectSemanticThreshold[] = [
 
 export function selectFinalAutoRecallResults(
   results: RetrievalResult[],
-  options: AutoRecallFinalSelectionOptions = {}
+  options: AutoRecallFinalSelectionOptions = {},
 ): RetrievalResult[] {
   if (!Array.isArray(results) || results.length === 0) return [];
 
@@ -36,7 +36,7 @@ export function selectFinalAutoRecallResults(
   if (finalLimit <= 0) return [];
   const shortlistLimit = Math.min(
     results.length,
-    normalizeLimit(options.shortlistLimit, Math.max(finalLimit, finalLimit * 4))
+    normalizeLimit(options.shortlistLimit, Math.max(finalLimit, finalLimit * 4)),
   );
 
   const candidates: FinalSelectCandidate<RetrievalResult>[] = results.map((row) => {
@@ -86,7 +86,7 @@ function normalizeEmbedding(value: unknown): number[] | undefined {
   if (Array.isArray(value)) {
     raw = value;
   } else if (ArrayBuffer.isView(value) && !(value instanceof DataView)) {
-    raw = Array.from(value as ArrayLike<unknown>);
+    raw = Array.from(value as unknown as ArrayLike<unknown>);
   } else if (typeof value === "object" && Symbol.iterator in value) {
     try {
       raw = Array.from(value as Iterable<unknown>);

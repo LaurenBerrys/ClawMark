@@ -1,12 +1,9 @@
-import type { MemoryEntry } from "./store.js";
+import { aggregateReflectionGroups, type ReflectionScoredItem } from "./reflection-aggregation.js";
 import {
-  extractReflectionSliceItems,
-  extractReflectionSlices,
-  sanitizeReflectionSliceLines,
-  type ReflectionSlices,
-} from "./reflection-slices.js";
-import { parseReflectionMetadata } from "./reflection-metadata.js";
-import { buildReflectionEventPayload, createReflectionEventId } from "./reflection-event-store.js";
+  buildReflectionEventPayload,
+  createReflectionEventId,
+  type ReflectionEventMetadata,
+} from "./reflection-event-store.js";
 import {
   buildReflectionItemPayloads,
   getReflectionItemDecayDefaults,
@@ -14,16 +11,33 @@ import {
   REFLECTION_DERIVED_DECAY_MIDPOINT_DAYS,
   REFLECTION_INVARIANT_DECAY_K,
   REFLECTION_INVARIANT_DECAY_MIDPOINT_DAYS,
+  type ReflectionItemMetadata,
 } from "./reflection-item-store.js";
-import { getReflectionMappedDecayDefaults, type ReflectionMappedKind } from "./reflection-mapped-metadata.js";
-import { computeReflectionScore, normalizeReflectionLineForAggregation } from "./reflection-ranking.js";
-import { aggregateReflectionGroups, type ReflectionScoredItem } from "./reflection-aggregation.js";
-import { normalizeReflectionSoftKey, normalizeReflectionStrictKey } from "./reflection-normalize.js";
+import {
+  getReflectionMappedDecayDefaults,
+  type ReflectionMappedKind,
+} from "./reflection-mapped-metadata.js";
+import { parseReflectionMetadata } from "./reflection-metadata.js";
+import {
+  normalizeReflectionSoftKey,
+  normalizeReflectionStrictKey,
+} from "./reflection-normalize.js";
+import {
+  computeReflectionScore,
+  normalizeReflectionLineForAggregation,
+} from "./reflection-ranking.js";
 import {
   DERIVED_FOCUS_V2_FINAL_TARGET,
   DERIVED_FOCUS_V2_SHORTLIST_TARGET,
   selectDiversityAwareReflectionGroups,
 } from "./reflection-selection.js";
+import {
+  extractReflectionSliceItems,
+  extractReflectionSlices,
+  sanitizeReflectionSliceLines,
+  type ReflectionSlices,
+} from "./reflection-slices.js";
+import type { MemoryEntry } from "./store.js";
 
 export const DEFAULT_REFLECTION_DERIVED_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 export const DEFAULT_REFLECTION_MAPPED_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000;
@@ -39,7 +53,7 @@ type ReflectionErrorSignalLike = {
 
 interface ReflectionStorePayload {
   text: string;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, unknown> | ReflectionEventMetadata | ReflectionItemMetadata;
   kind: ReflectionStoreKind;
 }
 
@@ -63,13 +77,15 @@ export function buildReflectionStorePayloads(params: BuildReflectionStorePayload
   payloads: ReflectionStorePayload[];
 } {
   const slices = extractReflectionSlices(params.reflectionText);
-  const eventId = params.eventId || createReflectionEventId({
-    runAt: params.runAt,
-    sessionKey: params.sessionKey,
-    sessionId: params.sessionId,
-    agentId: params.agentId,
-    command: params.command,
-  });
+  const eventId =
+    params.eventId ||
+    createReflectionEventId({
+      runAt: params.runAt,
+      sessionKey: params.sessionKey,
+      sessionId: params.sessionId,
+      agentId: params.agentId,
+      command: params.command,
+    });
 
   const payloads: ReflectionStorePayload[] = [
     buildReflectionEventPayload({
@@ -107,8 +123,8 @@ interface ReflectionStoreDeps {
   store: (entry: Omit<MemoryEntry, "id" | "timestamp">) => Promise<MemoryEntry>;
 }
 
-interface StoreReflectionToLanceDBParams extends BuildReflectionStorePayloadsParams, ReflectionStoreDeps {
-}
+interface StoreReflectionToLanceDBParams
+  extends BuildReflectionStorePayloadsParams, ReflectionStoreDeps {}
 
 export async function storeReflectionToLanceDB(params: StoreReflectionToLanceDBParams): Promise<{
   stored: boolean;
@@ -171,7 +187,7 @@ export function loadAgentReflectionSlicesFromEntries(params: LoadReflectionSlice
 }
 
 export function loadAgentDerivedRowsWithScoresFromEntries(
-  params: LoadReflectionSlicesParams & { limit?: number; finalLimit?: number }
+  params: LoadReflectionSlicesParams & { limit?: number; finalLimit?: number },
 ): ScoredReflectionLine[] {
   const shortlistLimit = Number.isFinite(params.limit)
     ? Math.max(1, Math.floor(Number(params.limit)))
@@ -190,7 +206,7 @@ export function loadAgentDerivedFocusRowsForHandoffFromEntries(
   params: LoadReflectionSlicesParams & {
     shortlistLimit?: number;
     finalLimit?: number;
-  }
+  },
 ): ScoredReflectionLine[] {
   const shortlistLimit = Number.isFinite(params.shortlistLimit)
     ? Math.max(1, Math.floor(Number(params.shortlistLimit)))
@@ -208,7 +224,7 @@ export function loadAgentDerivedFocusRowsForHandoffFromEntries(
 
 function loadAgentReflectionRankedSlicesFromEntries(
   params: LoadReflectionSlicesParams,
-  options?: { derivedShortlistLimit?: number; derivedFinalLimit?: number }
+  options?: { derivedShortlistLimit?: number; derivedFinalLimit?: number },
 ): {
   invariants: ScoredReflectionLine[];
   derived: ScoredReflectionLine[];
@@ -223,11 +239,16 @@ function loadAgentReflectionRankedSlicesFromEntries(
 
   const reflectionRows = params.entries
     .map((entry) => ({ entry, metadata: parseReflectionMetadata(entry.metadata) }))
-    .filter(({ metadata }) => isReflectionMetadataType(metadata.type) && isOwnedByAgent(metadata, params.agentId))
+    .filter(
+      ({ metadata }) =>
+        isReflectionMetadataType(metadata.type) && isOwnedByAgent(metadata, params.agentId),
+    )
     .sort((a, b) => b.entry.timestamp - a.entry.timestamp)
     .slice(0, 160);
 
-  const itemRows = reflectionRows.filter(({ metadata }) => metadata.type === "memory-reflection-item");
+  const itemRows = reflectionRows.filter(
+    ({ metadata }) => metadata.type === "memory-reflection-item",
+  );
   const invariantCandidates = buildInvariantCandidates(itemRows);
   const derivedCandidates = buildDerivedCandidates(itemRows);
   const derivedShortlistLimit = Number.isFinite(options?.derivedShortlistLimit)
@@ -264,7 +285,7 @@ type WeightedLineCandidate = {
 };
 
 function buildInvariantCandidates(
-  itemRows: Array<{ entry: MemoryEntry; metadata: Record<string, unknown> }>
+  itemRows: Array<{ entry: MemoryEntry; metadata: Record<string, unknown> }>,
 ): WeightedLineCandidate[] {
   return itemRows
     .filter(({ metadata }) => metadata.itemKind === "invariant")
@@ -287,7 +308,7 @@ function buildInvariantCandidates(
 }
 
 function buildDerivedCandidates(
-  itemRows: Array<{ entry: MemoryEntry; metadata: Record<string, unknown> }>
+  itemRows: Array<{ entry: MemoryEntry; metadata: Record<string, unknown> }>,
 ): WeightedLineCandidate[] {
   return itemRows
     .filter(({ metadata }) => metadata.itemKind === "derived")
@@ -311,14 +332,18 @@ function buildDerivedCandidates(
 
 function rankReflectionLineScoresLinear(
   candidates: WeightedLineCandidate[],
-  options: { now: number; maxAgeMs?: number; limit: number }
+  options: { now: number; maxAgeMs?: number; limit: number },
 ): ScoredReflectionLine[] {
   type WeightedLine = { line: string; score: number; latestTs: number };
   const lineScores = new Map<string, WeightedLine>();
 
   for (const candidate of candidates) {
     const timestamp = Number.isFinite(candidate.timestamp) ? candidate.timestamp : options.now;
-    if (Number.isFinite(options.maxAgeMs) && options.maxAgeMs! >= 0 && options.now - timestamp > options.maxAgeMs!) {
+    if (
+      Number.isFinite(options.maxAgeMs) &&
+      options.maxAgeMs! >= 0 &&
+      options.now - timestamp > options.maxAgeMs!
+    ) {
       continue;
     }
 
@@ -365,12 +390,16 @@ function rankReflectionLineScoresLinear(
 
 function rankDerivedReflectionLineScoresV2(
   candidates: WeightedLineCandidate[],
-  options: { now: number; maxAgeMs?: number; shortlistLimit: number; finalLimit: number }
+  options: { now: number; maxAgeMs?: number; shortlistLimit: number; finalLimit: number },
 ): ScoredReflectionLine[] {
   const scoredItems: ReflectionScoredItem[] = [];
   for (const candidate of candidates) {
     const timestamp = Number.isFinite(candidate.timestamp) ? candidate.timestamp : options.now;
-    if (Number.isFinite(options.maxAgeMs) && options.maxAgeMs! >= 0 && options.now - timestamp > options.maxAgeMs!) {
+    if (
+      Number.isFinite(options.maxAgeMs) &&
+      options.maxAgeMs! >= 0 &&
+      options.now - timestamp > options.maxAgeMs!
+    ) {
       continue;
     }
 
@@ -460,12 +489,16 @@ export interface ReflectionMappedSlices {
   decision: string[];
 }
 
-export function loadReflectionMappedRowsFromEntries(params: LoadReflectionMappedRowsParams): ReflectionMappedSlices {
+export function loadReflectionMappedRowsFromEntries(
+  params: LoadReflectionMappedRowsParams,
+): ReflectionMappedSlices {
   const now = Number.isFinite(params.now) ? Number(params.now) : Date.now();
   const maxAgeMs = Number.isFinite(params.maxAgeMs)
     ? Math.max(0, Number(params.maxAgeMs))
     : DEFAULT_REFLECTION_MAPPED_MAX_AGE_MS;
-  const maxPerKind = Number.isFinite(params.maxPerKind) ? Math.max(1, Math.floor(Number(params.maxPerKind))) : 10;
+  const maxPerKind = Number.isFinite(params.maxPerKind)
+    ? Math.max(1, Math.floor(Number(params.maxPerKind)))
+    : 10;
 
   type WeightedMapped = {
     text: string;
@@ -480,7 +513,10 @@ export function loadReflectionMappedRowsFromEntries(params: LoadReflectionMapped
 
   const weighted: WeightedMapped[] = params.entries
     .map((entry) => ({ entry, metadata: parseReflectionMetadata(entry.metadata) }))
-    .filter(({ metadata }) => metadata.type === "memory-reflection-mapped" && isOwnedByAgent(metadata, params.agentId))
+    .filter(
+      ({ metadata }) =>
+        metadata.type === "memory-reflection-mapped" && isOwnedByAgent(metadata, params.agentId),
+    )
     .flatMap(({ entry, metadata }) => {
       const mappedKind = parseMappedKind(metadata.mappedKind);
       if (!mappedKind) return [];
@@ -503,7 +539,10 @@ export function loadReflectionMappedRowsFromEntries(params: LoadReflectionMapped
       }));
     });
 
-  const grouped = new Map<string, { text: string; score: number; latestTs: number; kind: ReflectionMappedKind }>();
+  const grouped = new Map<
+    string,
+    { text: string; score: number; latestTs: number; kind: ReflectionMappedKind }
+  >();
 
   for (const item of weighted) {
     if (now - item.timestamp > maxAgeMs) continue;
@@ -535,15 +574,16 @@ export function loadReflectionMappedRowsFromEntries(params: LoadReflectionMapped
     }
   }
 
-  const sortedByKind = (kind: ReflectionMappedKind) => [...grouped.values()]
-    .filter((row) => row.kind === kind)
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.latestTs !== a.latestTs) return b.latestTs - a.latestTs;
-      return a.text.localeCompare(b.text);
-    })
-    .slice(0, maxPerKind)
-    .map((row) => row.text);
+  const sortedByKind = (kind: ReflectionMappedKind) =>
+    [...grouped.values()]
+      .filter((row) => row.kind === kind)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.latestTs !== a.latestTs) return b.latestTs - a.latestTs;
+        return a.text.localeCompare(b.text);
+      })
+      .slice(0, maxPerKind)
+      .map((row) => row.text);
 
   return {
     userModel: sortedByKind("user-model"),
@@ -554,7 +594,12 @@ export function loadReflectionMappedRowsFromEntries(params: LoadReflectionMapped
 }
 
 function parseMappedKind(value: unknown): ReflectionMappedKind | null {
-  if (value === "user-model" || value === "agent-model" || value === "lesson" || value === "decision") {
+  if (
+    value === "user-model" ||
+    value === "agent-model" ||
+    value === "lesson" ||
+    value === "decision"
+  ) {
     return value;
   }
   return null;

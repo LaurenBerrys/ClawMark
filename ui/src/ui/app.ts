@@ -59,9 +59,58 @@ import type { DevicePairingList } from "./controllers/devices.ts";
 import type { ExecApprovalRequest } from "./controllers/exec-approval.ts";
 import type { ExecApprovalsFile, ExecApprovalsSnapshot } from "./controllers/exec-approvals.ts";
 import {
+  adoptRuntimeRoleOptimization as adoptRuntimeRoleOptimizationInternal,
+  adoptRuntimeUserModelOptimization as adoptRuntimeUserModelOptimizationInternal,
+  acknowledgeRuntimeEvolutionVerification as acknowledgeRuntimeEvolutionVerificationInternal,
   applyRuntimeLegacyImport as applyRuntimeLegacyImportInternal,
+  configureRuntimeEvolution as configureRuntimeEvolutionInternal,
+  configureRuntimeFederationInboxMaintenance as configureRuntimeFederationInboxMaintenanceInternal,
+  configureRuntimeFederationRemoteMaintenance as configureRuntimeFederationRemoteMaintenanceInternal,
+  configureRuntimeFederationPushPolicy as configureRuntimeFederationPushPolicyInternal,
+  configureRuntimeMemory as configureRuntimeMemoryInternal,
+  configureRuntimeIntel as configureRuntimeIntelInternal,
+  configureRuntimeTaskLoop as configureRuntimeTaskLoopInternal,
+  configureRuntimeUserConsoleMaintenance as configureRuntimeUserConsoleMaintenanceInternal,
+  dispatchRuntimeIntelDeliveries as dispatchRuntimeIntelDeliveriesInternal,
+  invalidateRuntimeMemory as invalidateRuntimeMemoryInternal,
   loadRuntime as loadRuntimeInternal,
+  materializeRuntimeFederationAssignment as materializeRuntimeFederationAssignmentInternal,
+  materializeRuntimeCoordinatorSuggestion as materializeRuntimeCoordinatorSuggestionInternal,
+  planRuntimeTask as planRuntimeTaskInternal,
+  pinRuntimeIntel as pinRuntimeIntelInternal,
+  previewRuntimeFederationRemote as previewRuntimeFederationRemoteInternal,
+  refreshRuntimeIntel as refreshRuntimeIntelInternal,
+  removeRuntimeIntelSource as removeRuntimeIntelSourceInternal,
+  rejectRuntimeRoleOptimization as rejectRuntimeRoleOptimizationInternal,
+  rejectRuntimeUserModelOptimization as rejectRuntimeUserModelOptimizationInternal,
+  respondRuntimeWaitingUserTask as respondRuntimeWaitingUserTaskInternal,
+  removeRuntimeAgent as removeRuntimeAgentInternal,
+  removeRuntimeSessionPreference as removeRuntimeSessionPreferenceInternal,
+  reinforceRuntimeMemory as reinforceRuntimeMemoryInternal,
+  reviewRuntimeUserModelOptimization as reviewRuntimeUserModelOptimizationInternal,
+  reviewRuntimeUserConsoleMaintenance as reviewRuntimeUserConsoleMaintenanceInternal,
+  reviewRuntimeFederationInboxMaintenance as reviewRuntimeFederationInboxMaintenanceInternal,
+  reviewRuntimeRoleOptimization as reviewRuntimeRoleOptimizationInternal,
+  reviewRuntimeMemory as reviewRuntimeMemoryInternal,
+  rollbackRuntimeMemoryInvalidation as rollbackRuntimeMemoryInvalidationInternal,
+  runRuntimeEvolutionReview as runRuntimeEvolutionReviewInternal,
+  saveRuntimeAgent as saveRuntimeAgentInternal,
+  saveRuntimeIntelSource as saveRuntimeIntelSourceInternal,
+  saveRuntimeTask as saveRuntimeTaskInternal,
+  setRuntimeEvolutionCandidateState as setRuntimeEvolutionCandidateStateInternal,
+  setRuntimeCapabilityMcpGrant as setRuntimeCapabilityMcpGrantInternal,
+  setRuntimeCapabilityRegistryEntry as setRuntimeCapabilityRegistryEntryInternal,
+  saveRuntimeSessionPreference as saveRuntimeSessionPreferenceInternal,
+  saveRuntimeSurface as saveRuntimeSurfaceInternal,
+  saveRuntimeSurfaceRole as saveRuntimeSurfaceRoleInternal,
+  saveRuntimeUserModel as saveRuntimeUserModelInternal,
+  syncRuntimeUserModelMirror as syncRuntimeUserModelMirrorInternal,
+  importRuntimeUserModelMirror as importRuntimeUserModelMirrorInternal,
+  syncRuntimeCapabilities as syncRuntimeCapabilitiesInternal,
   syncRuntimeFederationRemote as syncRuntimeFederationRemoteInternal,
+  tickRuntimeTaskLoop as tickRuntimeTaskLoopInternal,
+  transitionRuntimeFederationAssignment as transitionRuntimeFederationAssignmentInternal,
+  transitionRuntimeFederationPackage as transitionRuntimeFederationPackageInternal,
 } from "./controllers/runtime.ts";
 import type { SkillMessage } from "./controllers/skills.ts";
 import type { GatewayBrowserClient, GatewayHelloOk } from "./gateway.ts";
@@ -169,6 +218,7 @@ export class OpenClawApp extends LitElement {
   @state() runtimeLoading = false;
   @state() runtimeError: string | null = null;
   @state() runtimeSnapshot: import("./types.js").RuntimeDashboardSnapshot | null = null;
+  @state() runtimeConsoleStore: import("./types.js").RuntimeUserConsoleStore | null = null;
   @state() runtimeImportPreview: import("./types.js").LegacyRuntimeImportReport | null = null;
   @state() runtimeImportBusy = false;
   @state() runtimeImportApplyResult: import("./types.js").LegacyRuntimeImportApplyResult | null =
@@ -176,6 +226,8 @@ export class OpenClawApp extends LitElement {
   @state() federationLoading = false;
   @state() federationError: string | null = null;
   @state() federationStatus: import("./types.js").FederationRuntimeSnapshot | null = null;
+  @state() federationPreviewError: string | null = null;
+  @state() federationPreview: import("./types.js").FederationRemoteSyncPreview | null = null;
 
   onSlashAction?: (action: string) => void;
 
@@ -595,9 +647,379 @@ export class OpenClawApp extends LitElement {
     );
   }
 
+  async previewRuntimeFederationRemote() {
+    await previewRuntimeFederationRemoteInternal(
+      this as unknown as Parameters<typeof previewRuntimeFederationRemoteInternal>[0],
+    );
+  }
+
   async syncRuntimeFederationRemote() {
     await syncRuntimeFederationRemoteInternal(
       this as unknown as Parameters<typeof syncRuntimeFederationRemoteInternal>[0],
+    );
+  }
+
+  async reviewRuntimeFederationInboxMaintenance() {
+    await reviewRuntimeFederationInboxMaintenanceInternal(
+      this as unknown as Parameters<typeof reviewRuntimeFederationInboxMaintenanceInternal>[0],
+    );
+  }
+
+  async configureRuntimeFederationInboxMaintenance(
+    input: Parameters<typeof configureRuntimeFederationInboxMaintenanceInternal>[1],
+  ) {
+    await configureRuntimeFederationInboxMaintenanceInternal(
+      this as unknown as Parameters<typeof configureRuntimeFederationInboxMaintenanceInternal>[0],
+      input,
+    );
+  }
+
+  async configureRuntimeFederationRemoteMaintenance(
+    input: Parameters<typeof configureRuntimeFederationRemoteMaintenanceInternal>[1],
+  ) {
+    await configureRuntimeFederationRemoteMaintenanceInternal(
+      this as unknown as Parameters<typeof configureRuntimeFederationRemoteMaintenanceInternal>[0],
+      input,
+    );
+  }
+
+  async configureRuntimeFederationPushPolicy(
+    input: Parameters<typeof configureRuntimeFederationPushPolicyInternal>[1],
+  ) {
+    await configureRuntimeFederationPushPolicyInternal(
+      this as unknown as Parameters<typeof configureRuntimeFederationPushPolicyInternal>[0],
+      input,
+    );
+  }
+
+  async transitionRuntimeFederationPackage(
+    input: Parameters<typeof transitionRuntimeFederationPackageInternal>[1],
+  ) {
+    await transitionRuntimeFederationPackageInternal(
+      this as unknown as Parameters<typeof transitionRuntimeFederationPackageInternal>[0],
+      input,
+    );
+  }
+
+  async materializeRuntimeCoordinatorSuggestion(
+    input: Parameters<typeof materializeRuntimeCoordinatorSuggestionInternal>[1],
+  ) {
+    await materializeRuntimeCoordinatorSuggestionInternal(
+      this as unknown as Parameters<typeof materializeRuntimeCoordinatorSuggestionInternal>[0],
+      input,
+    );
+  }
+
+  async transitionRuntimeFederationAssignment(
+    input: Parameters<typeof transitionRuntimeFederationAssignmentInternal>[1],
+  ) {
+    await transitionRuntimeFederationAssignmentInternal(
+      this as unknown as Parameters<typeof transitionRuntimeFederationAssignmentInternal>[0],
+      input,
+    );
+  }
+
+  async materializeRuntimeFederationAssignment(
+    input: Parameters<typeof materializeRuntimeFederationAssignmentInternal>[1],
+  ) {
+    await materializeRuntimeFederationAssignmentInternal(
+      this as unknown as Parameters<typeof materializeRuntimeFederationAssignmentInternal>[0],
+      input,
+    );
+  }
+
+  async saveRuntimeUserModel(input: Parameters<typeof saveRuntimeUserModelInternal>[1]) {
+    await saveRuntimeUserModelInternal(
+      this as unknown as Parameters<typeof saveRuntimeUserModelInternal>[0],
+      input,
+    );
+  }
+
+  async syncRuntimeUserModelMirror(force = false) {
+    await syncRuntimeUserModelMirrorInternal(
+      this as unknown as Parameters<typeof syncRuntimeUserModelMirrorInternal>[0],
+      force,
+    );
+  }
+
+  async importRuntimeUserModelMirror() {
+    await importRuntimeUserModelMirrorInternal(
+      this as unknown as Parameters<typeof importRuntimeUserModelMirrorInternal>[0],
+    );
+  }
+
+  async saveRuntimeSessionPreference(
+    input: Parameters<typeof saveRuntimeSessionPreferenceInternal>[1],
+  ) {
+    await saveRuntimeSessionPreferenceInternal(
+      this as unknown as Parameters<typeof saveRuntimeSessionPreferenceInternal>[0],
+      input,
+    );
+  }
+
+  async removeRuntimeSessionPreference(id: string) {
+    await removeRuntimeSessionPreferenceInternal(
+      this as unknown as Parameters<typeof removeRuntimeSessionPreferenceInternal>[0],
+      id,
+    );
+  }
+
+  async saveRuntimeAgent(input: Parameters<typeof saveRuntimeAgentInternal>[1]) {
+    await saveRuntimeAgentInternal(
+      this as unknown as Parameters<typeof saveRuntimeAgentInternal>[0],
+      input,
+    );
+  }
+
+  async removeRuntimeAgent(id: string) {
+    await removeRuntimeAgentInternal(
+      this as unknown as Parameters<typeof removeRuntimeAgentInternal>[0],
+      id,
+    );
+  }
+
+  async saveRuntimeSurface(input: Parameters<typeof saveRuntimeSurfaceInternal>[1]) {
+    await saveRuntimeSurfaceInternal(
+      this as unknown as Parameters<typeof saveRuntimeSurfaceInternal>[0],
+      input,
+    );
+  }
+
+  async saveRuntimeSurfaceRole(input: Parameters<typeof saveRuntimeSurfaceRoleInternal>[1]) {
+    await saveRuntimeSurfaceRoleInternal(
+      this as unknown as Parameters<typeof saveRuntimeSurfaceRoleInternal>[0],
+      input,
+    );
+  }
+
+  async reviewRuntimeUserModelOptimization() {
+    await reviewRuntimeUserModelOptimizationInternal(
+      this as unknown as Parameters<typeof reviewRuntimeUserModelOptimizationInternal>[0],
+    );
+  }
+
+  async reviewRuntimeUserConsoleMaintenance() {
+    await reviewRuntimeUserConsoleMaintenanceInternal(
+      this as unknown as Parameters<typeof reviewRuntimeUserConsoleMaintenanceInternal>[0],
+    );
+  }
+
+  async configureRuntimeUserConsoleMaintenance(
+    input: Parameters<typeof configureRuntimeUserConsoleMaintenanceInternal>[1],
+  ) {
+    await configureRuntimeUserConsoleMaintenanceInternal(
+      this as unknown as Parameters<typeof configureRuntimeUserConsoleMaintenanceInternal>[0],
+      input,
+    );
+  }
+
+  async adoptRuntimeUserModelOptimization(
+    id: Parameters<typeof adoptRuntimeUserModelOptimizationInternal>[1],
+  ) {
+    await adoptRuntimeUserModelOptimizationInternal(
+      this as unknown as Parameters<typeof adoptRuntimeUserModelOptimizationInternal>[0],
+      id,
+    );
+  }
+
+  async rejectRuntimeUserModelOptimization(
+    input: Parameters<typeof rejectRuntimeUserModelOptimizationInternal>[1],
+  ) {
+    await rejectRuntimeUserModelOptimizationInternal(
+      this as unknown as Parameters<typeof rejectRuntimeUserModelOptimizationInternal>[0],
+      input,
+    );
+  }
+
+  async reviewRuntimeRoleOptimization() {
+    await reviewRuntimeRoleOptimizationInternal(
+      this as unknown as Parameters<typeof reviewRuntimeRoleOptimizationInternal>[0],
+    );
+  }
+
+  async adoptRuntimeRoleOptimization(
+    id: Parameters<typeof adoptRuntimeRoleOptimizationInternal>[1],
+  ) {
+    await adoptRuntimeRoleOptimizationInternal(
+      this as unknown as Parameters<typeof adoptRuntimeRoleOptimizationInternal>[0],
+      id,
+    );
+  }
+
+  async rejectRuntimeRoleOptimization(
+    input: Parameters<typeof rejectRuntimeRoleOptimizationInternal>[1],
+  ) {
+    await rejectRuntimeRoleOptimizationInternal(
+      this as unknown as Parameters<typeof rejectRuntimeRoleOptimizationInternal>[0],
+      input,
+    );
+  }
+
+  async syncRuntimeCapabilities() {
+    await syncRuntimeCapabilitiesInternal(
+      this as unknown as Parameters<typeof syncRuntimeCapabilitiesInternal>[0],
+    );
+  }
+
+  async setRuntimeCapabilityRegistryEntry(
+    input: Parameters<typeof setRuntimeCapabilityRegistryEntryInternal>[1],
+  ) {
+    await setRuntimeCapabilityRegistryEntryInternal(
+      this as unknown as Parameters<typeof setRuntimeCapabilityRegistryEntryInternal>[0],
+      input,
+    );
+  }
+
+  async setRuntimeCapabilityMcpGrant(
+    input: Parameters<typeof setRuntimeCapabilityMcpGrantInternal>[1],
+  ) {
+    await setRuntimeCapabilityMcpGrantInternal(
+      this as unknown as Parameters<typeof setRuntimeCapabilityMcpGrantInternal>[0],
+      input,
+    );
+  }
+
+  async configureRuntimeIntel(input: Parameters<typeof configureRuntimeIntelInternal>[1]) {
+    await configureRuntimeIntelInternal(
+      this as unknown as Parameters<typeof configureRuntimeIntelInternal>[0],
+      input,
+    );
+  }
+
+  async configureRuntimeEvolution(input: Parameters<typeof configureRuntimeEvolutionInternal>[1]) {
+    await configureRuntimeEvolutionInternal(
+      this as unknown as Parameters<typeof configureRuntimeEvolutionInternal>[0],
+      input,
+    );
+  }
+
+  async configureRuntimeTaskLoop(input: Parameters<typeof configureRuntimeTaskLoopInternal>[1]) {
+    await configureRuntimeTaskLoopInternal(
+      this as unknown as Parameters<typeof configureRuntimeTaskLoopInternal>[0],
+      input,
+    );
+  }
+
+  async saveRuntimeTask(input: Parameters<typeof saveRuntimeTaskInternal>[1]) {
+    await saveRuntimeTaskInternal(
+      this as unknown as Parameters<typeof saveRuntimeTaskInternal>[0],
+      input,
+    );
+  }
+
+  async tickRuntimeTaskLoop() {
+    await tickRuntimeTaskLoopInternal(
+      this as unknown as Parameters<typeof tickRuntimeTaskLoopInternal>[0],
+    );
+  }
+
+  async planRuntimeTask(input: Parameters<typeof planRuntimeTaskInternal>[1]) {
+    await planRuntimeTaskInternal(
+      this as unknown as Parameters<typeof planRuntimeTaskInternal>[0],
+      input,
+    );
+  }
+
+  async respondRuntimeWaitingUserTask(
+    input: Parameters<typeof respondRuntimeWaitingUserTaskInternal>[1],
+  ) {
+    await respondRuntimeWaitingUserTaskInternal(
+      this as unknown as Parameters<typeof respondRuntimeWaitingUserTaskInternal>[0],
+      input,
+    );
+  }
+
+  async refreshRuntimeIntel(domains?: Parameters<typeof refreshRuntimeIntelInternal>[1]) {
+    await refreshRuntimeIntelInternal(
+      this as unknown as Parameters<typeof refreshRuntimeIntelInternal>[0],
+      domains,
+    );
+  }
+
+  async dispatchRuntimeIntelDeliveries() {
+    await dispatchRuntimeIntelDeliveriesInternal(
+      this as unknown as Parameters<typeof dispatchRuntimeIntelDeliveriesInternal>[0],
+    );
+  }
+
+  async saveRuntimeIntelSource(input: Parameters<typeof saveRuntimeIntelSourceInternal>[1]) {
+    await saveRuntimeIntelSourceInternal(
+      this as unknown as Parameters<typeof saveRuntimeIntelSourceInternal>[0],
+      input,
+    );
+  }
+
+  async removeRuntimeIntelSource(id: string) {
+    await removeRuntimeIntelSourceInternal(
+      this as unknown as Parameters<typeof removeRuntimeIntelSourceInternal>[0],
+      id,
+    );
+  }
+
+  async pinRuntimeIntel(input: Parameters<typeof pinRuntimeIntelInternal>[1]) {
+    await pinRuntimeIntelInternal(
+      this as unknown as Parameters<typeof pinRuntimeIntelInternal>[0],
+      input,
+    );
+  }
+
+  async reviewRuntimeMemory() {
+    await reviewRuntimeMemoryInternal(
+      this as unknown as Parameters<typeof reviewRuntimeMemoryInternal>[0],
+    );
+  }
+
+  async configureRuntimeMemory(input: Parameters<typeof configureRuntimeMemoryInternal>[1]) {
+    await configureRuntimeMemoryInternal(
+      this as unknown as Parameters<typeof configureRuntimeMemoryInternal>[0],
+      input,
+    );
+  }
+
+  async reinforceRuntimeMemory(input: Parameters<typeof reinforceRuntimeMemoryInternal>[1]) {
+    await reinforceRuntimeMemoryInternal(
+      this as unknown as Parameters<typeof reinforceRuntimeMemoryInternal>[0],
+      input,
+    );
+  }
+
+  async invalidateRuntimeMemory(input: Parameters<typeof invalidateRuntimeMemoryInternal>[1]) {
+    await invalidateRuntimeMemoryInternal(
+      this as unknown as Parameters<typeof invalidateRuntimeMemoryInternal>[0],
+      input,
+    );
+  }
+
+  async rollbackRuntimeMemoryInvalidation(
+    input: Parameters<typeof rollbackRuntimeMemoryInvalidationInternal>[1],
+  ) {
+    await rollbackRuntimeMemoryInvalidationInternal(
+      this as unknown as Parameters<typeof rollbackRuntimeMemoryInvalidationInternal>[0],
+      input,
+    );
+  }
+
+  async runRuntimeEvolutionReview() {
+    await runRuntimeEvolutionReviewInternal(
+      this as unknown as Parameters<typeof runRuntimeEvolutionReviewInternal>[0],
+    );
+  }
+
+  async setRuntimeEvolutionCandidateState(
+    input: Parameters<typeof setRuntimeEvolutionCandidateStateInternal>[1],
+  ) {
+    await setRuntimeEvolutionCandidateStateInternal(
+      this as unknown as Parameters<typeof setRuntimeEvolutionCandidateStateInternal>[0],
+      input,
+    );
+  }
+
+  async acknowledgeRuntimeEvolutionVerification(
+    input: Parameters<typeof acknowledgeRuntimeEvolutionVerificationInternal>[1],
+  ) {
+    await acknowledgeRuntimeEvolutionVerificationInternal(
+      this as unknown as Parameters<typeof acknowledgeRuntimeEvolutionVerificationInternal>[0],
+      input,
     );
   }
 

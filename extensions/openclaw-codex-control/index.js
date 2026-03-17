@@ -2886,7 +2886,7 @@ async function tickAutopilotExecution() {
     await maybeNotifyForManagedTask(task);
   }
   if (autopilotRuntime.activeTaskId) return await buildManagedAutopilotStatus();
-  const tickResult = taskEngine.tickRuntimeTaskLoop(opts);
+  const tickResult = await taskEngine.tickRuntimeTaskLoop(opts);
   if (tickResult.kind !== "planned") {
     return await buildManagedAutopilotStatus();
   }

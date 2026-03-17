@@ -667,6 +667,8 @@ export type AttentionItem = {
 
 export type CapabilityPolicyPreset =
   import("../../../src/shared/runtime/runtime-dashboard.js").CapabilityPolicyPreset;
+export type FederationRemoteSyncPreview =
+  import("../../../src/shared/runtime/federation-sync.js").FederationRemoteSyncPreview;
 export type FederationRuntimeSnapshot =
   import("../../../src/shared/runtime/runtime-dashboard.js").FederationRuntimeSnapshot;
 export type LegacyRuntimeImportApplyResult =
@@ -675,3 +677,5 @@ export type LegacyRuntimeImportReport =
   import("../../../src/shared/runtime/runtime-dashboard.js").LegacyRuntimeImportReport;
 export type RuntimeDashboardSnapshot =
   import("../../../src/shared/runtime/runtime-dashboard.js").RuntimeDashboardSnapshot;
+export type RuntimeUserConsoleStore =
+  import("../../../src/shared/runtime/contracts.js").RuntimeUserConsoleStore;

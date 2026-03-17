@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-## Managed OpenClaw Runtime v6
+## ClawMark Runtime v6 (爪痕)
 
 - This repository is currently executing `OpenClaw 增强版总实施蓝图 v6`.
 - Deliver against the full blueprint. Do not intentionally ship a reduced prototype, demo path, or placeholder-only slice when the requested phase is expected to be complete.

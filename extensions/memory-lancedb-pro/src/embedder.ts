@@ -8,8 +8,8 @@
  * these fields, so we pass them via a narrow `any` cast.
  */
 
-import OpenAI from "openai";
 import { createHash } from "node:crypto";
+import OpenAI from "openai";
 import { smartChunk } from "./chunker.js";
 
 // ============================================================================
@@ -34,7 +34,10 @@ class EmbeddingCache {
   }
 
   private key(text: string, task?: string): string {
-    const hash = createHash("sha256").update(`${task || ""}:${text}`).digest("hex").slice(0, 24);
+    const hash = createHash("sha256")
+      .update(`${task || ""}:${text}`)
+      .digest("hex")
+      .slice(0, 24);
     return hash;
   }
 
@@ -67,7 +70,9 @@ class EmbeddingCache {
     this.cache.set(k, { vector, createdAt: Date.now() });
   }
 
-  get size(): number { return this.cache.size; }
+  get size(): number {
+    return this.cache.size;
+  }
   get stats(): { size: number; hits: number; misses: number; hitRate: string } {
     const total = this.hits + this.misses;
     return {
@@ -194,7 +199,9 @@ function isAuthError(error: unknown): boolean {
   if (code && /invalid.*key|auth|forbidden|unauthorized/i.test(code)) return true;
 
   const msg = getErrorMessage(error);
-  return /\b401\b|\b403\b|invalid api key|api key expired|expired api key|forbidden|unauthorized|authentication failed|access denied/i.test(msg);
+  return /\b401\b|\b403\b|invalid api key|api key expired|expired api key|forbidden|unauthorized|authentication failed|access denied/i.test(
+    msg,
+  );
 }
 
 function isNetworkError(error: unknown): boolean {
@@ -204,7 +211,9 @@ function isNetworkError(error: unknown): boolean {
   }
 
   const msg = getErrorMessage(error);
-  return /ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH|ETIMEDOUT|fetch failed|network error|socket hang up|connection refused|getaddrinfo/i.test(msg);
+  return /ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH|ETIMEDOUT|fetch failed|network error|socket hang up|connection refused|getaddrinfo/i.test(
+    msg,
+  );
 }
 
 export function formatEmbeddingProviderError(
@@ -264,7 +273,7 @@ export function getVectorDimensions(model: string, overrideDims?: number): numbe
   const dims = EMBEDDING_DIMENSIONS[model];
   if (!dims) {
     throw new Error(
-      `Unsupported embedding model: ${model}. Either add it to EMBEDDING_DIMENSIONS or set embedding.dimensions in config.`
+      `Unsupported embedding model: ${model}. Either add it to EMBEDDING_DIMENSIONS or set embedding.dimensions in config.`,
     );
   }
 
@@ -300,7 +309,7 @@ export class Embedder {
     // Fall back to a dummy key for local providers (e.g. Ollama) that don't require auth.
     const rawKey = config.apiKey ?? "no-key-required";
     const apiKeys = Array.isArray(rawKey) ? rawKey : [rawKey];
-    const resolvedKeys = apiKeys.map(k => resolveEnvVars(k));
+    const resolvedKeys = apiKeys.map((k) => resolveEnvVars(k));
 
     this._model = config.model;
     this._baseURL = config.baseURL;
@@ -312,13 +321,18 @@ export class Embedder {
     this._autoChunk = config.chunking !== false;
 
     // Create a client pool — one OpenAI client per key
-    this.clients = resolvedKeys.map(key => new OpenAI({
-      apiKey: key,
-      ...(config.baseURL ? { baseURL: config.baseURL } : {}),
-    }));
+    this.clients = resolvedKeys.map(
+      (key) =>
+        new OpenAI({
+          apiKey: key,
+          ...(config.baseURL ? { baseURL: config.baseURL } : {}),
+        }),
+    );
 
     if (this.clients.length > 1) {
-      console.log(`[memory-lancedb-pro] Initialized ${this.clients.length} API keys for round-robin rotation`);
+      console.log(
+        `[memory-lancedb-pro] Initialized ${this.clients.length} API keys for round-robin rotation`,
+      );
     }
 
     this.dimensions = getVectorDimensions(config.model, config.dimensions);
@@ -351,8 +365,10 @@ export class Embedder {
     // Nested error object (some providers)
     const nested = err.error;
     if (nested && typeof nested === "object") {
-      if (nested.type === "rate_limit_exceeded" || nested.type === "insufficient_quota") return true;
-      if (nested.code === "rate_limit_exceeded" || nested.code === "insufficient_quota") return true;
+      if (nested.type === "rate_limit_exceeded" || nested.type === "insufficient_quota")
+        return true;
+      if (nested.code === "rate_limit_exceeded" || nested.code === "insufficient_quota")
+        return true;
     }
 
     // Fallback: message text matching
@@ -377,7 +393,7 @@ export class Embedder {
 
         if (this.isRateLimitError(error) && attempt < maxAttempts - 1) {
           console.log(
-            `[memory-lancedb-pro] Attempt ${attempt + 1}/${maxAttempts} hit rate limit, rotating to next key...`
+            `[memory-lancedb-pro] Attempt ${attempt + 1}/${maxAttempts} hit rate limit, rotating to next key...`,
           );
           continue;
         }
@@ -392,7 +408,7 @@ export class Embedder {
     // All keys exhausted with rate-limit errors
     throw new Error(
       `All ${maxAttempts} API keys exhausted (rate limited). Last error: ${lastError?.message || "unknown"}`,
-      { cause: lastError }
+      { cause: lastError },
     );
   }
 
@@ -450,7 +466,7 @@ export class Embedder {
     }
     if (embedding.length !== this.dimensions) {
       throw new Error(
-        `Embedding dimension mismatch: expected ${this.dimensions}, got ${embedding.length}`
+        `Embedding dimension mismatch: expected ${this.dimensions}, got ${embedding.length}`,
       );
     }
   }
@@ -504,7 +520,7 @@ export class Embedder {
         try {
           console.log(`Document exceeded context limit (${errorMsg}), attempting chunking...`);
           const chunkResult = smartChunk(text, this._model);
-          
+
           if (chunkResult.chunks.length === 0) {
             throw new Error(`Failed to chunk document: ${errorMsg}`);
           }
@@ -520,26 +536,25 @@ export class Embedder {
                 console.warn(`Failed to embed chunk ${idx}:`, chunkError);
                 throw chunkError;
               }
-            })
+            }),
           );
 
           // Compute average embedding across chunks
-          const avgEmbedding = chunkEmbeddings.reduce(
-            (sum, { embedding }) => {
-              for (let i = 0; i < embedding.length; i++) {
-                sum[i] += embedding[i];
-              }
-              return sum;
-            },
-            new Array(this.dimensions).fill(0)
-          );
+          const avgEmbedding = chunkEmbeddings.reduce((sum, { embedding }) => {
+            for (let i = 0; i < embedding.length; i++) {
+              sum[i] += embedding[i];
+            }
+            return sum;
+          }, new Array(this.dimensions).fill(0));
 
-          const finalEmbedding = avgEmbedding.map(v => v / chunkEmbeddings.length);
-          
+          const finalEmbedding = avgEmbedding.map((v) => v / chunkEmbeddings.length);
+
           // Cache the result for the original text (using its hash)
           this._cache.set(text, task, finalEmbedding);
-          console.log(`Successfully embedded long document as ${chunkEmbeddings.length} averaged chunks`);
-          
+          console.log(
+            `Successfully embedded long document as ${chunkEmbeddings.length} averaged chunks`,
+          );
+
           return finalEmbedding;
         } catch (chunkError) {
           // If chunking fails, throw the original error
@@ -583,15 +598,14 @@ export class Embedder {
     }
 
     try {
-      const response = await this.embedWithRetry(
-        this.buildPayload(validTexts, task)
-      );
+      const response = await this.embedWithRetry(this.buildPayload(validTexts, task));
 
       // Create result array with proper length
       const results: number[][] = new Array(texts.length);
 
       // Fill in embeddings for valid texts
-      response.data.forEach((item, idx) => {
+      const responseRows = response.data as Array<{ embedding: number[] }>;
+      responseRows.forEach((item, idx: number) => {
         const originalIndex = validIndices[idx];
         const embedding = item.embedding as number[];
 
@@ -615,7 +629,7 @@ export class Embedder {
       if (isContextError && this._autoChunk) {
         try {
           console.log(`Batch embedding failed with context error, attempting chunking...`);
-          
+
           const chunkResults = await Promise.all(
             validTexts.map(async (text, idx) => {
               const chunkResult = smartChunk(text, this._model);
@@ -625,18 +639,15 @@ export class Embedder {
 
               // Embed all chunks in parallel, then average.
               const embeddings = await Promise.all(
-                chunkResult.chunks.map((chunk) => this.embedSingle(chunk, task))
+                chunkResult.chunks.map((chunk) => this.embedSingle(chunk, task)),
               );
 
-              const avgEmbedding = embeddings.reduce(
-                (sum, emb) => {
-                  for (let i = 0; i < emb.length; i++) {
-                    sum[i] += emb[i];
-                  }
-                  return sum;
-                },
-                new Array(this.dimensions).fill(0)
-              );
+              const avgEmbedding = embeddings.reduce((sum, emb) => {
+                for (let i = 0; i < emb.length; i++) {
+                  sum[i] += emb[i];
+                }
+                return sum;
+              }, new Array(this.dimensions).fill(0));
 
               const finalEmbedding = avgEmbedding.map((v) => v / embeddings.length);
 
@@ -644,7 +655,7 @@ export class Embedder {
               this._cache.set(text, task, finalEmbedding);
 
               return { embedding: finalEmbedding, index: validIndices[idx] };
-            })
+            }),
           );
 
           console.log(`Successfully chunked and embedded ${chunkResults.length} long documents`);
