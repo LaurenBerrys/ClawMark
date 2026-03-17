@@ -1,5 +1,411 @@
 # Repository Guidelines
 
+## Managed OpenClaw Runtime v6
+
+- This repository is currently executing `OpenClaw 增强版总实施蓝图 v6`.
+- Deliver against the full blueprint. Do not intentionally ship a reduced prototype, demo path, or placeholder-only slice when the requested phase is expected to be complete.
+- Only stop implementation for a true hard blocker that requires operator judgment. Do not interrupt for routine progress narration.
+
+### Product Definitions
+
+- `Runtime Core`: non-persona system core. It owns formal truth, execution sovereignty, privacy sovereignty, and local governance.
+- `User Console`: the default web page and default operator entrypoint. It is not the system core and it is not an agent persona shell.
+- `Agent`: an ecology object inside the runtime. Agents are not the product identity and do not own formal truth.
+- `Surface`: a channel/account surface bound to either the user console or a specific agent. It must never bind to `Runtime Core`.
+- `Federation Plane`: the controlled management/synchronization plane between the local runtime and the company Brain OS.
+- `Brain OS`: the company-internal central brain. It is not shipped to end users and it must not be implemented inside this repository.
+
+### Phase Ownership
+
+- `Phase 1`: Runtime. Implemented in this repository.
+- `Phase 2`: Federation Plane. Implemented in this repository.
+- `Phase 3`: Brain OS. Must live in a separate internal repository.
+- Do not skip phase order for acceptance purposes. Prebuilt scaffolding is fine, but Runtime acceptance remains the first gate.
+
+### Runtime Sovereignty Boundaries
+
+- Keep all formal truth local to the runtime:
+  - formal memories
+  - strategies
+  - task state
+  - private user model
+- `Runtime Core` is the only formal-memory writer.
+- `Decision Core` is the only final routing authority.
+- `Task Loop` is the only continuous execution authority.
+- `MCP host` is the capability-bus owner. Agents only receive a governed subset.
+- Governance state must have execution meaning, not just dashboard meaning:
+  - `core` and `adopted` are live-eligible
+  - `candidate` and `shadow` stay off the default live route
+  - `blocked` is a hard deny
+  - task planning should prefer `core > adopted > implicit fallback > candidate > shadow > blocked`
+- `Surface` local-business policy is an allowlisted runtime-owned schema, not an arbitrary JSON escape hatch. It must keep runtime-core binding forbidden and formal-memory/user-model/surface-role writes disabled.
+- If federation or other local flows bind work to a `Surface`, that surface policy must still gate local task materialization. In particular, `taskCreation=disabled` must block coordinator-suggestion materialization instead of letting a side path spawn local tasks.
+- Runtime self-evolution must keep structured risk review local. `autoApplyLowRisk` may only advance candidates reviewed as `low`; medium/high evolution candidates require an explicit local adoption reason and must not piggyback on the low-risk path.
+- Channel delivery state is never canonical task truth. For example, a Discord thread archive action may affect delivery projection, but it must not redefine task completion.
+
+### Federation Boundaries
+
+- Federation may export/import controlled artifacts, suggestions, overlays, and packages.
+- Federation must never bypass local sovereignty.
+- Federation outbox replication is append-only and cursor-aware:
+  - local outbox generation may advance the local head journal, but it must not silently acknowledge delivery
+  - only a successful managed sync may advance the acknowledged outbox cursor
+  - journal dedupe must be based on logical artifact content, not volatile `generatedAt` / envelope timestamp churn
+- Never allow these to flow upstream by default:
+  - raw chat
+  - raw session working context
+  - secrets
+  - durable private memory dumps
+  - private user model core
+  - undistilled internal task details
+  - full raw customer conversations
+- Central packages must enter a local adoption chain; they must not directly overwrite local formal truth.
+
+### Implementation Bias For This Project
+
+- Prefer authoritative runtime stores and shared runtime modules over extension-local truth.
+- Preserve the legacy runtime as an import/reference source. Do not delete it or mutate it in-place during migration work.
+- Default product posture is `managed_high` capability access with a governed path to downgrade.
+- News/info is a sidecar user-value module. It must not become the core decision lifeline and it must not auto-write formal memory.
+- When upstream OpenClaw behavior conflicts with the v6 blueprint, preserve upstream where it improves infrastructure, but keep v6 product boundaries as the deciding rule.
+
+### Single Source Of Truth
+
+- This `AGENTS.md` is the single maintained v6 planning and progress file.
+- Keep the canonical product plan, execution contract, and live delivery status in this file only.
+- Runtime contracts and authoritative shapes still live in `src/shared/runtime/contracts.ts`.
+- Runtime/Federation implementation must converge into `src/shared/runtime/*`, `src/gateway/server-methods/runtime.ts`, and the Runtime web UI.
+
+### Canonical Plan
+
+#### Phase 1: Runtime
+
+##### 1. Runtime Boundary and Instance Model
+
+- The formal isolation unit is the `runtime instance`.
+- All runtime stores derive from `instance manifest + path resolver`.
+- The path model is fixed:
+  - `instanceRoot`
+  - `configRoot`
+  - `stateRoot`
+  - `dataRoot`
+  - `cacheRoot`
+  - `logRoot`
+  - `workspaceRoot`
+  - `agentsRoot`
+  - `skillsRoot`
+  - `extensionsRoot`
+  - `archiveRoot`
+- Durable assets and volatile runtime state must stay separated.
+- `profile` remains only as a compatibility selector.
+- Multi-instance execution must not share writable state.
+- The runtime must not depend on the home directory as the formal root.
+
+##### 2. Memory Kernel
+
+- Formal truth uses `SQLite + WAL`.
+- Derived layers are fixed:
+  - full-text index
+  - vector archive backend
+  - Markdown mirror layer
+- The six-layer structure is fixed:
+  - `logs`
+  - `events`
+  - `memories`
+  - `strategies`
+  - `meta_learning`
+  - `evolution_memory`
+- Formal memory types are fixed:
+  - `user`
+  - `knowledge`
+  - `execution`
+  - `avoidance`
+  - `efficiency`
+  - `completion`
+  - `resource`
+  - `communication`
+- The memory kernel must support:
+  - lineage
+  - invalidation
+  - rollback
+  - reinforcement
+  - decay
+- `memory-lancedb-pro` may provide archive/vector capability only.
+- External plugins must never write formal memory directly.
+
+##### 3. Memory Update Engine
+
+- Formal write chains are fixed:
+  - `task/run/step/review -> execution / avoidance / efficiency / completion / strategy candidates / meta_learning`
+  - `user/control actions -> user / communication`
+  - manual promotion of pinned information into controlled knowledge memory
+- Task completion, review/distill, invalidation, rollback, reinforcement, and lifecycle review must all flow through one authoritative engine.
+- The news/info module must not auto-write formal memory.
+
+##### 4. Retrieval Orchestrator
+
+- The runtime-owned planes are fixed:
+  - `strategy`
+  - `memory`
+  - `session`
+  - `archive`
+- The three stages are fixed:
+  - `Structured Match`
+  - `Hybrid Candidate Generation`
+  - `Context Pack Synthesis`
+- `ContextPack` is the only retrieval output.
+- `System 1` uses `strategy + memory + session` and does not pull heavy archive by default.
+- `System 2` may expand archive, perform deeper traversal, and use heavier rerank/fusion.
+- External retrieval backends provide capability only, not sovereignty.
+
+##### 5. Decision Core
+
+- The Decision Core is the runtime-owned structured decision engine.
+- Dual lanes are fixed:
+  - `System 1`
+  - `System 2`
+- Decision inputs are fixed:
+  - task state
+  - relevant strategies
+  - relevant memories
+  - relevant session signals
+  - runtime state
+  - policy constraints
+- Decision output must stay structured and testable.
+- Optional modules may influence decisions only through structured signals or artifact refs.
+
+##### 6. Task Loop
+
+- The task system is the runtime's only continuous execution authority.
+- Core objects are fixed:
+  - `TaskRecord`
+  - `TaskRun`
+  - `TaskStep`
+  - `TaskReview`
+- The main loop is fixed:
+  - `Intake`
+  - `Planner`
+  - `Executor`
+  - `Recovery`
+  - `Review`
+  - `Notify`
+- Canonical task statuses are fixed:
+  - `queued`
+  - `planning`
+  - `ready`
+  - `running`
+  - `waiting_external`
+  - `waiting_user`
+  - `blocked`
+  - `completed`
+  - `cancelled`
+- Derived tasks must attach to a root task.
+- Completed tasks must review, and reviews must distill.
+- The loop must support:
+  - `per-task lease`
+  - `per-worker concurrency`
+  - `idempotency key`
+  - `retry / recovery / replan`
+  - memory-invalidation-triggered replanning
+
+##### 7. User Model
+
+- The user model belongs to `Runtime Core`, not to an agent.
+- The three layers are fixed:
+  - `RuntimeUserModelCore`
+  - `AgentLocalOverlay`
+  - `SessionWorkingPreference`
+- V1 priority includes:
+  - communication style
+  - interruption threshold
+  - reporting granularity
+  - confirmation boundary
+  - `reportPolicy`
+- Structured user model is the truth source.
+- `USER.md` is a human-editable mirror only.
+- Session-local preference must not directly pollute long-term preference.
+- Agent-local overlays must not overwrite the user core model.
+
+##### 8. Agent / Surface Ecology
+
+- Agents are ecology objects, not product identity.
+- Each agent owns:
+  - role base
+  - local memory namespace
+  - local skill pack
+  - local channel bindings
+  - local optimization history
+- `User Console` stays the default homepage and operator control plane.
+- Each surface binds to the `User Console` or a specific agent, never to `Runtime Core`.
+- `SurfaceRoleOverlay` must remain runtime-owned and allowlisted.
+- Customer/service surfaces must not rewrite runtime-core truth or the user core model.
+- Role optimization follows:
+  - `observe`
+  - `shadow`
+  - `recommend`
+  - `adopt/reject`
+
+##### 9. Self-Evolution Engine
+
+- This is the runtime's system-level optimization kernel, not a skill.
+- Optimization targets include:
+  - decision policy
+  - retrieval policy
+  - context policy
+  - retry/recovery policy
+  - skill bundle usage
+  - model routing
+  - worker routing
+  - role optimization
+  - strategy refresh
+- It must optimize for:
+  - success
+  - completion
+  - token
+  - latency
+  - interruption
+  - regression risk
+- It may materialize:
+  - strategy
+  - route policy
+  - retry policy
+  - context policy
+  - retrieval policy
+  - role optimization recommendation
+- It must not rewrite formal memory truth or bypass governance.
+
+##### 10. Capability Governance
+
+- Governed objects are fixed:
+  - `skill`
+  - `agent`
+  - `mcp`
+- Governance states are fixed:
+  - `blocked`
+  - `shadow`
+  - `candidate`
+  - `adopted`
+  - `core`
+- MCP capability is host-owned and matrix-governed.
+- Agents receive only an authorized subset and may not self-escalate.
+- New skills/agents/mcp entries must not enter the live path by default.
+
+##### 11. News / Info Module
+
+- This is an independent user-value sidecar, not the system lifeline.
+- V1 includes:
+  - category config
+  - source config
+  - scheduled digest
+  - instant bulletin toggle
+  - title + summary + URL
+- Default categories:
+  - military
+  - technology
+  - AI
+  - business
+- It uses its own store, adapters, dedupe, summarize, and scheduler path.
+- It must not auto-create tasks, auto-write formal memory, or become the core decision lifeline.
+
+##### 12. Phase 1 Acceptance
+
+- The runtime must run fully without an upper-layer connection.
+- The `User Console` must remain the default operator entrypoint and not collapse into an agent shell.
+- Memory, retrieval, decision, task, user model, and evolution must form a local closed loop.
+- Multi-agent and multi-surface execution must not pollute the user core model.
+- Typecheck, build, unit tests, and key integration tests must pass.
+
+#### Phase 2: Federation Plane
+
+- The federation plane is the controlled management plane between the runtime and Brain OS.
+- It is not an open federation platform, not a central executor, and not a user-deployable product.
+- The connection model is fixed:
+  - runtime-initiated
+  - outbound sync only
+  - runtime push outbox / pull inbox
+- Upstream envelopes are fixed:
+  - `RuntimeManifestEnvelope`
+  - `ShareableReviewEnvelope`
+  - `ShareableMemoryEnvelope`
+  - `StrategyDigestEnvelope`
+  - `NewsDigestEnvelope`
+  - `ShadowTelemetryEnvelope`
+  - `CapabilityGovernanceSnapshot`
+  - `TeamKnowledgeEnvelope`
+- Downstream packages are fixed:
+  - `CoordinatorSuggestionEnvelope`
+  - `SharedStrategyPackage`
+  - `TeamKnowledgePackage`
+  - `RoleOptimizationPackage`
+  - `RuntimePolicyOverlayPackage`
+- Allowed upstream scopes:
+  - `shareable_derived`
+  - `strategy_digest`
+  - `news_digest`
+  - `shadow_telemetry`
+  - `capability_governance`
+  - `team_shareable_knowledge`
+- Blocked upstream scopes:
+  - `raw_chat`
+  - `raw_session_working_context`
+  - `secrets`
+  - `durable_private_memory_dump`
+  - `private_user_model_core`
+  - `undistilled task internals`
+  - `full raw customer conversations`
+- Every downstream package must pass through:
+  - `received`
+  - `validated`
+  - `shadowed`
+  - `recommended`
+  - `adopted / rejected / expired / reverted`
+- `team-shareable` knowledge must stay isolated from private truth.
+- Federation must never bypass local truth ownership.
+
+#### Phase 3: Brain OS
+
+- Brain OS is the company-internal central brain and must live in a separate repository.
+- It is not published to users and must not be implemented in this repository.
+- It is responsible for:
+  - runtime registry
+  - federation gateway
+  - artifact ingest
+  - shared strategy synthesis
+  - team knowledge synthesis
+  - role optimization synthesis
+  - coordination suggestions
+  - package publication
+  - admin console
+  - audit/approval
+- It must not execute local tasks, overwrite local formal memory, or replace local decision ownership.
+
+### Live Delivery Status
+
+Last updated: 2026-03-17
+
+| Area                             | Status        | Current live state                                                                                                                                                                                                                             |
+| -------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime Core / Instance Boundary | `completed`   | Instance-rooted runtime store and manifest/path-resolver layout are authoritative.                                                                                                                                                             |
+| Memory Kernel                    | `completed`   | SQLite/WAL truth, invalidation, rollback, lineage, markdown mirror, and lifecycle closure (reinforcement/decay) are fully implemented and unified.                                                                                             |
+| Memory Update Engine             | `completed`   | Task/review/control writes, invalidation, rollback, reinforcement, and lifecycle review are unified and v6 compliant.                                                                                                                          |
+| Retrieval Orchestrator           | `completed`   | `strategy/memory/session/archive` planes are active, Governed Retrieval is enforced (penalizing blocked/shadow), and System 1 safety (no archive) is hard-coded.                                                                               |
+| Decision Core                    | `completed`   | Structured System 1/System 2 decisions are live with Governed Decision Policy (filtering skills/workers) and Surface Topic Policy boundaries.                                                                                                  |
+| Task Loop                        | `completed`   | Canonical task/run/step/review loop, notify ledger, recovery, replan, and memory-invalidation-triggered replanning are fully v6 compliant and integrated with ecology bindings.                                                                |
+| User Model                       | `completed`   | Structured core, `USER.md` mirror/import flow, action queue, and automated preference learning (auto-apply low risk) are live.                                                                                                                 |
+| Agent / Surface Ecology          | `completed`   | Agent/surface records, overlays, allowlisted local-business policy, routing posture, and role optimization (auto-apply low risk) are fully hardened.                                                                                           |
+| Self-Evolution Engine            | `completed`   | Full closed-loop optimization (retrieval_policy, strategy_refresh, worker_routing etc.) with mandatory risk gating and structured auto-apply is live.                                                                                          |
+| Capability Governance            | `completed`   | Skill/agent/MCP governance and host-owned MCP grant matrix are authoritative and enforced at retrieval/decision layers.                                                                                                                        |
+| News / Info Module               | `completed`   | Intel/news digest flow, topic weighting, usefulness feedback, and independent sidecar scheduler are fully v6 compliant.                                                                                                                        |
+| Phase 1 Acceptance               | `completed`   | Phase 1 Runtime hardening is complete. All core components (Memory, Retrieval, Decision, Task, User Model, Evolution) form a local closed loop.                                                                                                |
+| Federation Plane                 | `in_progress` | Inbox/outbox/sync, package state machine, assignment materialization, outbox journal, remote maintenance, scope suppression audit, and team knowledge/shared strategy surfaces are live; full protocol/security/disconnect acceptance remains. |
+| Brain OS                         | `not_started` | Must be implemented in a separate internal repository during Phase 3.                                                                                                                                                                          |
+
+### Mandatory Maintenance
+
+- After each material implementation slice, update the `Live Delivery Status` section in this file.
+- Update this file whenever product definitions, hard boundaries, phase ownership, or execution rules change.
+- Keep terminology consistent with the v6 blueprint. Do not casually swap `news` with `intel`, `surface` with `agent`, or `user console` with `runtime core`.
+
 - Repo: https://github.com/openclaw/openclaw
 - In chat replies, file references must be repo-root relative only (example: `extensions/bluebubbles/src/channel.ts:80`); never absolute paths or `~/...`.
 - GitHub issues/comments/PR comments: use literal multiline strings or `-F - <<'EOF'` (or $'...') for real newlines; never embed "\\n".
