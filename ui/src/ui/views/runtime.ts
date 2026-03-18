@@ -5644,7 +5644,7 @@ export function renderRuntime(props: RuntimeProps) {
   return html`
     <section class="grid">
       <div class="card">
-        <div class="card-title">Managed Runtime</div>
+        <div class="card-title">ClawMark</div>
         <div class="card-sub">Runtime Core status, storage roots, and execution posture.</div>
         <div class="row" style="margin-top: 16px; gap: 12px; align-items: center;">
           <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>

@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-## ClawMark Runtime v6 (爪痕)
+## ClawMark (爪痕)
 
 - This repository is currently executing `OpenClaw 增强版总实施蓝图 v6`.
 - Deliver against the full blueprint. Do not intentionally ship a reduced prototype, demo path, or placeholder-only slice when the requested phase is expected to be complete.
@@ -448,26 +448,27 @@ This section defines the next-generation runtime optimizations. The design philo
   - audit/approval
 - It must not execute local tasks, overwrite local formal memory, or replace local decision ownership.
 
-### Live Delivery | Area                             | Status        | Current live state                                                                                                                                                                                                                             |
+### Live Delivery | Area | Status | Current live state |
+
 | -------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime Core / Instance Boundary | `completed`   | Instance-rooted runtime store and manifest/path-resolver layout are authoritative.                                                                                                                                                             |
-| Memory Kernel                    | `completed`   | SQLite/WAL truth, invalidation, rollback, lineage, markdown mirror, and lifecycle closure (reinforcement/decay) are fully implemented and unified.                                                                                             |
-| Memory Update Engine             | `completed`   | Task/review/control writes, invalidation, rollback, reinforcement, and lifecycle review are unified and v6 compliant.                                                                                                                          |
-| Retrieval Orchestrator           | `completed`   | `strategy/memory/session/archive` planes active. Lazy Context Pointers (pointerOnly) for System 1 and Canary Strategy (10% hash rollout) implemented.                                                                                         |
-| Decision Core                    | `completed`   | Structured System 1/System 2 decisions with Governed Decision Policy. System 1 uses lazy pointers (summaries only) to save tokens.                                                                                                           |
-| Task Loop                        | `completed`   | Canonical loop with recovery/replan. Goal-State Compaction (watermark-triggered checkpointing) implemented to prevent context drift and token bloat.                                                                                           |
-| User Model                       | `completed`   | Structured core, `USER.md` mirror, and preference learning are live.                                                                                                                                                                           |
-| Evolution Engine                 | `completed`   | Risk review and auto-apply pipeline live. Human-in-the-Loop Governance (autoCanaryEvolution gating) and Canary Rollout implemented.                                                                                                           |
-| Phase 1 Runtime (v6.1 Unified)   | `completed`   | All Section 13 Architecture Evolution (Lazy Pointers, Compaction, Canary Governance) features are fully integrated into the Phase 1 Baseline.                                                                                                  |
-e.                                                                                                                 |
-| Agent / Surface Ecology          | `completed`   | Agent/surface records, overlays, allowlisted local-business policy, routing posture, and role optimization (auto-apply low risk) are fully hardened.                                                                                           |
-| Self-Evolution Engine            | `completed`   | Full closed-loop optimization (retrieval_policy, strategy_refresh, worker_routing etc.) with mandatory risk gating and structured auto-apply is live.                                                                                          |
-| Capability Governance            | `completed`   | Skill/agent/MCP governance and host-owned MCP grant matrix are authoritative and enforced at retrieval/decision layers.                                                                                                                        |
-| News / Info Module               | `completed`   | Intel/news digest flow, topic weighting, usefulness feedback, and independent sidecar scheduler are fully v6 compliant.                                                                                                                        |
-| Phase 1 Acceptance               | `completed`   | Phase 1 Runtime hardening is complete. All core components (Memory, Retrieval, Decision, Task, User Model, Evolution) form a local closed loop.                                                                                                |
-| Architecture Evolution (v6.1)    | `planned`     | Lazy Context Pointers, Goal-State Compaction, and Human-in-the-Loop Evolution Governance are designed. Implementation pending.                                                                                                                  |
-| Federation Plane                 | `in_progress` | Inbox/outbox/sync, package state machine, assignment materialization, outbox journal, remote maintenance, scope suppression audit, and team knowledge/shared strategy surfaces are live; full protocol/security/disconnect acceptance remains. |
-| Brain OS                         | `not_started` | Must be implemented in a separate internal repository during Phase 3.                                                                                                                                                                          |
+| Runtime Core / Instance Boundary | `completed` | Instance-rooted runtime store and manifest/path-resolver layout are authoritative. |
+| Memory Kernel | `completed` | SQLite/WAL truth, invalidation, rollback, lineage, markdown mirror, and lifecycle closure (reinforcement/decay) are fully implemented and unified. |
+| Memory Update Engine | `completed` | Task/review/control writes, invalidation, rollback, reinforcement, and lifecycle review are unified and v6 compliant. |
+| Retrieval Orchestrator | `completed` | `strategy/memory/session/archive` planes active. Lazy Context Pointers (pointerOnly) for System 1 and Canary Strategy (10% hash rollout) implemented. |
+| Decision Core | `completed` | Structured System 1/System 2 decisions with Governed Decision Policy. System 1 uses lazy pointers (summaries only) to save tokens. |
+| Task Loop | `completed` | Canonical loop with recovery/replan. Goal-State Compaction (watermark-triggered checkpointing) implemented to prevent context drift and token bloat. |
+| User Model | `completed` | Structured core, `USER.md` mirror, and preference learning are live. |
+| Evolution Engine | `completed` | Risk review and auto-apply pipeline live. Human-in-the-Loop Governance (autoCanaryEvolution gating) and Canary Rollout implemented. |
+| Phase 1 Runtime (v6.1 Unified) | `completed` | All Section 13 Architecture Evolution (Lazy Pointers, Compaction, Canary Governance) features are fully integrated into the Phase 1 Baseline. |
+e. |
+| Agent / Surface Ecology | `completed` | Agent/surface records, overlays, allowlisted local-business policy, routing posture, and role optimization (auto-apply low risk) are fully hardened. |
+| Self-Evolution Engine | `completed` | Full closed-loop optimization (retrieval_policy, strategy_refresh, worker_routing etc.) with mandatory risk gating and structured auto-apply is live. |
+| Capability Governance | `completed` | Skill/agent/MCP governance and host-owned MCP grant matrix are authoritative and enforced at retrieval/decision layers. |
+| News / Info Module | `completed` | Intel/news digest flow, topic weighting, usefulness feedback, and independent sidecar scheduler are fully v6 compliant. |
+| Phase 1 Acceptance | `completed` | Phase 1 Runtime hardening is complete. All core components (Memory, Retrieval, Decision, Task, User Model, Evolution) form a local closed loop. |
+| Architecture Evolution (v6.1) | `planned` | Lazy Context Pointers, Goal-State Compaction, and Human-in-the-Loop Evolution Governance are designed. Implementation pending. |
+| Federation Plane | `in_progress` | Inbox/outbox/sync, package state machine, assignment materialization, outbox journal, remote maintenance, scope suppression audit, and team knowledge/shared strategy surfaces are live; full protocol/security/disconnect acceptance remains. |
+| Brain OS | `not_started` | Must be implemented in a separate internal repository during Phase 3. |
 
 ### Mandatory Maintenance
 
@@ -475,7 +476,7 @@ e.                                                                              
 - Update this file whenever product definitions, hard boundaries, phase ownership, or execution rules change.
 - Keep terminology consistent with the v6 blueprint. Do not casually swap `news` with `intel`, `surface` with `agent`, or `user console` with `runtime core`.
 
-- Repo: https://github.com/openclaw/openclaw
+- Repo: https://github.com/LaurenBerrys/ClawMark
 - In chat replies, file references must be repo-root relative only (example: `extensions/bluebubbles/src/channel.ts:80`); never absolute paths or `~/...`.
 - GitHub issues/comments/PR comments: use literal multiline strings or `-F - <<'EOF'` (or $'...') for real newlines; never embed "\\n".
 - GitHub comment footgun: never use `gh issue/pr comment -b "..."` when body contains backticks or shell chars. Always use single-quoted heredoc (`-F - <<'EOF'`) so no command substitution/escaping corruption.
