@@ -150,6 +150,13 @@ function scoreStrategyRecord(
   if (record.invalidatedBy.length > 0) {
     return -1000;
   }
+  if (record.canary) {
+    const seed = query.taskId || query.prompt || "canary";
+    const canaryHash = Number.parseInt(hashText(seed).slice(-2), 36) || 0;
+    if (canaryHash % 10 !== 0) {
+      return -1000;
+    }
+  }
 
   let score = record.confidence;
   if (query.route && record.route === query.route) {
@@ -512,6 +519,24 @@ export function buildContextPack(params: BuildContextPackParams): ContextPack {
     query,
     structured,
   });
+
+  // System 1 defaults to pointers (Lazy Context) to save tokens
+  const pointerOnly = thinkingLane === "system1";
+  if (pointerOnly) {
+    for (const candidate of hybrid.strategyCandidates) {
+      candidate.excerpt = undefined;
+    }
+    for (const candidate of hybrid.memoryCandidates) {
+      candidate.excerpt = undefined;
+    }
+    for (const candidate of hybrid.sessionCandidates) {
+      candidate.excerpt = undefined;
+    }
+    for (const candidate of hybrid.archiveCandidates) {
+      candidate.excerpt = undefined;
+    }
+  }
+
   const summary = [
     `strategy=${hybrid.strategyCandidates.length}`,
     `memory=${hybrid.memoryCandidates.length}`,
@@ -534,6 +559,7 @@ export function buildContextPack(params: BuildContextPackParams): ContextPack {
     queryId: params.query.id,
     thinkingLane: params.query.thinkingLane,
     summary,
+    pointerOnly,
     strategyCandidates: hybrid.strategyCandidates,
     memoryCandidates: hybrid.memoryCandidates,
     sessionCandidates: hybrid.sessionCandidates,
@@ -560,4 +586,13 @@ export function buildContextPack(params: BuildContextPackParams): ContextPack {
       },
     },
   };
+}
+
+function hashText(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
 }

@@ -586,6 +586,7 @@ function resolveRuntimeEvolutionControls(
 ): {
   enabled: boolean;
   autoApplyLowRisk: boolean;
+  autoCanaryEvolution: boolean;
   reviewIntervalHours: number;
 } {
   const metadata = toRecord(governanceStore.metadata);
@@ -593,6 +594,7 @@ function resolveRuntimeEvolutionControls(
   return {
     enabled: metadata?.enabled !== false,
     autoApplyLowRisk: metadata?.autoApplyLowRisk === true,
+    autoCanaryEvolution: metadata?.autoCanaryEvolution === true,
     reviewIntervalHours:
       Number.isFinite(reviewIntervalHoursRaw) && reviewIntervalHoursRaw > 0
         ? Math.trunc(reviewIntervalHoursRaw)
@@ -2680,7 +2682,13 @@ export function maybeAutoApplyLowRiskEvolution(
       updated = true;
       continue;
     }
-    if (evolution.adoptionState === "candidate" && autoApplyStatus.adoptReady) {
+    // Promotion from Candidate to Adopted requires explicit autoCanaryEvolution flag.
+    // In sovereign deployments (default), this requires manual operator adoption.
+    if (
+      evolution.adoptionState === "candidate" &&
+      autoApplyStatus.adoptReady &&
+      controls.autoCanaryEvolution
+    ) {
       evolution.adoptionState = "adopted";
       evolution.updatedAt = now;
       adoptedIds.push(evolution.id);
@@ -2741,9 +2749,10 @@ export function materializeAdoptedEvolutionStrategies(
   const strategyIds: string[] = [];
 
   for (const evolution of stores.memoryStore.evolutionMemory) {
-    if (evolution.adoptionState !== "adopted") {
+    if (evolution.adoptionState !== "adopted" && evolution.adoptionState !== "candidate") {
       continue;
     }
+    const isCanary = evolution.adoptionState === "candidate";
     if (
       evolution.candidateType !== "route_default_lane" &&
       evolution.candidateType !== "route_skill_bundle" &&
@@ -2838,6 +2847,7 @@ export function materializeAdoptedEvolutionStrategies(
       sourceSessionIds: evolution.sourceSessionIds,
       sourceIntelIds: [],
       derivedFromMemoryIds: evolution.derivedFromMemoryIds,
+      canary: isCanary,
       measuredEffect: {
         materializedFrom: evolution.id,
         candidateType: evolution.candidateType,

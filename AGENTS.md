@@ -315,6 +315,75 @@
 - Multi-agent and multi-surface execution must not pollute the user core model.
 - Typecheck, build, unit tests, and key integration tests must pass.
 
+##### 13. Architecture Evolution (v6.1 Pragmatic Track)
+
+This section defines the next-generation runtime optimizations. The design philosophy is **pragmatic minimalism**: maximum real-world impact with minimum codebase complexity. All mechanisms below build on the existing `SQLite + WAL` truth layer and do not require external databases, microservices, or distributed consensus protocols.
+
+###### 13a. Lazy Context Pointers (Token Efficiency)
+
+- The primary Token-saving mechanism for `ContextPack` assembly.
+- Rules are fixed:
+  - Every `MemoryRecord` and `StrategyRecord` must maintain a `summary` field (≤100 characters).
+  - During `System 1` (fast-decision) context assembly, `ContextPack` must **never** include memory detail text or raw chat history.
+  - `ContextPack` delivers only a pointer list of matched memory IDs with their short summaries.
+  - The main LLM must explicitly call `expand_memory(id)` to load full detail on demand.
+- `System 2` (deep-analysis) may pre-expand up to a budgeted Token ceiling, but must still respect priority ordering by relevance score.
+- Result: 90%+ reduction in retrieval-phase Token consumption for routine tasks.
+- Implementation route:
+  - `contracts.ts`: add mandatory `summary` field to `MemoryRecord` and `StrategyRecord` types.
+  - `contracts.ts`: add `pointerOnly: boolean` flag to `ContextPack` type.
+  - `retrieval-orchestrator.ts` → `buildContextPack()`: when `thinkingLane === "system1"`, set `pointerOnly: true` and strip `excerpt` / detail from all `RetrievalCandidate` entries, keeping only `recordId + title + score`.
+  - `decision-core.ts` → `buildDecisionRecord()`: when `pointerOnly` is set on the pack, emit `memoryBullets` as ID+summary pairs only (no detail text). Ensure `toContextBullet()` respects the flag.
+  - Register `expand_memory` as a runtime-internal MCP tool that reads a `MemoryRecord` by ID from the SQLite store and returns its full `detail` field.
+  - `decision-core.ts` → System 2 path: pre-expand up to `config.maxContextChars` Token budget ceiling, ordered by relevance score descending.
+  - Tests: extend `retrieval-orchestrator.test.ts` and `decision-core.test.ts` to assert that System 1 packs contain zero detail text.
+
+###### 13b. Goal-State Compaction (Anti-Drift Context Compression)
+
+- The runtime's defense against "context drift" during long-running tasks.
+- Inspired by `codex-cli` state compaction: compression output is a structured "work board", not a prose summary.
+- Rules are fixed:
+  - A watermark trigger fires when a `TaskRun`'s accumulated step history exceeds a configurable character budget (default: 4000 chars).
+  - On trigger, the system produces a structured checkpoint containing exactly:
+    - `currentGoal`: the active objective in one sentence.
+    - `eliminatedPaths`: dead ends and failed approaches already ruled out.
+    - `nextPlan`: the immediate next execution step.
+  - After checkpoint creation, the original verbose history is **physically removed** from the active working context (moved to the `archive` layer).
+- User preferences and `RuntimeUserModelCore` are **never** subject to rolling compaction. They persist as structured top-level system instructions independent of session history.
+- Result: tasks can run indefinitely without hitting Token limits, and goal drift is structurally prevented by the anchored checkpoint format.
+- Implementation route:
+  - `contracts.ts`: define `GoalStateCheckpoint` type with fields `{ currentGoal: string; eliminatedPaths: string[]; nextPlan: string; compactedAt: number; archivedStepIds: string[] }`.
+  - `contracts.ts`: add optional `checkpoint?: GoalStateCheckpoint` to `TaskRun`.
+  - `task-engine.ts` → in the main loop between `Executor` and `Review` stages: measure cumulative character length of all `TaskStep.output` in the current run. When exceeding `config.compactionWatermark` (default 4000), invoke compaction.
+  - Compaction procedure: call lightweight LLM (or local summarizer) with a structured prompt that forces output into the `{ currentGoal, eliminatedPaths, nextPlan }` schema. Attach result as `run.checkpoint`. Move compacted steps to `archive` layer in SQLite and remove from active `steps[]` array.
+  - `RuntimeUserModelCore` and `SessionWorkingPreference` must be injected as top-level system instructions **outside** the compactable history window, so they are never swept away.
+  - Tests: add `task-engine.test.ts` cases verifying that (a) compaction fires at watermark, (b) checkpoint contains required fields, (c) user model survives compaction.
+
+###### 13c. Human-in-the-Loop Evolution Governance
+
+- The default evolution governance model for sovereign local deployments.
+- Rules are fixed:
+  - `Self-Evolution Engine` may propose new strategies, but the maximum auto-promotion ceiling is `Candidate`.
+  - Promotion from `Candidate` to `Adopted` or `Core` requires explicit operator approval via `User Console` or CLI.
+  - The system must surface pending candidates as a visible audit queue (dashboard notification or TUI prompt).
+  - Approval UX must include: strategy summary, estimated impact, and one-click `Adopt` / `Reject` actions.
+- Optional enterprise override: a configuration flag `autoCanaryEvolution: true` may be set for unattended server deployments. When enabled, the system uses automatic shadow-then-canary promotion (10% traffic trial with circuit-breaker rollback on metric regression). This flag must default to `false`.
+- Result: zero risk of autonomous strategy regression in personal deployments; optional full-auto path for enterprise scale.
+- Implementation route:
+  - `mutations.ts` → `maybeAutoApplyLowRiskEvolution()`: gate current auto-apply path behind a new config flag `autoCanaryEvolution`. When `false` (default), this function must cap promotion at `candidate` and return a `pendingApproval` status instead of auto-adopting.
+  - `user-console.ts`: add `autoCanaryEvolution?: boolean` to the evolution config type alongside existing `autoApplyLowRisk`. Default to `false`.
+  - `runtime-dashboard.ts`: in the evolution candidates section (around `buildRuntimeEvolutionCandidateStatuses()`), surface actionable candidates with `{ summary, estimatedImpact, adoptAction, rejectAction }` shape for the frontend.
+  - `task-engine.ts` → review/distill phase (around line 2664): when `autoCanaryEvolution` is `true`, implement canary logic: assign the candidate to 10% of matching tasks via `Math.random() < 0.1`, track `{ successCount, failCount, avgTokens, avgLatency }` on the candidate metadata, and auto-reject (circuit-break) if `failRate > threshold`.
+  - Tests: extend `mutations.test.ts` to assert that `autoCanaryEvolution: false` blocks auto-adoption beyond `candidate`.
+
+###### 13d. Dual-Track Architecture Strategy
+
+- All v6.1 optimizations follow a **dual-track** design:
+  - **Track A (Pragmatic / Sovereign)**: default for local single-user deployments. Minimal dependencies, maximum simplicity. This is the mandatory baseline.
+  - **Track B (Enterprise / Federated)**: optional pluggable extensions for high-concurrency multi-node deployments (e.g., CQRS write queue, background distillation worker, advanced conflict resolution). These activate only when enterprise configuration is present.
+- Track A mechanisms must be fully functional without any Track B components.
+- Track B must not break Track A behavior when disabled.
+
 #### Phase 2: Federation Plane
 
 - The federation plane is the controlled management plane between the runtime and Brain OS.
@@ -379,24 +448,24 @@
   - audit/approval
 - It must not execute local tasks, overwrite local formal memory, or replace local decision ownership.
 
-### Live Delivery Status
-
-Last updated: 2026-03-17
-
-| Area                             | Status        | Current live state                                                                                                                                                                                                                             |
+### Live Delivery | Area                             | Status        | Current live state                                                                                                                                                                                                                             |
 | -------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Runtime Core / Instance Boundary | `completed`   | Instance-rooted runtime store and manifest/path-resolver layout are authoritative.                                                                                                                                                             |
 | Memory Kernel                    | `completed`   | SQLite/WAL truth, invalidation, rollback, lineage, markdown mirror, and lifecycle closure (reinforcement/decay) are fully implemented and unified.                                                                                             |
 | Memory Update Engine             | `completed`   | Task/review/control writes, invalidation, rollback, reinforcement, and lifecycle review are unified and v6 compliant.                                                                                                                          |
-| Retrieval Orchestrator           | `completed`   | `strategy/memory/session/archive` planes are active, Governed Retrieval is enforced (penalizing blocked/shadow), and System 1 safety (no archive) is hard-coded.                                                                               |
-| Decision Core                    | `completed`   | Structured System 1/System 2 decisions are live with Governed Decision Policy (filtering skills/workers) and Surface Topic Policy boundaries.                                                                                                  |
-| Task Loop                        | `completed`   | Canonical task/run/step/review loop, notify ledger, recovery, replan, and memory-invalidation-triggered replanning are fully v6 compliant and integrated with ecology bindings.                                                                |
-| User Model                       | `completed`   | Structured core, `USER.md` mirror/import flow, action queue, and automated preference learning (auto-apply low risk) are live.                                                                                                                 |
+| Retrieval Orchestrator           | `completed`   | `strategy/memory/session/archive` planes active. Lazy Context Pointers (pointerOnly) for System 1 and Canary Strategy (10% hash rollout) implemented.                                                                                         |
+| Decision Core                    | `completed`   | Structured System 1/System 2 decisions with Governed Decision Policy. System 1 uses lazy pointers (summaries only) to save tokens.                                                                                                           |
+| Task Loop                        | `completed`   | Canonical loop with recovery/replan. Goal-State Compaction (watermark-triggered checkpointing) implemented to prevent context drift and token bloat.                                                                                           |
+| User Model                       | `completed`   | Structured core, `USER.md` mirror, and preference learning are live.                                                                                                                                                                           |
+| Evolution Engine                 | `completed`   | Risk review and auto-apply pipeline live. Human-in-the-Loop Governance (autoCanaryEvolution gating) and Canary Rollout implemented.                                                                                                           |
+| Phase 1 Runtime (v6.1 Unified)   | `completed`   | All Section 13 Architecture Evolution (Lazy Pointers, Compaction, Canary Governance) features are fully integrated into the Phase 1 Baseline.                                                                                                  |
+e.                                                                                                                 |
 | Agent / Surface Ecology          | `completed`   | Agent/surface records, overlays, allowlisted local-business policy, routing posture, and role optimization (auto-apply low risk) are fully hardened.                                                                                           |
 | Self-Evolution Engine            | `completed`   | Full closed-loop optimization (retrieval_policy, strategy_refresh, worker_routing etc.) with mandatory risk gating and structured auto-apply is live.                                                                                          |
 | Capability Governance            | `completed`   | Skill/agent/MCP governance and host-owned MCP grant matrix are authoritative and enforced at retrieval/decision layers.                                                                                                                        |
 | News / Info Module               | `completed`   | Intel/news digest flow, topic weighting, usefulness feedback, and independent sidecar scheduler are fully v6 compliant.                                                                                                                        |
 | Phase 1 Acceptance               | `completed`   | Phase 1 Runtime hardening is complete. All core components (Memory, Retrieval, Decision, Task, User Model, Evolution) form a local closed loop.                                                                                                |
+| Architecture Evolution (v6.1)    | `planned`     | Lazy Context Pointers, Goal-State Compaction, and Human-in-the-Loop Evolution Governance are designed. Implementation pending.                                                                                                                  |
 | Federation Plane                 | `in_progress` | Inbox/outbox/sync, package state machine, assignment materialization, outbox journal, remote maintenance, scope suppression audit, and team knowledge/shared strategy surfaces are live; full protocol/security/disconnect acceptance remains. |
 | Brain OS                         | `not_started` | Must be implemented in a separate internal repository during Phase 3.                                                                                                                                                                          |
 

@@ -114,6 +114,14 @@ const CORE_TOOL_DEFINITIONS: CoreToolDefinition[] = [
     includeInOpenClawGroup: true,
   },
   {
+    id: "expand_memory",
+    label: "expand_memory",
+    description: "Expand a memory ID to read full details (Lazy Context)",
+    sectionId: "memory",
+    profiles: ["coding", "messaging"],
+    includeInOpenClawGroup: true,
+  },
+  {
     id: "sessions_list",
     label: "sessions_list",
     description: "List sessions",

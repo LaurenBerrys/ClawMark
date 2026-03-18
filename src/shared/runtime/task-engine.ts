@@ -14,6 +14,7 @@ import type {
   TaskRun,
   TaskStatus,
   ThinkingLane,
+  GoalStateCheckpoint,
 } from "./contracts.js";
 import { resolveRuntimeCapabilityPolicy } from "./capability-plane.js";
 import { buildDecisionRecord } from "./decision-core.js";
@@ -50,6 +51,7 @@ import {
   buildRuntimeRetrievalSourceSet,
   loadRuntimeStoreBundle,
   saveRuntimeStoreBundle,
+  saveRuntimeTaskStore,
   type RuntimeStoreBundle,
   type RuntimeStoreOptions,
 } from "./store.js";
@@ -2101,6 +2103,77 @@ export function configureRuntimeTaskLoop(
   return saved.taskStore.defaults;
 }
 
+function maybeCompactTaskRun(
+  params: {
+    task: TaskRecord;
+    run: TaskRun;
+    stores: RuntimeStoreBundle;
+    now: number;
+  },
+  opts: RuntimeStoreOptions = {},
+): void {
+  const { task, run, stores, now } = params;
+  if (!run || !run.id) {
+    return;
+  }
+
+  // Measure cumulative character length of all TaskStep.metadata.workerOutput in the current run.
+  const steps = stores.taskStore.steps.filter((s) => s.runId === run.id);
+  let totalLength = 0;
+  for (const step of steps) {
+    const output = normalizeText(toRecord(step.metadata)?.workerOutput);
+    totalLength += output.length;
+  }
+
+  const watermark = 4000; // Configurable budget default
+  if (totalLength <= watermark) {
+    return;
+  }
+
+  // Trigger compaction.
+  // In a real system, we would call an LLM to produce the GoalStateCheckpoint.
+  // For the pragmatic track, we produce a structured summary based on task state.
+  const eliminatedPaths = steps
+    .filter((s) => s.status === "cancelled" || (s.status === "completed" && s.error))
+    .map((s) => `failed approach: ${s.kind} ${s.worker || ""}`);
+  
+  const checkpoint: GoalStateCheckpoint = {
+    currentGoal: normalizeText(task.goal) || task.title,
+    eliminatedPaths: uniqueStrings(eliminatedPaths).slice(0, 10),
+    nextPlan: task.nextAction || task.planSummary || "continue",
+    compactedAt: now,
+    archivedStepIds: steps.map((s) => s.id),
+  };
+
+  // Update TaskRun with checkpoint and physically remove steps from the active store.
+  const nextRun: TaskRun = {
+    ...run,
+    checkpoint,
+    updatedAt: now,
+  };
+
+  const nextSteps = stores.taskStore.steps.filter((s) => s.runId !== run.id);
+
+  // Persist the changes.
+  stores.taskStore.runs = stores.taskStore.runs.map((r) => (r.id === run.id ? nextRun : r));
+  stores.taskStore.steps = nextSteps;
+
+  saveRuntimeTaskStore(stores.taskStore, opts);
+
+  appendRuntimeEvent(
+    "runtime_task_history_compacted",
+    {
+      taskId: task.id,
+      runId: run.id,
+      compactedLength: totalLength,
+      archivedStepCount: steps.length,
+    },
+    {
+      ...opts,
+      now,
+    },
+  );
+}
 export function planRuntimeTask(
   taskId: string,
   opts: RuntimeStoreOptions = {},
@@ -2368,6 +2441,16 @@ export function planRuntimeTask(
     },
   );
 
+  maybeCompactTaskRun(
+    {
+      task: persisted.task,
+      run: persisted.run,
+      stores,
+      now,
+    },
+    opts,
+  );
+
   appendRuntimeEvent(
     "runtime_task_planned",
     {
@@ -2562,6 +2645,7 @@ export function applyRuntimeTaskResult(
         error: nextTask.lastError,
         metadata: {
           requestedStatus,
+          workerOutput: normalizeText(input.workerOutput) || undefined,
         },
       },
       review: terminalForReview

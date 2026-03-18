@@ -439,9 +439,14 @@ function collectRecordIds(candidates: RetrievalCandidate[]): string[] {
 }
 
 function toContextBullet(prefix: string, candidates: RetrievalCandidate[], maxItems = 3): string[] {
-  return candidates
-    .slice(0, maxItems)
-    .map((candidate) => `- [${prefix}] ${truncateText(candidate.title, 120)}`);
+  return candidates.slice(0, maxItems).map((candidate) => {
+    const idTag = candidate.recordId ? `ID: ${candidate.recordId} | ` : "";
+    const bullet = `- [${prefix}] ${idTag}${truncateText(candidate.title, 120)}`;
+    if (candidate.excerpt && candidate.excerpt.trim().length > 0) {
+      return `${bullet}\n  详情：${truncateText(candidate.excerpt.trim(), 1000)}`;
+    }
+    return bullet;
+  });
 }
 
 type ShouldUseSystem2Input = {

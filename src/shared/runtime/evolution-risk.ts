@@ -485,3 +485,16 @@ export function buildRuntimeEvolutionAutoApplyStatus(params: {
         : uniqueAdoptBlockers[0] || "Automatic adoption is currently gated.",
   };
 }
+
+export function resolveRuntimeEvolutionControls(metadata: RuntimeMetadata | undefined): {
+  enabled: boolean;
+  autoApplyLowRisk: boolean;
+  autoCanaryEvolution: boolean;
+} {
+  const meta = toRecord(metadata);
+  return {
+    enabled: meta?.enabled !== false,
+    autoApplyLowRisk: meta?.autoApplyLowRisk === true,
+    autoCanaryEvolution: meta?.autoCanaryEvolution === true,
+  };
+}

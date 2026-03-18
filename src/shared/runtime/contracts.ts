@@ -110,12 +110,13 @@ export type LifecycleMetrics = {
 };
 
 export type MemoryRecord = SourceLineage &
-  VersionedConfidence & {
+  VersionedConfidence &
+  LifecycleMetrics & {
     id: string;
     layer: "memories";
     memoryType: FormalMemoryType;
-    route?: string;
     summary: string;
+    route?: string;
     detail?: string;
     scope?: string;
     appliesWhen?: string;
@@ -142,6 +143,7 @@ export type StrategyRecord = SourceLineage &
     recommendedPath?: string;
     fallbackPath?: string;
     thinkingLane: ThinkingLane;
+    canary?: boolean;
     measuredEffect?: RuntimeMetadata;
     createdAt: number;
     updatedAt: number;
@@ -234,6 +236,14 @@ export type TaskRecord = {
   metadata?: RuntimeMetadata;
 };
 
+export type GoalStateCheckpoint = {
+  currentGoal: string;
+  eliminatedPaths: string[];
+  nextPlan: string;
+  compactedAt: number;
+  archivedStepIds: string[];
+};
+
 export type TaskRun = {
   id: string;
   taskId: string;
@@ -249,6 +259,7 @@ export type TaskRun = {
   concurrencyKey?: string;
   leaseOwner?: string;
   leaseExpiresAt?: number;
+  checkpoint?: GoalStateCheckpoint;
   metadata?: RuntimeMetadata;
 };
 
@@ -351,6 +362,7 @@ export type ContextPack = {
   queryId: string;
   thinkingLane: ThinkingLane;
   summary: string;
+  pointerOnly: boolean;
   strategyCandidates: RetrievalCandidate[];
   memoryCandidates: RetrievalCandidate[];
   sessionCandidates: RetrievalCandidate[];

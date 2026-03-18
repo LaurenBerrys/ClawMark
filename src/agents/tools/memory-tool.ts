@@ -5,6 +5,7 @@ import { resolveMemoryBackendConfig } from "../../memory/backend-config.js";
 import { getMemorySearchManager } from "../../memory/index.js";
 import type { MemorySearchResult } from "../../memory/types.js";
 import { parseAgentSessionKey } from "../../routing/session-key.js";
+import { loadRuntimeMemoryStore } from "../../shared/runtime/store.js";
 import { resolveSessionAgentId } from "../agent-scope.js";
 import { resolveMemorySearchConfig } from "../memory-search.js";
 import type { AnyAgentTool } from "./common.js";
@@ -35,6 +36,51 @@ function resolveMemoryToolContext(options: { config?: OpenClawConfig; agentSessi
     return null;
   }
   return { cfg, agentId };
+}
+
+const ExpandMemorySchema = Type.Object({
+  id: Type.String(),
+});
+
+export function createExpandMemoryTool(options: {
+  config?: OpenClawConfig;
+  agentSessionKey?: string;
+}): AnyAgentTool | null {
+  const ctx = resolveMemoryToolContext(options);
+  if (!ctx) {
+    return null;
+  }
+  const { cfg } = ctx;
+  return {
+    label: "Expand Memory",
+    name: "expand_memory",
+    description: "Expand a memory ID to read full details (Lazy Context). Use this when you have a memory reference with only a summary but need the full detail text.",
+    parameters: ExpandMemorySchema,
+    execute: async (_toolCallId, params) => {
+      const id = readStringParam(params, "id", { required: true });
+      const store = loadRuntimeMemoryStore({ env: cfg.env as Record<string, string> });
+      const record =
+        store.memories.find((m) => m.id === id) || store.strategies.find((s) => s.id === id);
+      if (!record) {
+        return jsonResult({ ok: false, error: "Record not found" });
+      }
+      const detailText =
+        "detail" in record
+          ? (record as { detail: string }).detail
+          : "recommendedPath" in record
+            ? (record as { recommendedPath: string }).recommendedPath
+            : "";
+      const tags = "tags" in record ? (record as { tags: string[] }).tags : [];
+
+      return jsonResult({
+        ok: true,
+        id: record.id,
+        summary: record.summary,
+        detail: detailText,
+        tags: tags,
+      });
+    },
+  };
 }
 
 export function createMemorySearchTool(options: {
