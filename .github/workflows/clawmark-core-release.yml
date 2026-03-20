@@ -2,6 +2,11 @@ name: clawmark-core-release
 
 on:
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Release tag to upload ClawMarkCore assets to
+        required: true
+        type: string
   release:
     types: [published]
 
@@ -11,8 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -31,8 +34,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -52,8 +53,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -67,22 +66,23 @@ jobs:
         with:
           name: clawmark-core-windows
           path: dist
-      - run: >
-          pnpm desktop:core:manifest dist/clawmark-core-manifest.json
-          dist/clawmark-core-asset-manifest-macos-*.json
-          dist/clawmark-core-asset-manifest-windows-*.json
+      - run: |
+          pnpm desktop:core:manifest \
+            dist/clawmark-core-manifest.json \
+            dist/clawmark-core-asset-manifest-macos-*.json \
+            dist/clawmark-core-asset-manifest-windows-*.json
         env:
-          CLAWMARK_CORE_RELEASE_TAG: ${{ github.event.release.tag_name }}
+          CLAWMARK_CORE_RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag_name }}
           CLAWMARK_CORE_REPOSITORY: ${{ github.repository }}
       - uses: actions/upload-artifact@v4
         with:
           name: clawmark-core-manifest
           path: dist/clawmark-core-manifest.json
       - name: Upload assets to GitHub Release
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || inputs.tag_name != ''
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.event.release.tag_name }}
+          TAG_NAME: ${{ github.event.release.tag_name || inputs.tag_name }}
         run: |
           gh release upload "$TAG_NAME" dist/ClawMarkCore-macos-*.tar.gz --clobber
           gh release upload "$TAG_NAME" dist/ClawMarkCore-windows-*.zip --clobber
