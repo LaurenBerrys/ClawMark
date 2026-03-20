@@ -7,6 +7,11 @@ on:
         description: Release tag to upload ClawMarkCore assets to
         required: true
         type: string
+      include_windows:
+        description: Also build and upload the Windows runtime payload
+        required: false
+        default: false
+        type: boolean
   release:
     types: [published]
 
@@ -30,6 +35,7 @@ jobs:
             dist/clawmark-core-asset-manifest-macos-*.json
 
   package-windows:
+    if: github.event_name == 'release' || inputs.include_windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,14 +69,17 @@ jobs:
           name: clawmark-core-macos
           path: dist
       - uses: actions/download-artifact@v4
+        if: needs.package-windows.result == 'success'
         with:
           name: clawmark-core-windows
           path: dist
       - run: |
-          pnpm desktop:core:manifest \
-            dist/clawmark-core-manifest.json \
-            dist/clawmark-core-asset-manifest-macos-*.json \
-            dist/clawmark-core-asset-manifest-windows-*.json
+          set -euo pipefail
+          manifests=(dist/clawmark-core-asset-manifest-macos-*.json)
+          if compgen -G "dist/clawmark-core-asset-manifest-windows-*.json" > /dev/null; then
+            manifests+=(dist/clawmark-core-asset-manifest-windows-*.json)
+          fi
+          pnpm desktop:core:manifest dist/clawmark-core-manifest.json "${manifests[@]}"
         env:
           CLAWMARK_CORE_RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag_name }}
           CLAWMARK_CORE_REPOSITORY: ${{ github.repository }}
@@ -84,6 +93,11 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.event.release.tag_name || inputs.tag_name }}
         run: |
-          gh release upload "$TAG_NAME" dist/ClawMarkCore-macos-*.tar.gz --clobber
-          gh release upload "$TAG_NAME" dist/ClawMarkCore-windows-*.zip --clobber
-          gh release upload "$TAG_NAME" dist/clawmark-core-manifest.json --clobber
+          set -euo pipefail
+          shopt -s nullglob
+          mac_assets=(dist/ClawMarkCore-macos-*.tar.gz)
+          windows_assets=(dist/ClawMarkCore-windows-*.zip)
+          gh release upload "$TAG_NAME" "${mac_assets[@]}" dist/clawmark-core-manifest.json --clobber
+          if ((${#windows_assets[@]} > 0)); then
+            gh release upload "$TAG_NAME" "${windows_assets[@]}" --clobber
+          fi
