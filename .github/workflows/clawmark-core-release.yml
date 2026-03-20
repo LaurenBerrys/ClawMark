@@ -54,9 +54,8 @@ jobs:
             dist/clawmark-core-asset-manifest-windows-*.json
 
   merge-manifest:
-    if: needs.package-macos.result == 'success' && (needs.package-windows.result == 'success' || needs.package-windows.result == 'skipped')
     runs-on: ubuntu-latest
-    needs: [package-macos, package-windows]
+    needs: [package-macos]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -68,11 +67,6 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: clawmark-core-macos
-          path: dist
-      - uses: actions/download-artifact@v4
-        if: needs.package-windows.result == 'success'
-        with:
-          name: clawmark-core-windows
           path: dist
       - run: |
           set -euo pipefail
