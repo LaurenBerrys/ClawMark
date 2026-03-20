@@ -1,9 +1,25 @@
 import { loadConfig } from "../../config/config.js";
+import { restartGatewayProcessWithFreshPid } from "../../infra/process-respawn.js";
 import {
   syncRuntimeCapabilityRegistry,
   upsertRuntimeMcpGrant,
   upsertRuntimeCapabilityRegistryEntry,
 } from "../../shared/runtime/capability-plane.js";
+import {
+  buildDesktopBootstrapState,
+  buildDesktopOpenLogsResult,
+  buildDesktopRuntimeProcessState,
+  buildDesktopRuntimeShellSnapshot,
+  buildDesktopSettingsSnapshot,
+  buildRuntimeHealthSnapshot,
+  buildRuntimeTaskDetailSnapshot,
+  initializeDesktopInstance,
+  loadDesktopConfigSafe,
+} from "../../shared/runtime/desktop-control.js";
+import {
+  materializeRuntimeFederationAssignmentTask,
+  transitionRuntimeFederationAssignment,
+} from "../../shared/runtime/federation-assignments.js";
 import {
   configureRuntimeFederationInboxMaintenance,
   configureRuntimeFederationPushPolicy,
@@ -13,16 +29,12 @@ import {
   syncRuntimeFederationInbox,
   transitionRuntimeFederationPackage,
 } from "../../shared/runtime/federation-inbox.js";
-import {
-  materializeRuntimeFederationAssignmentTask,
-  transitionRuntimeFederationAssignment,
-} from "../../shared/runtime/federation-assignments.js";
 import { syncRuntimeFederationOutbox } from "../../shared/runtime/federation-outbox.js";
+import { configureRuntimeFederationRemoteSyncMaintenance } from "../../shared/runtime/federation-remote-maintenance.js";
 import {
   previewRuntimeFederationRemote,
   syncRuntimeFederationRemote,
 } from "../../shared/runtime/federation-sync.js";
-import { configureRuntimeFederationRemoteSyncMaintenance } from "../../shared/runtime/federation-remote-maintenance.js";
 import { dispatchRuntimeIntelDeliveries } from "../../shared/runtime/intel-delivery.js";
 import {
   isRuntimeInfoDomain,
@@ -129,11 +141,92 @@ function normalizeRetrievalMode(value: unknown): "off" | "light" | "deep" | unde
 }
 
 export const runtimeHandlers: GatewayRequestHandlers = {
+  "desktop.getBootstrapState": async ({ respond }) => {
+    respond(
+      true,
+      buildDesktopBootstrapState({
+        config: loadDesktopConfigSafe(),
+      }),
+      undefined,
+    );
+  },
+  "desktop.getShellSnapshot": async ({ respond }) => {
+    respond(
+      true,
+      buildDesktopRuntimeShellSnapshot({
+        config: loadDesktopConfigSafe(),
+      }),
+      undefined,
+    );
+  },
+  "desktop.initializeInstance": async ({ respond }) => {
+    respond(true, initializeDesktopInstance(), undefined);
+  },
+  "desktop.getRuntimeProcessState": async ({ respond }) => {
+    respond(
+      true,
+      buildDesktopRuntimeProcessState({
+        config: loadDesktopConfigSafe(),
+      }),
+      undefined,
+    );
+  },
+  "desktop.restartRuntime": async ({ respond }) => {
+    const restart = restartGatewayProcessWithFreshPid();
+    const accepted = restart.mode === "spawned" || restart.mode === "supervised";
+    respond(
+      true,
+      {
+        ...restart,
+        accepted,
+      },
+      undefined,
+    );
+    if (accepted) {
+      setTimeout(() => {
+        process.exit(0);
+      }, 250).unref();
+    }
+  },
+  "desktop.openLogs": async ({ respond }) => {
+    respond(true, buildDesktopOpenLogsResult(), undefined);
+  },
   "runtime.snapshot": async ({ respond }) => {
     respond(true, buildRuntimeDashboardSnapshot({ config: loadConfigSafe() }), undefined);
   },
+  "runtime.getDashboard": async ({ respond }) => {
+    respond(true, buildRuntimeDashboardSnapshot({ config: loadConfigSafe() }), undefined);
+  },
+  "runtime.getHealth": async ({ respond }) => {
+    respond(
+      true,
+      buildRuntimeHealthSnapshot({
+        config: loadDesktopConfigSafe(),
+      }),
+      undefined,
+    );
+  },
   "runtime.tasks.list": async ({ respond }) => {
     respond(true, buildRuntimeTasksList(), undefined);
+  },
+  "runtime.getTask": async ({ params, respond }) => {
+    const taskId = typeof params.taskId === "string" ? params.taskId.trim() : "";
+    if (!taskId) {
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "taskId is required"));
+      return;
+    }
+    try {
+      respond(true, buildRuntimeTaskDetailSnapshot(taskId), undefined);
+    } catch (error) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          error instanceof Error ? error.message : String(error),
+        ),
+      );
+    }
   },
   "runtime.tasks.configure": async ({ params, respond }) => {
     respond(
@@ -142,11 +235,17 @@ export const runtimeHandlers: GatewayRequestHandlers = {
         defaultBudgetMode: normalizeBudgetMode(params.defaultBudgetMode),
         defaultRetrievalMode: normalizeRetrievalMode(params.defaultRetrievalMode),
         maxInputTokensPerTurn:
-          typeof params.maxInputTokensPerTurn === "number" ? params.maxInputTokensPerTurn : undefined,
+          typeof params.maxInputTokensPerTurn === "number"
+            ? params.maxInputTokensPerTurn
+            : undefined,
         maxContextChars:
           typeof params.maxContextChars === "number" ? params.maxContextChars : undefined,
+        compactionWatermark:
+          typeof params.compactionWatermark === "number" ? params.compactionWatermark : undefined,
         maxRemoteCallsPerTask:
-          typeof params.maxRemoteCallsPerTask === "number" ? params.maxRemoteCallsPerTask : undefined,
+          typeof params.maxRemoteCallsPerTask === "number"
+            ? params.maxRemoteCallsPerTask
+            : undefined,
         leaseDurationMs:
           typeof params.leaseDurationMs === "number" ? params.leaseDurationMs : undefined,
         maxConcurrentRunsPerWorker:
@@ -163,6 +262,12 @@ export const runtimeHandlers: GatewayRequestHandlers = {
   },
   "runtime.memory.list": async ({ respond }) => {
     respond(true, buildRuntimeMemoryList(), undefined);
+  },
+  "runtime.listMemories": async ({ respond }) => {
+    respond(true, buildRuntimeMemoryList().memories, undefined);
+  },
+  "runtime.listStrategies": async ({ respond }) => {
+    respond(true, buildRuntimeMemoryList().strategies, undefined);
   },
   "runtime.user.get": async ({ respond }) => {
     respond(true, getRuntimeUserModel(), undefined);
@@ -181,35 +286,35 @@ export const runtimeHandlers: GatewayRequestHandlers = {
   },
   "runtime.user.update": async ({ params, respond }) => {
     const userModel = updateRuntimeUserModel({
-        displayName: typeof params.displayName === "string" ? params.displayName : undefined,
-        communicationStyle:
-          typeof params.communicationStyle === "string" ? params.communicationStyle : undefined,
-        interruptionThreshold:
-          params.interruptionThreshold === "low" ||
-          params.interruptionThreshold === "medium" ||
-          params.interruptionThreshold === "high"
-            ? params.interruptionThreshold
-            : undefined,
-        reportVerbosity:
-          params.reportVerbosity === "brief" ||
-          params.reportVerbosity === "balanced" ||
-          params.reportVerbosity === "detailed"
-            ? params.reportVerbosity
-            : undefined,
-        confirmationBoundary:
-          params.confirmationBoundary === "strict" ||
-          params.confirmationBoundary === "balanced" ||
-          params.confirmationBoundary === "light"
-            ? params.confirmationBoundary
-            : undefined,
-        reportPolicy: normalizeReportPolicy(params.reportPolicy),
-        metadata:
-          typeof params.metadata === "object" &&
-          params.metadata !== null &&
-          !Array.isArray(params.metadata)
-            ? (params.metadata as Record<string, unknown>)
-            : undefined,
-      });
+      displayName: typeof params.displayName === "string" ? params.displayName : undefined,
+      communicationStyle:
+        typeof params.communicationStyle === "string" ? params.communicationStyle : undefined,
+      interruptionThreshold:
+        params.interruptionThreshold === "low" ||
+        params.interruptionThreshold === "medium" ||
+        params.interruptionThreshold === "high"
+          ? params.interruptionThreshold
+          : undefined,
+      reportVerbosity:
+        params.reportVerbosity === "brief" ||
+        params.reportVerbosity === "balanced" ||
+        params.reportVerbosity === "detailed"
+          ? params.reportVerbosity
+          : undefined,
+      confirmationBoundary:
+        params.confirmationBoundary === "strict" ||
+        params.confirmationBoundary === "balanced" ||
+        params.confirmationBoundary === "light"
+          ? params.confirmationBoundary
+          : undefined,
+      reportPolicy: normalizeReportPolicy(params.reportPolicy),
+      metadata:
+        typeof params.metadata === "object" &&
+        params.metadata !== null &&
+        !Array.isArray(params.metadata)
+          ? (params.metadata as Record<string, unknown>)
+          : undefined,
+    });
     respond(
       true,
       {
@@ -448,7 +553,7 @@ export const runtimeHandlers: GatewayRequestHandlers = {
                 : undefined,
             escalationTarget:
               policy.escalationTarget === "runtime-user" ||
-                policy.escalationTarget === "surface-owner"
+              policy.escalationTarget === "surface-owner"
                 ? policy.escalationTarget
                 : undefined,
             roleScope: typeof policy.roleScope === "string" ? policy.roleScope : undefined,
@@ -727,7 +832,11 @@ export const runtimeHandlers: GatewayRequestHandlers = {
     const domain = normalizeRuntimeInfoDomain(params.domain);
     const kind = params.kind === "github_search" ? "github_search" : "rss";
     if (kind === "rss" && (typeof params.url !== "string" || params.url.trim().length === 0)) {
-      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "url is required for rss sources"));
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "url is required for rss sources"),
+      );
       return;
     }
     respond(
@@ -778,11 +887,18 @@ export const runtimeHandlers: GatewayRequestHandlers = {
   "runtime.capabilities.status": async ({ respond }) => {
     respond(true, buildRuntimeCapabilitiesStatus({ config: loadConfigSafe() }), undefined);
   },
+  "runtime.getGovernanceState": async ({ respond }) => {
+    respond(true, buildRuntimeCapabilitiesStatus({ config: loadConfigSafe() }), undefined);
+  },
   "runtime.capabilities.sync": async ({ respond }) => {
     respond(true, syncRuntimeCapabilityRegistry(loadConfigSafe()), undefined);
   },
   "runtime.capabilities.entry.set": async ({ params, respond }) => {
-    if (params.registryType !== "agent" && params.registryType !== "skill" && params.registryType !== "mcp") {
+    if (
+      params.registryType !== "agent" &&
+      params.registryType !== "skill" &&
+      params.registryType !== "mcp"
+    ) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "registryType is invalid"));
       return;
     }
@@ -857,6 +973,18 @@ export const runtimeHandlers: GatewayRequestHandlers = {
   "runtime.evolution.status": async ({ respond }) => {
     respond(true, buildRuntimeEvolutionStatus(), undefined);
   },
+  "runtime.listEvolutionCandidates": async ({ respond }) => {
+    respond(true, buildRuntimeEvolutionStatus().candidates, undefined);
+  },
+  "runtime.getSettings": async ({ respond }) => {
+    respond(
+      true,
+      buildDesktopSettingsSnapshot({
+        config: loadDesktopConfigSafe(),
+      }),
+      undefined,
+    );
+  },
   "runtime.evolution.configure": async ({ params, respond }) => {
     respond(
       true,
@@ -864,6 +992,8 @@ export const runtimeHandlers: GatewayRequestHandlers = {
         enabled: typeof params.enabled === "boolean" ? params.enabled : undefined,
         autoApplyLowRisk:
           typeof params.autoApplyLowRisk === "boolean" ? params.autoApplyLowRisk : undefined,
+        autoCanaryEvolution:
+          typeof params.autoCanaryEvolution === "boolean" ? params.autoCanaryEvolution : undefined,
         reviewIntervalHours:
           typeof params.reviewIntervalHours === "number" ? params.reviewIntervalHours : undefined,
       }),
@@ -886,11 +1016,7 @@ export const runtimeHandlers: GatewayRequestHandlers = {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "id is required"));
       return;
     }
-    if (
-      params.state !== "candidate" &&
-      params.state !== "adopted" &&
-      params.state !== "reverted"
-    ) {
+    if (params.state !== "candidate" && params.state !== "adopted" && params.state !== "reverted") {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "state is invalid"));
       return;
     }
@@ -906,6 +1032,99 @@ export const runtimeHandlers: GatewayRequestHandlers = {
       },
       undefined,
     );
+  },
+  "runtime.evolution.adopt": async ({ params, respond }) => {
+    const id = typeof params.id === "string" ? params.id.trim() : "";
+    if (!id) {
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "id is required"));
+      return;
+    }
+    try {
+      respond(
+        true,
+        {
+          transition: setRuntimeEvolutionCandidateState({
+            id,
+            state: "adopted",
+            reason: typeof params.reason === "string" ? params.reason : undefined,
+          }),
+          status: buildRuntimeEvolutionStatus(),
+        },
+        undefined,
+      );
+    } catch (error) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          error instanceof Error ? error.message : String(error),
+        ),
+      );
+    }
+  },
+  "runtime.evolution.reject": async ({ params, respond }) => {
+    const id = typeof params.id === "string" ? params.id.trim() : "";
+    if (!id) {
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "id is required"));
+      return;
+    }
+    try {
+      respond(
+        true,
+        {
+          transition: setRuntimeEvolutionCandidateState({
+            id,
+            state: "reverted",
+            reason:
+              typeof params.reason === "string" && params.reason.trim().length > 0
+                ? params.reason
+                : "Rejected in desktop console",
+          }),
+          status: buildRuntimeEvolutionStatus(),
+        },
+        undefined,
+      );
+    } catch (error) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          error instanceof Error ? error.message : String(error),
+        ),
+      );
+    }
+  },
+  "runtime.evolution.revert": async ({ params, respond }) => {
+    const id = typeof params.id === "string" ? params.id.trim() : "";
+    if (!id) {
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "id is required"));
+      return;
+    }
+    try {
+      respond(
+        true,
+        {
+          transition: setRuntimeEvolutionCandidateState({
+            id,
+            state: "reverted",
+            reason: typeof params.reason === "string" ? params.reason : undefined,
+          }),
+          status: buildRuntimeEvolutionStatus(),
+        },
+        undefined,
+      );
+    } catch (error) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          error instanceof Error ? error.message : String(error),
+        ),
+      );
+    }
   },
   "runtime.evolution.candidate.verification.ack": async ({ params, respond }) => {
     const id = typeof params.id === "string" ? params.id.trim() : "";
@@ -937,6 +1156,16 @@ export const runtimeHandlers: GatewayRequestHandlers = {
   },
   "federation.outbox.sync": async ({ respond }) => {
     respond(true, syncRuntimeFederationOutbox({ config: loadConfigSafe() }), undefined);
+  },
+  "runtime.getFederationState": async ({ respond }) => {
+    respond(true, buildFederationRuntimeSnapshot({ config: loadConfigSafe() }), undefined);
+  },
+  "runtime.federation.sync": async ({ respond }) => {
+    respond(
+      true,
+      await syncRuntimeFederationRemote({ config: loadConfigSafe(), trigger: "manual" }),
+      undefined,
+    );
   },
   "federation.remote.sync": async ({ respond }) => {
     respond(
@@ -1041,6 +1270,65 @@ export const runtimeHandlers: GatewayRequestHandlers = {
         response: responseText,
         respondedBy: typeof params.respondedBy === "string" ? params.respondedBy : undefined,
         nextAction: typeof params.nextAction === "string" ? params.nextAction : undefined,
+      }),
+      undefined,
+    );
+  },
+  "runtime.task.retry": async ({ params, respond }) => {
+    const taskId = typeof params.taskId === "string" ? params.taskId.trim() : "";
+    if (!taskId) {
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "taskId is required"));
+      return;
+    }
+    try {
+      const detail = buildRuntimeTaskDetailSnapshot(taskId);
+      respond(
+        true,
+        upsertRuntimeTask({
+          id: taskId,
+          status: "queued",
+          nextRunAt: Date.now(),
+          blockedReason: "",
+          lastError: "",
+          nextAction:
+            typeof params.nextAction === "string" && params.nextAction.trim().length > 0
+              ? params.nextAction
+              : detail.task.nextAction,
+          metadata: {
+            ...detail.task.metadata,
+            manualRetryRequestedAt: Date.now(),
+            manualRetryRequestedBy:
+              typeof params.requestedBy === "string" ? params.requestedBy : "desktop-console",
+          },
+        }),
+        undefined,
+      );
+    } catch (error) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          error instanceof Error ? error.message : String(error),
+        ),
+      );
+    }
+  },
+  "runtime.task.cancel": async ({ params, respond }) => {
+    const taskId = typeof params.taskId === "string" ? params.taskId.trim() : "";
+    if (!taskId) {
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "taskId is required"));
+      return;
+    }
+    respond(
+      true,
+      applyRuntimeTaskResult({
+        taskId,
+        status: "cancelled",
+        summary:
+          typeof params.summary === "string" && params.summary.trim().length > 0
+            ? params.summary
+            : "Cancelled from desktop console",
       }),
       undefined,
     );

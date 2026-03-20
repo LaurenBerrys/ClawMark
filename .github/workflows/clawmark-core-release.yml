@@ -1,0 +1,89 @@
+name: clawmark-core-release
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  package-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm desktop:core:package:macos
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clawmark-core-macos
+          path: |
+            dist/ClawMarkCore-macos-*.tar.gz
+            dist/clawmark-core-asset-manifest-macos-*.json
+
+  package-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm desktop:core:package:windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clawmark-core-windows
+          path: |
+            dist/ClawMarkCore-windows-*.zip
+            dist/clawmark-core-asset-manifest-windows-*.json
+
+  merge-manifest:
+    runs-on: ubuntu-latest
+    needs: [package-macos, package-windows]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: clawmark-core-macos
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: clawmark-core-windows
+          path: dist
+      - run: >
+          pnpm desktop:core:manifest dist/clawmark-core-manifest.json
+          dist/clawmark-core-asset-manifest-macos-*.json
+          dist/clawmark-core-asset-manifest-windows-*.json
+        env:
+          CLAWMARK_CORE_RELEASE_TAG: ${{ github.event.release.tag_name }}
+          CLAWMARK_CORE_REPOSITORY: ${{ github.repository }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clawmark-core-manifest
+          path: dist/clawmark-core-manifest.json
+      - name: Upload assets to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          gh release upload "$TAG_NAME" dist/ClawMarkCore-macos-*.tar.gz --clobber
+          gh release upload "$TAG_NAME" dist/ClawMarkCore-windows-*.zip --clobber
+          gh release upload "$TAG_NAME" dist/clawmark-core-manifest.json --clobber

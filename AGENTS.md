@@ -2,16 +2,17 @@
 
 ## ClawMark (爪痕)
 
-- This repository is currently executing `OpenClaw 增强版总实施蓝图 v6`.
+- This repository is currently executing the `ClawMark Runtime / Federation blueprint v6`, derived from the original OpenClaw enhancement plan.
 - Deliver against the full blueprint. Do not intentionally ship a reduced prototype, demo path, or placeholder-only slice when the requested phase is expected to be complete.
 - Only stop implementation for a true hard blocker that requires operator judgment. Do not interrupt for routine progress narration.
 
 ### Product Definitions
 
 - `Runtime Core`: non-persona system core. It owns formal truth, execution sovereignty, privacy sovereignty, and local governance.
-- `User Console`: the default web page and default operator entrypoint. It is not the system core and it is not an agent persona shell.
+- `Desktop Console`: the default operator entrypoint on supported desktop platforms (`macOS`, `Windows`). It is not the system core and it is not an agent persona shell.
 - `Agent`: an ecology object inside the runtime. Agents are not the product identity and do not own formal truth.
-- `Surface`: a channel/account surface bound to either the user console or a specific agent. It must never bind to `Runtime Core`.
+- `Surface`: a channel/account surface bound to either the desktop console or a specific agent. It must never bind to `Runtime Core`.
+- `Messaging Client`: a separate user-facing communication product surface (for example mobile app or mini program). It is not the default operator entrypoint and it must not be treated as `Runtime Core`.
 - `Federation Plane`: the controlled management/synchronization plane between the local runtime and the company Brain OS.
 - `Brain OS`: the company-internal central brain. It is not shipped to end users and it must not be implemented inside this repository.
 
@@ -21,6 +22,20 @@
 - `Phase 2`: Federation Plane. Implemented in this repository.
 - `Phase 3`: Brain OS. Must live in a separate internal repository.
 - Do not skip phase order for acceptance purposes. Prebuilt scaffolding is fine, but Runtime acceptance remains the first gate.
+
+### Operator Surface & Delivery Model
+
+- The default operator product surface is `Desktop Console`, not a browser UI.
+- Supported operator platforms are `macOS` and `Windows`.
+- `Web` is no longer a planned product surface for the operator console. Any remaining web implementation is migration-only or debug-only and must not receive new product investment.
+- The desktop product follows the `One Install Principle`:
+  - user installs one `ClawMark` desktop app
+  - the package bundles the desktop UI, runtime host, local storage initialization, and required host bridge capabilities
+  - the user must not need to install a separate runtime, gateway, browser console, or CLI to achieve the core product effect
+- The default framework for the desktop operator surface is `Flutter Desktop`.
+- The desktop app may still use multiple internal processes (for example UI + bundled runtime host), but that split is an internal implementation detail and must not become a separate user installation flow.
+- A local control protocol (`IPC`, local `HTTP`, `WebSocket`, or equivalent) is allowed and encouraged between the desktop UI and the bundled runtime host, but it must remain local-first and invisible to the user.
+- Messaging clients (mobile app / mini program / future chat surfaces) are separate product surfaces and must not redefine the desktop operator-surface requirements.
 
 ### Runtime Sovereignty Boundaries
 
@@ -66,6 +81,8 @@
 - Prefer authoritative runtime stores and shared runtime modules over extension-local truth.
 - Preserve the legacy runtime as an import/reference source. Do not delete it or mutate it in-place during migration work.
 - Default product posture is `managed_high` capability access with a governed path to downgrade.
+- Treat `ClawMark` as the product identity for new repo/runtime-facing surfaces in this repository; keep `OpenClaw` only where upstream references, compatibility paths, or intentionally unmigrated surfaces still require it.
+- Prefer local control APIs and bundled desktop-host bridges over embedding formal runtime truth directly inside Flutter/UI state.
 - News/info is a sidecar user-value module. It must not become the core decision lifeline and it must not auto-write formal memory.
 - When upstream OpenClaw behavior conflicts with the v6 blueprint, preserve upstream where it improves infrastructure, but keep v6 product boundaries as the deciding rule.
 
@@ -73,8 +90,9 @@
 
 - This `AGENTS.md` is the single maintained v6 planning and progress file.
 - Keep the canonical product plan, execution contract, and live delivery status in this file only.
+- If the code and the live delivery table diverge, update this file before claiming an area is complete.
 - Runtime contracts and authoritative shapes still live in `src/shared/runtime/contracts.ts`.
-- Runtime/Federation implementation must converge into `src/shared/runtime/*`, `src/gateway/server-methods/runtime.ts`, and the Runtime web UI.
+- Runtime/Federation implementation must converge into `src/shared/runtime/*`, `src/gateway/server-methods/runtime.ts`, and the desktop control stack that will back the bundled `Desktop Console`.
 
 ### Canonical Plan
 
@@ -235,8 +253,8 @@
   - local skill pack
   - local channel bindings
   - local optimization history
-- `User Console` stays the default homepage and operator control plane.
-- Each surface binds to the `User Console` or a specific agent, never to `Runtime Core`.
+- `Desktop Console` stays the default operator control plane on supported desktop platforms.
+- Each surface binds to the `Desktop Console` or a specific agent, never to `Runtime Core`.
 - `SurfaceRoleOverlay` must remain runtime-owned and allowlisted.
 - Customer/service surfaces must not rewrite runtime-core truth or the user core model.
 - Role optimization follows:
@@ -310,10 +328,30 @@
 ##### 12. Phase 1 Acceptance
 
 - The runtime must run fully without an upper-layer connection.
-- The `User Console` must remain the default operator entrypoint and not collapse into an agent shell.
+- The default operator entrypoint must remain a non-agent control plane and not collapse into an agent shell.
 - Memory, retrieval, decision, task, user model, and evolution must form a local closed loop.
 - Multi-agent and multi-surface execution must not pollute the user core model.
 - Typecheck, build, unit tests, and key integration tests must pass.
+
+##### 12a. Desktop Console and One-Install Delivery
+
+- The default operator product surface is `Desktop Console` on `macOS` and `Windows`.
+- The default implementation framework for the operator surface is `Flutter Desktop`.
+- The desktop product must satisfy the `One Install Principle`:
+  - a user installs one desktop app
+  - the app bundles the operator UI, runtime host, local data initialization, and required host integration
+  - no separate browser console, runtime installer, gateway installer, or CLI bootstrap may be required for core use
+- The default desktop workboard layout is fixed:
+  - left rail = navigation + object switching
+  - center rail = conversation input, approvals, quick actions, contextual guidance
+  - right rail = task / execution workboard
+- The desktop UI must communicate with the bundled runtime host through a local control protocol rather than owning formal truth directly.
+- `Runtime Core` remains the only formal-memory writer, final routing authority owner, and task-loop owner even when bundled inside the same desktop application package.
+- Any remaining web UI code is migration-only or debug-only and must not define the product architecture.
+- Acceptance direction:
+  - a fresh user on `macOS` or `Windows` installs one app
+  - completes onboarding without a browser dependency
+  - reaches runtime control, governance, and task visibility from the bundled desktop console
 
 ##### 13. Architecture Evolution (v6.1 Pragmatic Track)
 
@@ -364,7 +402,7 @@ This section defines the next-generation runtime optimizations. The design philo
 - The default evolution governance model for sovereign local deployments.
 - Rules are fixed:
   - `Self-Evolution Engine` may propose new strategies, but the maximum auto-promotion ceiling is `Candidate`.
-  - Promotion from `Candidate` to `Adopted` or `Core` requires explicit operator approval via `User Console` or CLI.
+  - Promotion from `Candidate` to `Adopted` or `Core` requires explicit operator approval via `Desktop Console` or CLI.
   - The system must surface pending candidates as a visible audit queue (dashboard notification or TUI prompt).
   - Approval UX must include: strategy summary, estimated impact, and one-click `Adopt` / `Reject` actions.
 - Optional enterprise override: a configuration flag `autoCanaryEvolution: true` may be set for unattended server deployments. When enabled, the system uses automatic shadow-then-canary promotion (10% traffic trial with circuit-breaker rollback on metric regression). This flag must default to `false`.
@@ -431,6 +469,21 @@ This section defines the next-generation runtime optimizations. The design philo
 - `team-shareable` knowledge must stay isolated from private truth.
 - Federation must never bypass local truth ownership.
 
+##### Phase 2 Implementation Milestones
+
+- **Phase 2.1: Base Sync Pipeline**
+  - Implement secure connection channel (WebSocket/gRPC).
+  - Complete `RuntimeManifestEnvelope` reporting and heartbeat mechanism.
+  - Implement durable local Outbox queue (for offline resilience).
+- **Phase 2.2: Telemetry & Knowledge Upstream**
+  - Implement sanitized `ShadowTelemetryEnvelope` reporting.
+  - Implement human-in-the-loop review and reporting for `TeamKnowledgeEnvelope`.
+  - **Acceptance:** Ensure all upstream data strictly excludes `raw_chat` and `secrets`.
+- **Phase 2.3: Strategy Downstream & Adoption**
+  - Implement reception and parsing of `SharedStrategyPackage`.
+  - Complete local state machine: `received -> validated -> shadowed -> recommended -> adopted`.
+  - **Acceptance:** Downstream strategies must pass local Governance authorization before entering `core` state.
+
 #### Phase 3: Brain OS
 
 - Brain OS is the company-internal central brain and must live in a separate repository.
@@ -448,35 +501,73 @@ This section defines the next-generation runtime optimizations. The design philo
   - audit/approval
 - It must not execute local tasks, overwrite local formal memory, or replace local decision ownership.
 
-### Live Delivery | Area | Status | Current live state |
+### Live Delivery Status
 
-| -------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime Core / Instance Boundary | `completed` | Instance-rooted runtime store and manifest/path-resolver layout are authoritative. |
-| Memory Kernel | `completed` | SQLite/WAL truth, invalidation, rollback, lineage, markdown mirror, and lifecycle closure (reinforcement/decay) are fully implemented and unified. |
-| Memory Update Engine | `completed` | Task/review/control writes, invalidation, rollback, reinforcement, and lifecycle review are unified and v6 compliant. |
-| Retrieval Orchestrator | `completed` | `strategy/memory/session/archive` planes active. Lazy Context Pointers (pointerOnly) for System 1 and Canary Strategy (10% hash rollout) implemented. |
-| Decision Core | `completed` | Structured System 1/System 2 decisions with Governed Decision Policy. System 1 uses lazy pointers (summaries only) to save tokens. |
-| Task Loop | `completed` | Canonical loop with recovery/replan. Goal-State Compaction (watermark-triggered checkpointing) implemented to prevent context drift and token bloat. |
-| User Model | `completed` | Structured core, `USER.md` mirror, and preference learning are live. |
-| Evolution Engine | `completed` | Risk review and auto-apply pipeline live. Human-in-the-Loop Governance (autoCanaryEvolution gating) and Canary Rollout implemented. |
-| Phase 1 Runtime (v6.1 Unified) | `completed` | All Section 13 Architecture Evolution (Lazy Pointers, Compaction, Canary Governance) features are fully integrated into the Phase 1 Baseline. |
-e. |
-| Agent / Surface Ecology | `completed` | Agent/surface records, overlays, allowlisted local-business policy, routing posture, and role optimization (auto-apply low risk) are fully hardened. |
-| Self-Evolution Engine | `completed` | Full closed-loop optimization (retrieval_policy, strategy_refresh, worker_routing etc.) with mandatory risk gating and structured auto-apply is live. |
-| Capability Governance | `completed` | Skill/agent/MCP governance and host-owned MCP grant matrix are authoritative and enforced at retrieval/decision layers. |
-| News / Info Module | `completed` | Intel/news digest flow, topic weighting, usefulness feedback, and independent sidecar scheduler are fully v6 compliant. |
-| Phase 1 Acceptance | `completed` | Phase 1 Runtime hardening is complete. All core components (Memory, Retrieval, Decision, Task, User Model, Evolution) form a local closed loop. |
-| Architecture Evolution (v6.1) | `planned` | Lazy Context Pointers, Goal-State Compaction, and Human-in-the-Loop Evolution Governance are designed. Implementation pending. |
-| Federation Plane | `in_progress` | Inbox/outbox/sync, package state machine, assignment materialization, outbox journal, remote maintenance, scope suppression audit, and team knowledge/shared strategy surfaces are live; full protocol/security/disconnect acceptance remains. |
-| Brain OS | `not_started` | Must be implemented in a separate internal repository during Phase 3. |
+| Area                             | Status        | Current live state                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime Core / Instance Boundary | `completed`   | Instance-rooted runtime store and manifest/path-resolver layout are authoritative.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Memory Kernel                    | `completed`   | SQLite/WAL truth, invalidation, rollback, lineage, markdown mirror, and lifecycle closure (reinforcement/decay) are fully implemented and unified.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Memory Update Engine             | `completed`   | Task/review/control writes, invalidation, rollback, reinforcement, and lifecycle review are unified and v6 compliant.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Retrieval Orchestrator           | `completed`   | `strategy/memory/session/archive` planes are live. System 1 emits pointer-only `ContextPack`s, `expand_memory` exists for on-demand detail expansion, and canary strategies are gated on the live retrieval path.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Decision Core                    | `completed`   | Structured System 1/System 2 decisions with governed routing are live. System 1 uses lazy pointers (summary-only memory bullets) and System 2 can expand to deeper context.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Task Loop                        | `completed`   | Canonical intake/planner/executor/recovery/review/notify loop, leases, replanning, review/distill flow, and config-driven goal-state compaction with archive-backed step retention are live.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| User Model                       | `completed`   | Structured core, `USER.md` mirror, preference learning, and pending-import protection are live.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Evolution Engine                 | `completed`   | Risk review, observation metrics, shadow/candidate/adopted progression, and strategy materialization are live under local governance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Agent / Surface Ecology          | `completed`   | Agent/surface records, overlays, allowlisted local-business policy, routing posture, and role optimization suggestions are hardened.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Self-Evolution Engine            | `completed`   | Closed-loop optimization over retrieval, routing, retry, and strategy refresh is live with mandatory risk gating.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Capability Governance            | `completed`   | Skill/agent/MCP governance and the host-owned MCP grant matrix are authoritative and enforced at retrieval/decision layers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| News / Info Module               | `completed`   | Intel/news digest flow, topic weighting, usefulness feedback, and the independent sidecar scheduler are v6 compliant.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Phase 1 Acceptance               | `completed`   | The Phase 1 runtime baseline is locally re-verified: `pnpm build`, `pnpm tsgo`, `pnpm lint`, `pnpm check`, and the targeted runtime vitest slice now pass. Remaining active work is product rebrand cleanup and Federation hardening, not Phase 1 runtime acceptance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Desktop Console / One-Install    | `in_progress` | The desktop operator surface is now bootstrap-first: Flutter enters a native-host-backed onboarding/workboard flow, reads runtime connection truth from the host bridge instead of assuming a fixed loopback port, and only opens the full Console once the host reports a ready descriptor-driven session. The macOS desktop host now owns app-private `Application Support` roots (`core/current`, `core/staged`, `core/downloads`, logs, descriptor), dynamic loopback port selection, per-session auth tokens, runtime restarts, log opening, and archive install/promote for `ClawMarkCore`. Flutter now ships a GitHub-Releases-driven `ClawMarkCore` downloader/verifier/installer, keeps the existing operator workboards (task/governance/federation/settings/memory) intact after bootstrap, and routes runtime restart/log actions through the native bridge instead of the gateway. Packaging defaults are now bootstrap-only (no embedded `DesktopRuntime` unless explicitly requested), dedicated `ClawMarkCore` packagers/manifests plus a GitHub Actions release workflow are staged in-repo, and the current macOS loop has been re-verified with `flutter analyze`, `flutter test`, `flutter build macos --debug`, `flutter build macos`, root `pnpm exec tsc -p tsconfig.json --noEmit`, local `ClawMarkCore` asset packaging/manifest generation, and bootstrap-only macOS packaging. Windows packaging automation remains staged in-repo, but real Windows-host verification, signed distribution, and Windows-native host parity are still active work. |
+| Architecture Evolution (v6.1)    | `completed`   | Lazy Context Pointers, config-driven Goal-State Compaction with archive-backed retention and dedicated tests, and Human-in-the-Loop evolution governance with explicit `autoCanaryEvolution` controls plus dashboard approval/reject flows are integrated into the Phase 1 runtime baseline.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Product Identity / Rebrand       | `in_progress` | README, repo metadata, runtime dashboard chrome, primary/start docs, FAQ, release docs, and macOS release tooling defaults now identify ClawMark and target the current `LaurenBerrys/ClawMark` repository. Remaining legacy naming is concentrated in true compatibility surfaces (`openclaw` CLI and many install paths, `OpenClaw.app`, `ai.openclaw.*`, `OpenClaw Gateway`, current macOS UI labels), localization trees, and a small set of historical/experiment documents that still intentionally describe the OpenClaw era.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Federation Plane                 | `in_progress` | Inbox/outbox/sync, package lifecycle state, assignment materialization, outbox journal, remote maintenance, scope suppression audit, and team knowledge/shared strategy surfaces are live; full protocol/security/disconnect acceptance remains.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Brain OS                         | `not_started` | Must be implemented in a separate internal repository during Phase 3.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+
+### Phase 1 Validation Snapshot (Green, 2026-03-20)
+
+The delivery table above tracks feature completeness. This section records the latest repository-level verification run that clears the Phase 1 acceptance gate.
+
+1. **Verified commands**
+   - `pnpm build`
+   - `pnpm tsgo`
+   - `pnpm lint`
+   - `pnpm check`
+   - `pnpm exec vitest run src/shared/runtime/mutations.test.ts src/shared/runtime/runtime-dashboard.test.ts src/shared/runtime/task-engine.test.ts`
+2. **Engineering fixes that unblocked the gate**
+   - `scripts/bundle-a2ui.sh` now forces a workspace-local `XDG_CACHE_HOME` for `pnpm dlx`, so `canvas:a2ui:bundle` no longer depends on writable global pnpm cache state.
+   - `extensions/tlon/src/types/tloncorp-api.d.ts` provides a local type shim for the malformed `@tloncorp/api` package export, removing the need to compile third-party source through the repo `NodeNext` boundary.
+   - `extensions/memory-lancedb-pro/*` and `extensions/safe-config-generator/index.ts` now use scoped `openclaw/plugin-sdk/compat` imports, so the plugin boundary lint passes again.
+   - Repo formatting drift was normalized and `.tmp/` is now ignored so local cache output does not poison `pnpm check`.
+   - Runtime lifecycle/evolution verification now correctly reads top-level `derivedFromMemoryIds`, and the current runtime tests align with the v6.1 domain defaults plus human-in-the-loop adoption behavior.
+3. **Scope note**
+   - This snapshot closes the Phase 1 runtime acceptance blockers.
+   - Ongoing work under `Product Identity / Rebrand` and `Federation Plane` remains active, but those are no longer Phase 1 acceptance gates.
+
+### Observability & Quality Guardrails
+
+- **Code Quality Guardrails**: Must enforce `pnpm check` and `pnpm tsgo` in CI/CD pipelines. All current build, `tsgo`, and lint failures must be resolved before advancing new feature development.
+- **Performance Benchmarking**: Define throughput metrics for the Task Loop (e.g., "Single instance must support 50 concurrent tasks with SQLite write latency under 20ms").
+- **Chaos Testing**: For Phase 2, simulate network jitter and Brain OS downtime to verify local Runtime autonomy and data consistency.
+- **Audit Logging**: All operations involving Capability Governance state changes (e.g., `candidate` to `adopted`) must record immutable local audit logs.
+
+### Data Migration Strategy
+
+To ensure a smooth transition for existing OpenClaw users, the runtime must include a dedicated migration module:
+
+1. **Extractor**: Read legacy OpenClaw `~/.openclaw/sessions/` and legacy memory files.
+2. **Transformer**: Map legacy unstructured memory to v6 `FormalMemoryType` (e.g., `knowledge`, `execution`, `user`).
+3. **Loader**: Write transformed data into the v6 SQLite+WAL engine and auto-generate initial `SourceLineage` records.
+
+- _Status_: Basic legacy import preview and application are implemented in `runtime-dashboard.ts` and `store.ts`, but full automated extraction and transformation pipelines need hardening.
 
 ### Mandatory Maintenance
 
-- After each material implementation slice, update the `Live Delivery Status` section in this file.
+- After each material implementation slice, update the `Live Delivery Status` table in this file.
 - Update this file whenever product definitions, hard boundaries, phase ownership, or execution rules change.
 - Keep terminology consistent with the v6 blueprint. Do not casually swap `news` with `intel`, `surface` with `agent`, or `user console` with `runtime core`.
 
-- Repo: https://github.com/LaurenBerrys/ClawMark
+- Repo: [github.com/LaurenBerrys/ClawMark](https://github.com/LaurenBerrys/ClawMark)
 - In chat replies, file references must be repo-root relative only (example: `extensions/bluebubbles/src/channel.ts:80`); never absolute paths or `~/...`.
 - GitHub issues/comments/PR comments: use literal multiline strings or `-F - <<'EOF'` (or $'...') for real newlines; never embed "\\n".
 - GitHub comment footgun: never use `gh issue/pr comment -b "..."` when body contains backticks or shell chars. Always use single-quoted heredoc (`-F - <<'EOF'`) so no command substitution/escaping corruption.
@@ -484,7 +575,7 @@ e. |
 - PR landing comments: always make commit SHAs clickable with full commit links (both landed SHA + source SHA when present).
 - PR review conversations: if a bot leaves review conversations on your PR, address them and resolve those conversations yourself once fixed. Leave a conversation unresolved only when reviewer or maintainer judgment is still needed; do not leave bot-conversation cleanup to maintainers.
 - GitHub searching footgun: don't limit yourself to the first 500 issues or PRs when wanting to search all. Unless you're supposed to look at the most recent, keep going until you've reached the last page in the search
-- Security advisory analysis: before triage/severity decisions, read `SECURITY.md` to align with OpenClaw's trust model and design boundaries.
+- Security advisory analysis: before triage/severity decisions, read `SECURITY.md` to align with this repo's trust model and inherited OpenClaw compatibility boundaries.
 
 ## Auto-close labels (issues and PRs)
 
@@ -497,7 +588,7 @@ e. |
 - `r: support`: close with redirect to Discord support + stuck FAQ.
 - `r: no-ci-pr`: close test-fix-only PRs for failing `main` CI and post the standard explanation.
 - `r: too-many-prs`: close when author exceeds active PR limit.
-- `r: testflight`: close requests asking for TestFlight access/builds. OpenClaw does not provide TestFlight distribution yet, so use the standard response (“Not available, build from source.”) instead of ad-hoc replies.
+- `r: testflight`: close requests asking for TestFlight access/builds. ClawMark does not provide TestFlight distribution yet, so use the standard response (“Not available, build from source.”) instead of ad-hoc replies.
 - `r: third-party-extension`: close with guidance to ship as third-party plugin.
 - `r: moltbook`: close + lock as off-topic (not affiliated).
 - `r: spam`: close + lock as spam (`lock_reason: spam`).
@@ -564,7 +655,7 @@ e. |
 
 ## Build, Test, and Development Commands
 
-- Runtime baseline: Node **22+** (keep Node + Bun paths working).
+- Runtime baseline: Node **22.16+** (keep Node + Bun paths working).
 - Install deps: `pnpm install`
 - If deps are missing (for example `node_modules` missing, `vitest not found`, or `command not found`), run the repo’s package-manager install command (prefer lockfile/README-defined PM), then rerun the exact requested command once. Apply this to test/build/lint/typecheck/dev commands; if retry still fails, report the command and first actionable error.
 - Pre-commit hooks: `prek install` (runs same checks as CI)
@@ -593,7 +684,9 @@ e. |
 - Add brief code comments for tricky or non-obvious logic.
 - Keep files concise; extract helpers instead of “V2” copies. Use existing patterns for CLI options and dependency injection via `createDefaultDeps`.
 - Aim to keep files under ~700 LOC; guideline only (not a hard guardrail). Split/refactor when it improves clarity or testability.
-- Naming: use **OpenClaw** for product/app/docs headings; use `openclaw` for CLI command, package/binary, paths, and config keys.
+- Naming: use **ClawMark** for this repository's product/runtime/repo headings and outward-facing runtime surfaces that are part of the new product identity.
+- Naming: use **OpenClaw** only for upstream references, historical migration context, intentionally unmigrated docs/UI, and compatibility narratives.
+- Naming: use `openclaw` for the current CLI command, binary, config keys, plugin compatibility boundaries, filesystem paths, and legacy operational commands unless an explicit migration changes them.
 - Written English: use American spelling and grammar in code, comments, docs, and UI strings (e.g. "color" not "colour", "behavior" not "behaviour", "analyze" not "analyse").
 
 ## Release Channels (Naming)
@@ -610,7 +703,7 @@ e. |
 - Run `pnpm test` (or `pnpm test:coverage`) before pushing when you touch logic.
 - Do not set test workers above 16; tried already.
 - If local Vitest runs cause memory pressure (common on non-Mac-Studio hosts), use `OPENCLAW_TEST_PROFILE=low OPENCLAW_TEST_SERIAL_GATEWAY=1 pnpm test` for land/gate runs.
-- Live tests (real keys): `CLAWDBOT_LIVE_TEST=1 pnpm test:live` (OpenClaw-only) or `LIVE=1 pnpm test:live` (includes provider live tests). Docker: `pnpm test:docker:live-models`, `pnpm test:docker:live-gateway`. Onboarding Docker E2E: `pnpm test:docker:onboard`.
+- Live tests (real keys): `CLAWDBOT_LIVE_TEST=1 pnpm test:live` (legacy OpenClaw channel-stack path) or `LIVE=1 pnpm test:live` (includes provider live tests). Docker: `pnpm test:docker:live-models`, `pnpm test:docker:live-gateway`. Onboarding Docker E2E: `pnpm test:docker:onboard`.
 - Full kit + what’s covered: `docs/testing.md`.
 - Changelog: user-facing changes only; no internal/meta notes (version alignment, appcast reminders, release process).
 - Changelog placement: in the active version block, append new entries to the end of the target section (`### Changes` or `### Fixes`); do not insert new entries at the top of a section.
@@ -641,11 +734,11 @@ e. |
 ## GitHub Search (`gh`)
 
 - Prefer targeted keyword search before proposing new work or duplicating fixes.
-- Use `--repo openclaw/openclaw` + `--match title,body` first; add `--match comments` when triaging follow-up threads.
-- PRs: `gh search prs --repo openclaw/openclaw --match title,body --limit 50 -- "auto-update"`
-- Issues: `gh search issues --repo openclaw/openclaw --match title,body --limit 50 -- "auto-update"`
+- Use `--repo LaurenBerrys/ClawMark` + `--match title,body` first; add `--match comments` when triaging follow-up threads.
+- PRs: `gh search prs --repo LaurenBerrys/ClawMark --match title,body --limit 50 -- "auto-update"`
+- Issues: `gh search issues --repo LaurenBerrys/ClawMark --match title,body --limit 50 -- "auto-update"`
 - Structured output example:
-  `gh search issues --repo openclaw/openclaw --match title,body --limit 50 --json number,title,state,url,updatedAt -- "auto update" --jq '.[] | "\(.number) | \(.state) | \(.title) | \(.url)"'`
+  `gh search issues --repo LaurenBerrys/ClawMark --match title,body --limit 50 --json number,title,state,url,updatedAt -- "auto update" --jq '.[] | "\(.number) | \(.state) | \(.title) | \(.url)"'`
 
 ## Security & Configuration Tips
 
@@ -658,15 +751,15 @@ e. |
 ## GHSA (Repo Advisory) Patch/Publish
 
 - Before reviewing security advisories, read `SECURITY.md`.
-- Fetch: `gh api /repos/openclaw/openclaw/security-advisories/<GHSA>`
+- Fetch: `gh api /repos/LaurenBerrys/ClawMark/security-advisories/<GHSA>`
 - Latest npm: `npm view openclaw version --userconfig "$(mktemp)"`
 - Private fork PRs must be closed:
-  `fork=$(gh api /repos/openclaw/openclaw/security-advisories/<GHSA> | jq -r .private_fork.full_name)`
+  `fork=$(gh api /repos/LaurenBerrys/ClawMark/security-advisories/<GHSA> | jq -r .private_fork.full_name)`
   `gh pr list -R "$fork" --state open` (must be empty)
 - Description newline footgun: write Markdown via heredoc to `/tmp/ghsa.desc.md` (no `"\\n"` strings)
 - Build patch JSON via jq: `jq -n --rawfile desc /tmp/ghsa.desc.md '{summary,severity,description:$desc,vulnerabilities:[...]}' > /tmp/ghsa.patch.json`
 - GHSA API footgun: cannot set `severity` and `cvss_vector_string` in the same PATCH; do separate calls.
-- Patch + publish: `gh api -X PATCH /repos/openclaw/openclaw/security-advisories/<GHSA> --input /tmp/ghsa.patch.json` (publish = include `"state":"published"`; no `/publish` endpoint)
+- Patch + publish: `gh api -X PATCH /repos/LaurenBerrys/ClawMark/security-advisories/<GHSA> --input /tmp/ghsa.patch.json` (publish = include `"state":"published"`; no `/publish` endpoint)
 - If publish fails (HTTP 422): missing `severity`/`description`/`vulnerabilities[]`, or private fork has open PRs
 - Verify: re-fetch; ensure `state=published`, `published_at` set; `jq -r .description | rg '\\\\n'` returns nothing
 
@@ -687,11 +780,11 @@ e. |
 - Patching dependencies (pnpm patches, overrides, or vendored changes) requires explicit approval; do not do this by default.
 - CLI progress: use `src/cli/progress.ts` (`osc-progress` + `@clack/prompts` spinner); don’t hand-roll spinners/bars.
 - Status output: keep tables + ANSI-safe wrapping (`src/terminal/table.ts`); `status --all` = read-only/pasteable, `status --deep` = probes.
-- Gateway currently runs only as the menubar app; there is no separate LaunchAgent/helper label installed. Restart via the OpenClaw Mac app or `scripts/restart-mac.sh`; to verify/kill use `launchctl print gui/$UID | grep openclaw` rather than assuming a fixed label. **When debugging on macOS, start/stop the gateway via the app, not ad-hoc tmux sessions; kill any temporary tunnels before handoff.**
-- macOS logs: use `./scripts/clawlog.sh` to query unified logs for the OpenClaw subsystem; it supports follow/tail/category filters and expects passwordless sudo for `/usr/bin/log`.
+- On macOS, the supported managed gateway path is the per-user LaunchAgent labeled `ai.openclaw.gateway` (or `ai.openclaw.<profile>`), and the macOS app may manage that same service in Local mode. Restart via `openclaw gateway restart`, `openclaw gateway install --force`, the macOS app, or `scripts/restart-mac.sh` as appropriate; verify with `launchctl print gui/$UID/ai.openclaw.gateway` (or the active profile label) rather than assuming the app is the only owner. **When debugging on macOS, use the managed service/app paths, not ad-hoc tmux sessions; kill any temporary tunnels before handoff.**
+- macOS logs: use `./scripts/clawlog.sh` to query unified logs for subsystem `ai.openclaw`; it supports follow/tail/category filters and expects passwordless sudo for `/usr/bin/log`.
 - If shared guardrails are available locally, review them; otherwise follow this repo's guidance.
 - SwiftUI state management (iOS/macOS): prefer the `Observation` framework (`@Observable`, `@Bindable`) over `ObservableObject`/`@StateObject`; don’t introduce new `ObservableObject` unless required for compatibility, and migrate existing usages when touching related code.
-- Connection providers: when adding a new connection, update every UI surface and docs (macOS app, web UI, mobile if applicable, onboarding/overview docs) and add matching status + configuration forms so provider lists and settings stay in sync.
+- Connection providers: when adding a new connection, update every relevant UI surface and docs (desktop console, platform host integrations, mobile if applicable, onboarding/overview docs) and add matching status + configuration forms so provider lists and settings stay in sync.
 - Version locations: `package.json` (CLI), `apps/android/app/build.gradle.kts` (versionName/versionCode), `apps/ios/Sources/Info.plist` + `apps/ios/Tests/Info.plist` (CFBundleShortVersionString/CFBundleVersion), `apps/macos/Sources/OpenClaw/Resources/Info.plist` (CFBundleShortVersionString/CFBundleVersion), `docs/install/updating.md` (pinned npm version), `docs/platforms/mac/release.md` (APP_VERSION/APP_BUILD examples), Peekaboo Xcode projects/Info.plists (MARKETING_VERSION/CURRENT_PROJECT_VERSION).
 - "Bump version everywhere" means all version locations above **except** `appcast.xml` (only touch appcast when cutting a new macOS Sparkle release).
 - **Restart apps:** “restart iOS/Android apps” means rebuild (recompile/install) and relaunch, not just kill/launch.
@@ -760,7 +853,7 @@ e. |
 
 - When cutting a mac release with beta GitHub prerelease:
   - Tag `vYYYY.M.D-beta.N` from the release commit (example: `v2026.2.15-beta.1`).
-  - Create prerelease with title `openclaw YYYY.M.D-beta.N`.
+  - Create prerelease with title `ClawMark YYYY.M.D-beta.N`.
   - Use release notes from `CHANGELOG.md` version section (`Changes` + `Fixes`, no title duplicate).
   - Attach at least `OpenClaw-YYYY.M.D.zip` and `OpenClaw-YYYY.M.D.dSYM.zip`; include `.dmg` if available.
 

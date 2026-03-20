@@ -34,6 +34,7 @@ BUILD_DIR="$ROOT_DIR/dist"
 mkdir -p "$BUILD_DIR"
 
 APP_NAME=$(/usr/libexec/PlistBuddy -c "Print CFBundleName" "$APP_PATH/Contents/Info.plist" 2>/dev/null || echo "OpenClaw")
+APP_BUNDLE_NAME="$(basename "$APP_PATH")"
 VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist" 2>/dev/null || echo "0.0.0")
 
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
@@ -117,7 +118,7 @@ if [[ "${SKIP_DMG_STYLE:-0}" != "1" ]]; then
     fi
   fi
 
-  osascript <<EOF
+  if ! osascript <<EOF
 tell application "Finder"
   tell disk "$DMG_VOLUME_NAME"
     open
@@ -135,7 +136,7 @@ tell application "Finder"
     set label position of viewOptions to bottom
     set shows item info of viewOptions to false
     set shows icon preview of viewOptions to true
-    set position of item "${APP_NAME}.app" of container window to {$(to_applescript_pair "$DMG_APP_POS")}
+    set position of item "${APP_BUNDLE_NAME}" of container window to {$(to_applescript_pair "$DMG_APP_POS")}
     set position of item "Applications" of container window to {$(to_applescript_pair "$DMG_APPS_POS")}
     update without registering applications
     delay 2
@@ -145,6 +146,9 @@ tell application "Finder"
   end tell
 end tell
 EOF
+  then
+    echo "WARN: Finder DMG styling failed; continuing with an unstyled DMG." >&2
+  fi
 
   sleep 2
   osascript -e 'tell application "Finder" to close every window' || true
