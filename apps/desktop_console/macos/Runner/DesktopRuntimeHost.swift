@@ -34,6 +34,7 @@ final class DesktopRuntimeHost {
   private let autostartDisableEnv = "CLAWMARK_DESKTOP_DISABLE_LOCAL_RUNTIME_AUTOSTART"
   private let logFileName = "desktop-runtime-host.log"
   private let descriptorFileName = "runtime-descriptor.json"
+  private let legacySandboxBundleIdentifier = "ai.clawmark.desktopConsole"
 
   private var process: Process?
   private var logHandle: FileHandle?
@@ -43,6 +44,7 @@ final class DesktopRuntimeHost {
   private var activeToken: String?
   private var activeCoreRoot: URL?
   private var activeCoreSource: String = "missing"
+  private lazy var resolvedApplicationSupportRoot = self.resolveApplicationSupportRootURL()
 
   private init() {}
 
@@ -71,11 +73,18 @@ final class DesktopRuntimeHost {
     }
 
     let runtimeRoot = runtimeSelection.url
+    self.removeQuarantineAttributeRecursivelyIfNeeded(at: runtimeRoot)
     let nodeURL = runtimeRoot.appendingPathComponent(self.runtimeBinRelativePath)
     let entrypointURL = runtimeRoot.appendingPathComponent(self.runtimeEntrypointRelativePath)
-    guard FileManager.default.isExecutableFile(atPath: nodeURL.path) else {
-      self.lastStartError = "bundled node runtime is missing or not executable"
-      self.logError("node runtime missing at \(nodeURL.path)")
+    let nodeExists = FileManager.default.fileExists(atPath: nodeURL.path)
+    let nodeReadable = FileManager.default.isReadableFile(atPath: nodeURL.path)
+    let nodeExecutable = FileManager.default.isExecutableFile(atPath: nodeURL.path)
+    guard nodeExecutable else {
+      self.lastStartError =
+        nodeExists ? "bundled node runtime is not executable" : "bundled node runtime is missing or not executable"
+      self.logError(
+        "node runtime missing or not executable at \(nodeURL.path) exists=\(nodeExists) readable=\(nodeReadable) executable=\(nodeExecutable)"
+      )
       return
     }
     guard FileManager.default.isReadableFile(atPath: entrypointURL.path) else {
@@ -271,6 +280,7 @@ final class DesktopRuntimeHost {
     }
 
     let extractedRoot = try self.resolveExtractedRuntimeRoot(in: tempRoot)
+    self.removeQuarantineAttributeRecursivelyIfNeeded(at: extractedRoot)
     let nodeBinary = extractedRoot.appendingPathComponent(self.runtimeBinRelativePath)
     if fileManager.fileExists(atPath: nodeBinary.path) {
       try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: nodeBinary.path)
@@ -283,6 +293,7 @@ final class DesktopRuntimeHost {
     }
     do {
       try fileManager.moveItem(at: extractedRoot, to: currentRoot)
+      self.removeQuarantineAttributeRecursivelyIfNeeded(at: currentRoot)
       try? fileManager.removeItem(at: backupRoot)
     } catch {
       if fileManager.fileExists(atPath: backupRoot.path) {
@@ -433,12 +444,105 @@ final class DesktopRuntimeHost {
   }
 
   private func applicationSupportRootURL() -> URL {
+    self.resolvedApplicationSupportRoot
+  }
+
+  private func resolveApplicationSupportRootURL() -> URL {
     let base =
       FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ??
       URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
-    return base
+    let targetRoot = base
       .appendingPathComponent("ClawMark", isDirectory: true)
       .appendingPathComponent("DesktopConsole", isDirectory: true)
+    self.migrateLegacySandboxSupportIfNeeded(
+      from: self.legacySandboxApplicationSupportRootURL(),
+      to: targetRoot
+    )
+    return targetRoot
+  }
+
+  private func legacySandboxApplicationSupportRootURL() -> URL {
+    URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+      .appendingPathComponent("Library", isDirectory: true)
+      .appendingPathComponent("Containers", isDirectory: true)
+      .appendingPathComponent(self.legacySandboxBundleIdentifier, isDirectory: true)
+      .appendingPathComponent("Data", isDirectory: true)
+      .appendingPathComponent("Library", isDirectory: true)
+      .appendingPathComponent("Application Support", isDirectory: true)
+      .appendingPathComponent("ClawMark", isDirectory: true)
+      .appendingPathComponent("DesktopConsole", isDirectory: true)
+  }
+
+  private func migrateLegacySandboxSupportIfNeeded(from legacyRoot: URL, to targetRoot: URL) {
+    let fileManager = FileManager.default
+    guard legacyRoot.path != targetRoot.path else { return }
+    guard fileManager.fileExists(atPath: legacyRoot.path) else { return }
+
+    if !fileManager.fileExists(atPath: targetRoot.path) {
+      do {
+        try fileManager.createDirectory(
+          at: targetRoot.deletingLastPathComponent(),
+          withIntermediateDirectories: true,
+          attributes: nil
+        )
+        try fileManager.moveItem(at: legacyRoot, to: targetRoot)
+        self.logMigration("migrated legacy sandbox desktop data to \(targetRoot.path)")
+        return
+      } catch {
+        self.logMigration(
+          "failed to move legacy sandbox desktop data from \(legacyRoot.path) to \(targetRoot.path): \(error.localizedDescription)"
+        )
+      }
+    }
+
+    do {
+      try self.mergeDirectoryContents(from: legacyRoot, to: targetRoot, fileManager: fileManager)
+      self.logMigration("merged legacy sandbox desktop data into \(targetRoot.path)")
+    } catch {
+      self.logMigration(
+        "failed to merge legacy sandbox desktop data from \(legacyRoot.path) into \(targetRoot.path): \(error.localizedDescription)"
+      )
+    }
+  }
+
+  private func mergeDirectoryContents(from sourceRoot: URL, to destinationRoot: URL, fileManager: FileManager)
+    throws
+  {
+    try fileManager.createDirectory(
+      at: destinationRoot,
+      withIntermediateDirectories: true,
+      attributes: nil
+    )
+    let entries = try fileManager.contentsOfDirectory(
+      at: sourceRoot,
+      includingPropertiesForKeys: nil,
+      options: [.skipsHiddenFiles]
+    )
+    for entry in entries {
+      let destination = destinationRoot.appendingPathComponent(entry.lastPathComponent)
+      var isDirectory = ObjCBool(false)
+      guard fileManager.fileExists(atPath: entry.path, isDirectory: &isDirectory) else { continue }
+
+      if !fileManager.fileExists(atPath: destination.path) {
+        try fileManager.moveItem(at: entry, to: destination)
+        continue
+      }
+
+      if isDirectory.boolValue {
+        var destinationIsDirectory = ObjCBool(false)
+        guard fileManager.fileExists(atPath: destination.path, isDirectory: &destinationIsDirectory),
+          destinationIsDirectory.boolValue
+        else { continue }
+        try self.mergeDirectoryContents(from: entry, to: destination, fileManager: fileManager)
+        if let remaining = try? fileManager.contentsOfDirectory(atPath: entry.path), remaining.isEmpty {
+          try? fileManager.removeItem(at: entry)
+        }
+      }
+    }
+  }
+
+  private func logMigration(_ message: String) {
+    NSLog("[ClawMark][DesktopRuntimeHost][MIGRATION] %@", message)
   }
 
   private func coreRootURL() -> URL {
@@ -603,6 +707,26 @@ final class DesktopRuntimeHost {
       return contents[0]
     }
     return tempRoot
+  }
+
+  private func removeQuarantineAttributeRecursivelyIfNeeded(at root: URL) {
+    guard FileManager.default.fileExists(atPath: root.path) else { return }
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
+    process.arguments = ["-dr", "com.apple.quarantine", root.path]
+    do {
+      try process.run()
+      process.waitUntilExit()
+      if process.terminationStatus != 0 {
+        self.logWarning(
+          "failed to clear quarantine attribute at \(root.path) status=\(process.terminationStatus)"
+        )
+      }
+    } catch {
+      self.logWarning(
+        "failed to invoke xattr while clearing quarantine at \(root.path): \(error.localizedDescription)"
+      )
+    }
   }
 
   private func logDebug(_ message: String) {
