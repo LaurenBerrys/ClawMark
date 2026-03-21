@@ -5,6 +5,7 @@ import type {
   RuntimeUserModel,
   StrategyRecord,
 } from "./contracts.js";
+import { syncRuntimeMemoryMarkdownMirror } from "./memory-markdown-mirror.js";
 import {
   distillTaskOutcomeToMemory,
   invalidateMemoryLineage,
@@ -32,7 +33,6 @@ import {
   type ReviewRuntimeMemoryLifecycleResult,
   type RollbackMemoryInvalidationResult,
 } from "./mutations.js";
-import { syncRuntimeMemoryMarkdownMirror } from "./memory-markdown-mirror.js";
 import { appendRuntimeEvent, type RuntimeStoreOptions } from "./store.js";
 
 export type RuntimeMemoryUpdateKind =
@@ -166,8 +166,8 @@ function appendMemoryUpdateEvent(
 ): string | undefined {
   const shouldWrite = ["memoryIds", "strategyIds", "metaLearningIds", "evolutionIds"].some(
     (field) => {
-    const value = payload[field];
-    return Array.isArray(value) && value.length > 0;
+      const value = payload[field];
+      return Array.isArray(value) && value.length > 0;
     },
   );
   if (!shouldWrite) {
@@ -244,7 +244,9 @@ function summarizeUserModelChanges(previous: RuntimeUserModel, next: RuntimeUser
       ? "interruption_threshold"
       : undefined,
     previous.reportVerbosity !== next.reportVerbosity ? "report_verbosity" : undefined,
-    previous.confirmationBoundary !== next.confirmationBoundary ? "confirmation_boundary" : undefined,
+    previous.confirmationBoundary !== next.confirmationBoundary
+      ? "confirmation_boundary"
+      : undefined,
     previous.reportPolicy !== next.reportPolicy ? "report_policy" : undefined,
   ]);
 }

@@ -1,7 +1,7 @@
 ---
-summary: "Symptom first troubleshooting hub for OpenClaw"
+summary: "Symptom first troubleshooting hub for ClawMark"
 read_when:
-  - OpenClaw is not working and you need the fastest path to a fix
+  - ClawMark is not working and you need the fastest path to a fix
   - You want a triage flow before diving into deep runbooks
 title: "Troubleshooting"
 ---
@@ -43,7 +43,7 @@ go to [/gateway/troubleshooting#anthropic-429-extra-usage-required-for-long-cont
 ## Plugin install fails with missing openclaw extensions
 
 If install fails with `package.json missing openclaw.extensions`, the plugin package
-is using an old shape that OpenClaw no longer accepts.
+is using an old shape that ClawMark no longer accepts.
 
 Fix in the plugin package:
 
@@ -69,9 +69,9 @@ Reference: [/tools/plugin#distribution-npm](/tools/plugin#distribution-npm)
 
 ```mermaid
 flowchart TD
-  A[OpenClaw is not working] --> B{What breaks first}
+  A[ClawMark is not working] --> B{What breaks first}
   B --> C[No replies]
-  B --> D[Dashboard or Control UI will not connect]
+  B --> D[Dashboard or User Console will not connect]
   B --> E[Gateway will not start or service not running]
   B --> F[Channel connects but messages do not flow]
   B --> G[Cron or heartbeat did not fire or did not deliver]
@@ -79,7 +79,7 @@ flowchart TD
   B --> I[Browser tool fails]
 
   C --> C1[/No replies section/]
-  D --> D1[/Control UI section/]
+  D --> D1[/User Console section/]
   E --> E1[/Gateway section/]
   F --> F1[/Channel flow section/]
   G --> G1[/Automation section/]
@@ -118,7 +118,7 @@ flowchart TD
 
   </Accordion>
 
-  <Accordion title="Dashboard or Control UI will not connect">
+  <Accordion title="Dashboard or User Console will not connect">
     ```bash
     openclaw status
     openclaw gateway status

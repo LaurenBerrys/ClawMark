@@ -9,8 +9,8 @@ import {
   resolveSessionTranscriptPath,
   resolveSessionTranscriptPathInDir,
 } from "../config/sessions.js";
-import { resolveInstanceManifest } from "../instance/paths.js";
 import { jsonUtf8Bytes } from "../infra/json-utf8-bytes.js";
+import { resolveInstanceManifest } from "../instance/paths.js";
 import { hasInterSessionUserProvenance } from "../sessions/input-provenance.js";
 import { stripInlineDirectiveTagsForDisplay } from "../utils/directive-tags.js";
 import { extractToolCallNames, hasToolCall } from "../utils/transcript-tools.js";

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-
 import { Command } from "commander";
 import jitiFactory from "jiti";
 
@@ -152,8 +151,9 @@ async function runCliSmoke() {
   assert.match(out2, /Import completed: 0 imported, 1 skipped/, out2);
 
   // 4) Access reinforcement formula smoke test
-  const { parseAccessMetadata, buildUpdatedMetadata, computeEffectiveHalfLife } =
-    jiti("../src/access-tracker.ts");
+  const { parseAccessMetadata, buildUpdatedMetadata, computeEffectiveHalfLife } = jiti(
+    "../src/access-tracker.ts",
+  );
 
   // Verify formula basics
   const hl0 = computeEffectiveHalfLife(60, 0, 0, 0.5, 3);

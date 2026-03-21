@@ -8,7 +8,7 @@ title: "update"
 
 # `openclaw update`
 
-Safely update OpenClaw and switch between stable/beta/dev channels.
+Safely update ClawMark and switch between stable/beta/dev channels.
 
 If you installed via **npm/pnpm** (global install, no git metadata), updates happen via the package manager flow in [Updating](/install/updating).
 
@@ -61,7 +61,7 @@ offers to create one.
 
 ## What it does
 
-When you switch channels explicitly (`--channel ...`), OpenClaw also keeps the
+When you switch channels explicitly (`--channel ...`), ClawMark also keeps the
 install method aligned:
 
 - `dev` → ensures a git checkout (default: `~/openclaw`, override with `OPENCLAW_GIT_DIR`),
@@ -86,7 +86,7 @@ High-level:
 4. Dev only: preflight lint + TypeScript build in a temp worktree; if the tip fails, walks back up to 10 commits to find the newest clean build.
 5. Rebases onto the selected commit (dev only).
 6. Installs deps (pnpm preferred; npm fallback).
-7. Builds + builds the Control UI.
+7. Builds + builds the User Console.
 8. Runs `openclaw doctor` as the final “safe update” check.
 9. Syncs plugins to the active channel (dev uses bundled extensions; stable/beta uses npm) and updates npm-installed plugins.
 

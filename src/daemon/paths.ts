@@ -6,7 +6,9 @@ import {
 
 export function resolveHomeDir(env: Record<string, string | undefined>): string {
   const home = resolveHomeDirFromEnv(env);
-  if (!home) throw new Error("Missing HOME");
+  if (!home) {
+    throw new Error("Missing HOME");
+  }
   return home;
 }
 

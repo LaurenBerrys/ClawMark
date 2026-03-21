@@ -3,6 +3,21 @@ import Foundation
 enum CommandResolver {
     private static let projectRootDefaultsKey = "openclaw.gatewayProjectRootPath"
     private static let helperName = "openclaw"
+    private static let bundledRuntimeRootRelativePath = "DesktopRuntime/app"
+    private static let bundledRuntimeBinRelativePath = "DesktopRuntime/bin"
+
+    static func bundledRuntimeRoot(bundle: Bundle = .main) -> URL? {
+        guard let resources = bundle.resourceURL else { return nil }
+        let root = resources.appendingPathComponent(self.bundledRuntimeRootRelativePath)
+        return FileManager().fileExists(atPath: root.path) ? root : nil
+    }
+
+    static func bundledRuntimeBinPath(bundle: Bundle = .main) -> String? {
+        guard let resources = bundle.resourceURL else { return nil }
+        let binRoot = resources.appendingPathComponent(self.bundledRuntimeBinRelativePath)
+        let node = binRoot.appendingPathComponent("node")
+        return FileManager().isExecutableFile(atPath: node.path) ? binRoot.path : nil
+    }
 
     static func gatewayEntrypoint(in root: URL) -> String? {
         let distEntry = root.appendingPathComponent("dist/index.js").path
@@ -47,6 +62,9 @@ enum CommandResolver {
     }
 
     static func projectRoot() -> URL {
+        if let bundled = self.bundledRuntimeRoot() {
+            return bundled
+        }
         if let stored = UserDefaults.standard.string(forKey: self.projectRootDefaultsKey),
            let url = self.expandPath(stored),
            FileManager().fileExists(atPath: url.path)
@@ -85,6 +103,9 @@ enum CommandResolver {
             "/usr/bin",
             "/bin",
         ]
+        if let bundledBin = self.bundledRuntimeBinPath() {
+            extras.insert(bundledBin, at: 0)
+        }
         #if DEBUG
         // Dev-only convenience. Avoid project-local PATH hijacking in release builds.
         extras.insert(projectRoot.appendingPathComponent("node_modules/.bin").path, at: 0)

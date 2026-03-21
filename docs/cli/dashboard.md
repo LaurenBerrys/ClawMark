@@ -1,14 +1,14 @@
 ---
-summary: "CLI reference for `openclaw dashboard` (open the Control UI)"
+summary: "CLI reference for `openclaw dashboard` (open the User Console)"
 read_when:
-  - You want to open the Control UI with your current token
+  - You want to open the User Console with your current token
   - You want to print the URL without launching a browser
 title: "dashboard"
 ---
 
 # `openclaw dashboard`
 
-Open the Control UI using your current auth.
+Open the User Console using your current auth.
 
 ```bash
 openclaw dashboard

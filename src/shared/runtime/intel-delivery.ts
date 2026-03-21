@@ -7,8 +7,8 @@ import type {
   RuntimeIntelStore,
   RuntimeMetadata,
 } from "./contracts.js";
-import type { IntelDomain } from "./intel-pipeline.js";
 import { normalizeRuntimeInfoDomain } from "./intel-domains.js";
+import type { IntelDomain } from "./intel-pipeline.js";
 import { resolveRuntimeIntelPanelConfig } from "./intel-refresh.js";
 import {
   appendRuntimeEvent,
@@ -265,7 +265,8 @@ function readRuntimeIntelDeliveryLog(
   const rawEntries = toArray<Record<string, unknown>>(metadata?.deliveryLog);
   return rawEntries
     .map<RuntimeIntelDeliveryLogEntry | null>((entry) => {
-      const kind: IntelDeliveryKind = entry.kind === "daily_digest" ? "daily_digest" : "instant_alert";
+      const kind: IntelDeliveryKind =
+        entry.kind === "daily_digest" ? "daily_digest" : "instant_alert";
       const domain = normalizeRuntimeInfoDomain(entry.domain);
       const digestItemId = normalizeText(entry.digestItemId);
       const deliveredAt = toNumber(entry.deliveredAt);
@@ -394,13 +395,10 @@ function previewRuntimeIntelDeliveriesFromStore(
   const lastInstantPushAt = readDeliveryTimestamp(store.metadata, "lastInstantPushAt");
   const nextDailyPushAt =
     store.enabled && store.digestEnabled && panelConfig.dailyPushEnabled
-      ? resolveDailySchedule(
-          now,
-          panelConfig.dailyPushHourLocal,
-          panelConfig.dailyPushMinuteLocal,
-        ).nextScheduledAt
+      ? resolveDailySchedule(now, panelConfig.dailyPushHourLocal, panelConfig.dailyPushMinuteLocal)
+          .nextScheduledAt
       : null;
-  if (!store.enabled || ! store.digestEnabled) {
+  if (!store.enabled || !store.digestEnabled) {
     return {
       generatedAt: now,
       dailyDigestDue: false,

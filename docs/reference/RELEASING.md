@@ -21,7 +21,7 @@ When the operator says “release”, immediately do this preflight (no extra qu
 
 ## Versioning
 
-Current OpenClaw releases use date-based versioning.
+Current ClawMark releases use date-based versioning. GitHub release titles and repo metadata should use `ClawMark`, while CLI/app compatibility surfaces still retain the existing `openclaw` / `OpenClaw.app` names until that migration is complete.
 
 - Stable release version: `YYYY.M.D`
   - Git tag: `vYYYY.M.D`
@@ -32,7 +32,7 @@ Current OpenClaw releases use date-based versioning.
 - Use the same version string everywhere, minus the leading `v` where Git tags are not used:
   - `package.json`: `2026.3.8`
   - Git tag: `v2026.3.8`
-  - GitHub release title: `openclaw 2026.3.8`
+  - GitHub release title: `ClawMark 2026.3.8`
 - Do not zero-pad month or day. Use `2026.3.8`, not `2026.03.08`.
 - Stable and beta are npm dist-tags, not separate release lines:
   - `latest` = stable
@@ -49,13 +49,13 @@ Historical note:
 
 - [ ] Bump `package.json` version (e.g., `2026.1.29`).
 - [ ] Run `pnpm plugins:sync` to align extension package versions + changelogs.
-- [ ] Update CLI/version strings in [`src/version.ts`](https://github.com/openclaw/openclaw/blob/main/src/version.ts) and the Baileys user agent in [`src/web/session.ts`](https://github.com/openclaw/openclaw/blob/main/src/web/session.ts).
-- [ ] Confirm package metadata (name, description, repository, keywords, license) and `bin` map points to [`openclaw.mjs`](https://github.com/openclaw/openclaw/blob/main/openclaw.mjs) for `openclaw`.
+- [ ] Update CLI/version strings in [`src/version.ts`](https://github.com/LaurenBerrys/ClawMark/blob/main/src/version.ts) and the Baileys user agent in [`src/web/session.ts`](https://github.com/LaurenBerrys/ClawMark/blob/main/src/web/session.ts).
+- [ ] Confirm package metadata (name `clawmark`, description, repository, keywords, license) and `bin` map points to [`openclaw.mjs`](https://github.com/LaurenBerrys/ClawMark/blob/main/openclaw.mjs) for the `openclaw` compatibility CLI.
 - [ ] If dependencies changed, run `pnpm install` so `pnpm-lock.yaml` is current.
 
 2. **Build & artifacts**
 
-- [ ] If A2UI inputs changed, run `pnpm canvas:a2ui:bundle` and commit any updated [`src/canvas-host/a2ui/a2ui.bundle.js`](https://github.com/openclaw/openclaw/blob/main/src/canvas-host/a2ui/a2ui.bundle.js).
+- [ ] If A2UI inputs changed, run `pnpm canvas:a2ui:bundle` and commit any updated [`src/canvas-host/a2ui/a2ui.bundle.js`](https://github.com/LaurenBerrys/ClawMark/blob/main/src/canvas-host/a2ui/a2ui.bundle.js).
 - [ ] `pnpm run build` (regenerates `dist/`).
 - [ ] Verify npm package `files` includes all required `dist/*` folders (notably `dist/node-host/**` and `dist/acp/**` for headless node + ACP CLI).
 - [ ] Confirm `dist/build-info.json` exists and includes the expected `commit` hash (CLI banner uses this for npm installs).
@@ -84,7 +84,7 @@ Historical note:
 5. **macOS app (Sparkle)**
 
 - [ ] Build + sign the macOS app, then zip it for distribution.
-- [ ] Generate the Sparkle appcast (HTML notes via [`scripts/make_appcast.sh`](https://github.com/openclaw/openclaw/blob/main/scripts/make_appcast.sh)) and update `appcast.xml`.
+- [ ] Generate the Sparkle appcast (HTML notes via [`scripts/make_appcast.sh`](https://github.com/LaurenBerrys/ClawMark/blob/main/scripts/make_appcast.sh)) and update `appcast.xml`.
 - [ ] Keep the app zip (and optional dSYM zip) ready to attach to the GitHub release.
 - [ ] Follow [macOS release](/platforms/mac/release) for the exact commands and required env vars.
   - `APP_BUILD` must be numeric + monotonic (no `-beta`) so Sparkle compares versions correctly.
@@ -93,20 +93,20 @@ Historical note:
 6. **Publish (npm)**
 
 - [ ] Confirm git status is clean; commit and push as needed.
-- [ ] Confirm npm trusted publishing is configured for the `openclaw` package.
+- [ ] Confirm npm trusted publishing is configured for the `clawmark` package.
 - [ ] Push the matching git tag to trigger `.github/workflows/openclaw-npm-release.yml`.
   - Stable tags publish to npm `latest`.
   - Beta tags publish to npm `beta`.
   - The workflow rejects tags that do not match `package.json`, are not on `main`, or whose CalVer date is more than 2 UTC calendar days away from the release date.
-- [ ] Verify the registry: `npm view openclaw version`, `npm view openclaw dist-tags`, and `npx -y openclaw@X.Y.Z --version` (or `--help`).
+- [ ] Verify the registry: `npm view clawmark version`, `npm view clawmark dist-tags`, and `npx -y -p clawmark@X.Y.Z openclaw --version` (or `--help`).
 
 ### Troubleshooting (notes from 2.0.0-beta2 release)
 
 - **npm pack/publish hangs or produces huge tarball**: the macOS app bundle in `dist/OpenClaw.app` (and release zips) get swept into the package. Fix by whitelisting publish contents via `package.json` `files` (include dist subdirs, docs, skills; exclude app bundles). Confirm with `npm pack --dry-run` that `dist/OpenClaw.app` is not listed.
 - **npm auth web loop for dist-tags**: use legacy auth to get an OTP prompt:
-  - `NPM_CONFIG_AUTH_TYPE=legacy npm dist-tag add openclaw@X.Y.Z latest`
+  - `NPM_CONFIG_AUTH_TYPE=legacy npm dist-tag add clawmark@X.Y.Z latest`
 - **`npx` verification fails with `ECOMPROMISED: Lock compromised`**: retry with a fresh cache:
-  - `NPM_CONFIG_CACHE=/tmp/npm-cache-$(date +%s) npx -y openclaw@X.Y.Z --version`
+  - `NPM_CONFIG_CACHE=/tmp/npm-cache-$(date +%s) npx -y -p clawmark@X.Y.Z openclaw --version`
 - **Tag needs repointing after a late fix**: force-update and push the tag, then ensure the GitHub release assets still match:
   - `git tag -f vX.Y.Z && git push -f origin vX.Y.Z`
 
@@ -114,10 +114,10 @@ Historical note:
 
 - [ ] Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z` (or `git push --tags`).
   - Pushing the tag also triggers the npm release workflow.
-- [ ] Create/refresh the GitHub release for `vX.Y.Z` with **title `openclaw X.Y.Z`** (not just the tag); body should include the **full** changelog section for that version (Highlights + Changes + Fixes), inline (no bare links), and **must not repeat the title inside the body**.
+- [ ] Create/refresh the GitHub release for `vX.Y.Z` with **title `ClawMark X.Y.Z`** (not just the tag); body should include the **full** changelog section for that version (Highlights + Changes + Fixes), inline (no bare links), and **must not repeat the title inside the body**.
 - [ ] Attach artifacts: `npm pack` tarball (optional), `OpenClaw-X.Y.Z.zip`, and `OpenClaw-X.Y.Z.dSYM.zip` (if generated).
 - [ ] Commit the updated `appcast.xml` and push it (Sparkle feeds from main).
-- [ ] From a clean temp directory (no `package.json`), run `npx -y openclaw@X.Y.Z send --help` to confirm install/CLI entrypoints work.
+- [ ] From a clean temp directory (no `package.json`), run `npx -y -p clawmark@X.Y.Z openclaw send --help` to confirm install/CLI entrypoints work.
 - [ ] Announce/share release notes.
 
 ## Plugin publish scope (npm)

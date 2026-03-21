@@ -340,7 +340,8 @@ describe("shouldUseSystem2", () => {
             plane: "session",
             recordId: "coord-sales-blocked",
             title: "Coordinator suggestion: open a sales follow-up task",
-            excerpt: "The bound sales surface has local task creation disabled, so the suggestion stays in review mode.",
+            excerpt:
+              "The bound sales surface has local task creation disabled, so the suggestion stays in review mode.",
             score: 0.82,
             confidence: 84,
             sourceRef: "runtime-coordinator-suggestion",
@@ -492,7 +493,9 @@ describe("buildDecisionPromptBlock", () => {
 
     expect(promptBlock).toContain("决策内核输出：");
     expect(promptBlock).toContain("推荐执行者：main");
-    expect(promptBlock).toContain("生态绑定：agent=agent-runtime · surface=surface-runtime · session=session-runtime");
+    expect(promptBlock).toContain(
+      "生态绑定：agent=agent-runtime · surface=surface-runtime · session=session-runtime",
+    );
     expect(promptBlock).toContain("上下文摘要：strategy=1 | memory=3 | session=1 | archive=0");
     expect(promptBlock).toContain("当前信号");
     expect(promptBlock).toContain("[session] recent runtime control session");

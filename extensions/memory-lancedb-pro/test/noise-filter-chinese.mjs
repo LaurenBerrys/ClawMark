@@ -48,14 +48,14 @@ const SHOULD_BE_NOISE = [
   { text: "晚安", category: "boilerplate" },
   { text: "哈喽", category: "boilerplate" },
   { text: "好的", category: "boilerplate" },
-  { text: "行", category: "boilerplate" },  // length < 5, caught by min-length
+  { text: "行", category: "boilerplate" }, // length < 5, caught by min-length
   { text: "可以", category: "boilerplate" }, // length < 5, caught by min-length
   { text: "没问题", category: "boilerplate" },
   { text: "收到", category: "boilerplate" }, // length < 5, caught by min-length
   { text: "谢谢", category: "boilerplate" }, // length < 5, caught by min-length
   { text: "谢谢你的帮助", category: "boilerplate" },
   { text: "好吧我知道了", category: "boilerplate" },
-  { text: "OK", category: "boilerplate" },   // length < 5, caught by min-length
+  { text: "OK", category: "boilerplate" }, // length < 5, caught by min-length
   { text: "明白了", category: "boilerplate" },
   { text: "了解", category: "boilerplate" }, // length < 5, caught by min-length
   { text: "知道了", category: "boilerplate" },
@@ -74,11 +74,11 @@ const SHOULD_NOT_BE_NOISE = [
   "SDDP算法的Level Bundle方法收敛速度比较慢",
   "记得明天下午3点开会讨论需求",
   "API Key是sk-xxx，配置在.env文件里",
-  "你好厉害，这个方案解决了我的问题",  // starts with 你好 but has meaningful content after
-  "好的方案是使用Redis做缓存层",        // starts with 好的 but has meaningful content
+  "你好厉害，这个方案解决了我的问题", // starts with 你好 but has meaningful content after
+  "好的方案是使用Redis做缓存层", // starts with 好的 but has meaningful content
   "谢谢分享，我觉得这个思路很好，可以用在我们的EVRP项目里",
-  "你知道Redis的持久化策略吗",            // legitimate question, must NOT be filtered
-  "你知道怎么配置Nginx反向代理吗",         // legitimate question, must NOT be filtered
+  "你知道Redis的持久化策略吗", // legitimate question, must NOT be filtered
+  "你知道怎么配置Nginx反向代理吗", // legitimate question, must NOT be filtered
 ];
 
 // ============================================================================

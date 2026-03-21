@@ -246,6 +246,8 @@
     "desktop:core:manifest": "node --import tsx scripts/merge-clawmark-core-manifest.ts",
     "desktop:core:package:macos": "node --import tsx scripts/package-clawmark-core.ts macos",
     "desktop:core:package:windows": "node --import tsx scripts/package-clawmark-core.ts windows",
+    "desktop:dev:macos": "pnpm desktop:run:macos",
+    "desktop:dev:windows": "pnpm desktop:run:windows",
     "desktop:package:macos": "bash scripts/package-desktop-console-mac.sh",
     "desktop:package:windows": "powershell -ExecutionPolicy Bypass -File scripts/package-desktop-console-windows.ps1",
     "desktop:pub:get": "node --import tsx scripts/run-desktop-console.ts pub-get",

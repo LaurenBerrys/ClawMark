@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { RuntimeIntelStore, TaskRecord, TaskReview, TaskRun } from "./contracts.js";
 import {
   acknowledgeRuntimeEvolutionVerification,
+  configureRuntimeEvolution,
   configureRuntimeMemoryLifecycle,
   distillTaskOutcomeToMemory,
   invalidateMemoryLineage,
@@ -26,6 +27,14 @@ import {
   saveRuntimeMemoryStore,
   saveRuntimeTaskStore,
 } from "./store.js";
+
+function materializedStrategyIdFromMetadata(metadata: unknown): string {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return "";
+  }
+  const value = (metadata as { materializedStrategyId?: unknown }).materializedStrategyId;
+  return typeof value === "string" ? value : "";
+}
 
 async function withTempRoot(
   prefix: string,
@@ -106,6 +115,35 @@ function buildRun(now: number, overrides: Partial<TaskRun> = {}): TaskRun {
 }
 
 describe("runtime mutations", () => {
+  it("persists auto-canary evolution controls in governance metadata", async () => {
+    await withTempRoot("openclaw-runtime-evolution-config-", async (_root, env) => {
+      const now = 1_700_099_000_000;
+      const configured = configureRuntimeEvolution(
+        {
+          enabled: true,
+          autoApplyLowRisk: true,
+          autoCanaryEvolution: true,
+          reviewIntervalHours: 24,
+        },
+        { env, now },
+      );
+      const governanceStore = loadRuntimeGovernanceStore({ env, now });
+
+      expect(configured).toMatchObject({
+        enabled: true,
+        autoApplyLowRisk: true,
+        autoCanaryEvolution: true,
+        reviewIntervalHours: 24,
+      });
+      expect(governanceStore.metadata).toMatchObject({
+        enabled: true,
+        autoApplyLowRisk: true,
+        autoCanaryEvolution: true,
+        reviewIntervalHours: 24,
+      });
+    });
+  });
+
   it("distills a terminal task outcome into formal memory and strategy records", async () => {
     await withTempRoot("openclaw-runtime-mutations-", async (_root, env) => {
       const now = 1_700_100_000_000;
@@ -185,7 +223,7 @@ describe("runtime mutations", () => {
       expect(nextTaskStore.tasks[0]?.nextAction).toContain("重新规划");
       expect(
         (
-          (nextTaskStore.tasks[0]?.metadata as {
+          nextTaskStore.tasks[0]?.metadata as {
             runtimeTask?: {
               optimizationState?: {
                 needsReplan?: boolean;
@@ -193,32 +231,32 @@ describe("runtime mutations", () => {
                 invalidatedMemoryIds?: string[];
               };
             };
-          })?.runtimeTask?.optimizationState?.needsReplan
-        ),
+          }
+        )?.runtimeTask?.optimizationState?.needsReplan,
       ).toBe(true);
       expect(
         (
-          (nextTaskStore.tasks[0]?.metadata as {
+          nextTaskStore.tasks[0]?.metadata as {
             runtimeTask?: {
               optimizationState?: {
                 invalidatedBy?: string[];
                 invalidatedMemoryIds?: string[];
               };
             };
-          })?.runtimeTask?.optimizationState?.invalidatedBy ?? []
-        ),
+          }
+        )?.runtimeTask?.optimizationState?.invalidatedBy ?? [],
       ).toContain("event-memory-invalid");
       expect(
         (
-          (nextTaskStore.tasks[0]?.metadata as {
+          nextTaskStore.tasks[0]?.metadata as {
             runtimeTask?: {
               optimizationState?: {
                 invalidatedBy?: string[];
                 invalidatedMemoryIds?: string[];
               };
             };
-          })?.runtimeTask?.optimizationState?.invalidatedMemoryIds ?? []
-        ),
+          }
+        )?.runtimeTask?.optimizationState?.invalidatedMemoryIds ?? [],
       ).toContain(distilled.memories[0].id);
       expect(nextMemoryStore.memories[0]?.invalidatedBy).toContain("event-memory-invalid");
       expect(nextMemoryStore.metaLearning[0]?.adoptedAs).toBe("shadow");
@@ -275,7 +313,7 @@ describe("runtime mutations", () => {
       expect(nextTaskStore.tasks[0]?.activeRunId).toBeUndefined();
       expect(
         (
-          (nextTaskStore.tasks[0]?.metadata as {
+          nextTaskStore.tasks[0]?.metadata as {
             runtimeTask?: {
               optimizationState?: {
                 needsReplan?: boolean;
@@ -283,25 +321,29 @@ describe("runtime mutations", () => {
                 invalidatedMemoryIds?: string[];
               };
             };
-          })?.runtimeTask?.optimizationState?.needsReplan
-        ) ?? false,
+          }
+        )?.runtimeTask?.optimizationState?.needsReplan ?? false,
       ).toBe(false);
       expect(
         (
-          (nextTaskStore.tasks[0]?.metadata as {
+          nextTaskStore.tasks[0]?.metadata as {
             runtimeTask?: {
               optimizationState?: {
                 invalidatedBy?: string[];
                 invalidatedMemoryIds?: string[];
               };
             };
-          })?.runtimeTask?.optimizationState?.invalidatedBy ?? []
-        ),
+          }
+        )?.runtimeTask?.optimizationState?.invalidatedBy ?? [],
       ).toEqual([]);
-      expect(nextMemoryStore.memories.find((entry) => entry.id === distilled.memories[0].id)?.invalidatedBy)
-        .toEqual([]);
-      expect(nextMemoryStore.metaLearning.find((entry) => entry.id === distilled.metaLearning[0].id)?.adoptedAs)
-        .toBe("strategy");
+      expect(
+        nextMemoryStore.memories.find((entry) => entry.id === distilled.memories[0].id)
+          ?.invalidatedBy,
+      ).toEqual([]);
+      expect(
+        nextMemoryStore.metaLearning.find((entry) => entry.id === distilled.metaLearning[0].id)
+          ?.adoptedAs,
+      ).toBe("strategy");
     });
   });
 
@@ -417,8 +459,10 @@ describe("runtime mutations", () => {
 
       let memoryStore = loadRuntimeMemoryStore({ env, now: now + 20 });
       let governanceStore = loadRuntimeGovernanceStore({ env, now: now + 20 });
-      const adoptedCandidate = memoryStore.evolutionMemory.find((entry) => entry.id === candidate.id);
-      const materializedStrategyId = String(adoptedCandidate?.metadata?.materializedStrategyId ?? "");
+      const adoptedCandidate = memoryStore.evolutionMemory.find(
+        (entry) => entry.id === candidate.id,
+      );
+      const materializedStrategyId = materializedStrategyIdFromMetadata(adoptedCandidate?.metadata);
 
       expect(adopted.state).toBe("adopted");
       expect(materializedStrategyId).toBeTruthy();
@@ -427,7 +471,8 @@ describe("runtime mutations", () => {
       ).toEqual([]);
       expect(
         governanceStore.shadowEvaluations.find(
-          (entry) => entry.candidateRef === candidate.id || entry.candidateRef === candidate.candidateRef,
+          (entry) =>
+            entry.candidateRef === candidate.id || entry.candidateRef === candidate.candidateRef,
         )?.state,
       ).toBe("adopted");
 
@@ -444,15 +489,17 @@ describe("runtime mutations", () => {
       memoryStore = loadRuntimeMemoryStore({ env, now: now + 30 });
       governanceStore = loadRuntimeGovernanceStore({ env, now: now + 30 });
       expect(reverted.state).toBe("reverted");
-      expect(memoryStore.evolutionMemory.find((entry) => entry.id === candidate.id)?.adoptionState).toBe(
-        "shadow",
-      );
       expect(
-        memoryStore.strategies.find((entry) => entry.id === materializedStrategyId)?.invalidatedBy.length,
+        memoryStore.evolutionMemory.find((entry) => entry.id === candidate.id)?.adoptionState,
+      ).toBe("shadow");
+      expect(
+        memoryStore.strategies.find((entry) => entry.id === materializedStrategyId)?.invalidatedBy
+          .length,
       ).toBeGreaterThan(0);
       expect(
         governanceStore.shadowEvaluations.find(
-          (entry) => entry.candidateRef === candidate.id || entry.candidateRef === candidate.candidateRef,
+          (entry) =>
+            entry.candidateRef === candidate.id || entry.candidateRef === candidate.candidateRef,
         )?.state,
       ).toBe("reverted");
 
@@ -517,7 +564,10 @@ describe("runtime mutations", () => {
 
       const governanceStore = loadRuntimeGovernanceStore({ env, now: now + 1 });
       for (const evaluation of governanceStore.shadowEvaluations) {
-        if (evaluation.candidateRef === candidate.id || evaluation.candidateRef === candidate.candidateRef) {
+        if (
+          evaluation.candidateRef === candidate.id ||
+          evaluation.candidateRef === candidate.candidateRef
+        ) {
           evaluation.observationCount = 6;
           evaluation.updatedAt = now + 1;
         }
@@ -526,21 +576,30 @@ describe("runtime mutations", () => {
         ...governanceStore.metadata,
         enabled: true,
         autoApplyLowRisk: true,
+        autoCanaryEvolution: true,
         reviewIntervalHours: 1,
       };
       saveRuntimeGovernanceStore(governanceStore, { env, now: now + 1 });
 
       const result = maybeAutoApplyLowRiskEvolution({ env, now: now + 10 });
       const nextMemoryStore = loadRuntimeMemoryStore({ env, now: now + 10 });
-      const nextCandidate = nextMemoryStore.evolutionMemory.find((entry) => entry.id === candidate.id);
+      const nextCandidate = nextMemoryStore.evolutionMemory.find(
+        (entry) => entry.id === candidate.id,
+      );
 
       expect(result.promotedIds).toEqual([]);
       expect(result.adoptedIds).toEqual([]);
       expect(nextCandidate?.adoptionState).toBe("shadow");
       expect(
-        (nextCandidate?.metadata as {
-          riskReview?: { riskLevel?: string; autoApplyEligible?: boolean; requiresReasonOnAdopt?: boolean };
-        })?.riskReview,
+        (
+          nextCandidate?.metadata as {
+            riskReview?: {
+              riskLevel?: string;
+              autoApplyEligible?: boolean;
+              requiresReasonOnAdopt?: boolean;
+            };
+          }
+        )?.riskReview,
       ).toMatchObject({
         riskLevel: "medium",
         autoApplyEligible: false,
@@ -610,7 +669,7 @@ describe("runtime mutations", () => {
       expect(result.adoptedIds).toEqual([]);
       expect(candidate?.adoptionState).toBe("shadow");
       expect(metrics).toMatchObject({
-        observationCount: 0, sourceTaskIds: [], sourceReviewIds: [], sourceSessionIds: [], sourceEventIds: [], sourceIntelIds: [], derivedFromMemoryIds: [],
+        observationCount: 5,
         waitingUserCount: 5,
       });
       expect(Number(metrics?.successRate ?? 1)).toBeLessThan(0.6);
@@ -620,13 +679,83 @@ describe("runtime mutations", () => {
         promoteReady: false,
         adoptReady: false,
       });
-      expect(autoApplyStatus?.blockers?.join(" ")).toMatch(/success rate|regression risk|interruptions/i);
+      expect(autoApplyStatus?.blockers?.join(" ")).toMatch(
+        /success rate|regression risk|interruptions/i,
+      );
       expect(
-        (candidate?.metadata as { riskReview?: { riskLevel?: string; autoApplyEligible?: boolean } })
-          ?.riskReview,
+        (
+          candidate?.metadata as {
+            riskReview?: { riskLevel?: string; autoApplyEligible?: boolean };
+          }
+        )?.riskReview,
       ).toMatchObject({
         riskLevel: "low",
         autoApplyEligible: true,
+      });
+    });
+  });
+
+  it("caps low-risk evolution auto-apply at candidate when auto-canary evolution is disabled", async () => {
+    await withTempRoot("openclaw-runtime-evolution-manual-adopt-", async (_root, env) => {
+      const now = 1_700_219_000_000;
+      const governanceStore = loadRuntimeGovernanceStore({ env, now });
+      governanceStore.metadata = {
+        ...governanceStore.metadata,
+        enabled: true,
+        autoApplyLowRisk: true,
+        autoCanaryEvolution: false,
+        reviewIntervalHours: 1,
+      };
+      saveRuntimeGovernanceStore(governanceStore, { env, now });
+
+      for (let index = 0; index < 5; index += 1) {
+        const observedAt = now + index * 1000;
+        observeTaskOutcomeForEvolution(
+          {
+            task: buildTask(observedAt, {
+              id: `task-auto-canary-${index}`,
+              status: "completed",
+              route: "coder",
+              worker: "main",
+              skillIds: [],
+              updatedAt: observedAt,
+            }),
+            review: buildReview(observedAt, {
+              id: `review-auto-canary-${index}`,
+              taskId: `task-auto-canary-${index}`,
+              runId: `run-auto-canary-${index}`,
+              summary: "Stable route execution observed.",
+            }),
+            run: buildRun(observedAt, {
+              id: `run-auto-canary-${index}`,
+            }),
+            thinkingLane: "system1",
+            completionScore: 95,
+            now: observedAt,
+          },
+          { env, now: observedAt },
+        );
+      }
+
+      const promoted = maybeAutoApplyLowRiskEvolution({ env, now: now + 10_000 });
+      const capped = maybeAutoApplyLowRiskEvolution({ env, now: now + 11_000 });
+      const memoryStore = loadRuntimeMemoryStore({ env, now: now + 11_000 });
+      const candidate = memoryStore.evolutionMemory.find(
+        (entry) => entry.candidateType === "route_default_lane",
+      );
+      const autoApplyStatus = (
+        candidate?.metadata as {
+          autoApplyStatus?: { promoteReady?: boolean; adoptReady?: boolean };
+        }
+      )?.autoApplyStatus;
+
+      expect(candidate?.id).toBeTruthy();
+      expect(promoted.promotedIds).toContain(candidate?.id);
+      expect(capped.adoptedIds).toEqual([]);
+      expect(candidate?.adoptionState).toBe("candidate");
+      expect(autoApplyStatus).toMatchObject({
+        promoteReady: true,
+        adoptReady: true,
       });
     });
   });
@@ -665,8 +794,10 @@ describe("runtime mutations", () => {
       );
 
       const adoptedMemoryStore = loadRuntimeMemoryStore({ env, now: now + 10 });
-      const adoptedCandidate = adoptedMemoryStore.evolutionMemory.find((entry) => entry.id === candidate.id);
-      const materializedStrategyId = String(adoptedCandidate?.metadata?.materializedStrategyId ?? "");
+      const adoptedCandidate = adoptedMemoryStore.evolutionMemory.find(
+        (entry) => entry.id === candidate.id,
+      );
+      const materializedStrategyId = materializedStrategyIdFromMetadata(adoptedCandidate?.metadata);
       expect(materializedStrategyId).toBeTruthy();
 
       observeTaskOutcomeForEvolution(
@@ -693,11 +824,14 @@ describe("runtime mutations", () => {
       const governanceStore = loadRuntimeGovernanceStore({ env, now: now + 30 });
       const nextCandidate = memoryStore.evolutionMemory.find((entry) => entry.id === candidate.id);
       const evaluation = governanceStore.shadowEvaluations.find(
-        (entry) => entry.candidateRef === candidate.id || entry.candidateRef === candidate.candidateRef,
+        (entry) =>
+          entry.candidateRef === candidate.id || entry.candidateRef === candidate.candidateRef,
       );
 
       expect(nextCandidate?.adoptionState).toBe("adopted");
-      expect(String(nextCandidate?.metadata?.materializedStrategyId ?? "")).toBe(materializedStrategyId);
+      expect(materializedStrategyIdFromMetadata(nextCandidate?.metadata)).toBe(
+        materializedStrategyId,
+      );
       expect(evaluation?.state).toBe("adopted");
     });
   });
@@ -737,9 +871,9 @@ describe("runtime mutations", () => {
 
       let memoryStore = loadRuntimeMemoryStore({ env, now: now + 10 });
       let adoptedCandidate = memoryStore.evolutionMemory.find((entry) => entry.id === candidate.id);
-      expect((adoptedCandidate?.metadata as { verificationStatus?: string })?.verificationStatus).toBe(
-        "pending",
-      );
+      expect(
+        (adoptedCandidate?.metadata as { verificationStatus?: string })?.verificationStatus,
+      ).toBe("pending");
 
       observeTaskOutcomeForEvolution(
         {
@@ -776,7 +910,8 @@ describe("runtime mutations", () => {
       const governanceStore = loadRuntimeGovernanceStore({ env, now: now + 30 });
       adoptedCandidate = memoryStore.evolutionMemory.find((entry) => entry.id === candidate.id);
       const evaluation = governanceStore.shadowEvaluations.find(
-        (entry) => entry.candidateRef === candidate.id || entry.candidateRef === candidate.candidateRef,
+        (entry) =>
+          entry.candidateRef === candidate.id || entry.candidateRef === candidate.candidateRef,
       );
       const verificationMetrics = (
         adoptedCandidate?.metadata as {
@@ -791,14 +926,14 @@ describe("runtime mutations", () => {
 
       expect(adoptedCandidate?.adoptionState).toBe("adopted");
       expect(verificationMetrics).toMatchObject({
-        observationCount: 0, sourceTaskIds: [], sourceReviewIds: [], sourceSessionIds: [], sourceEventIds: [], sourceIntelIds: [], derivedFromMemoryIds: [],
+        observationCount: 1,
         blockedCount: 1,
         failedCount: 1,
         successCount: 0,
       });
-      expect((adoptedCandidate?.metadata as { verificationStatus?: string })?.verificationStatus).toBe(
-        "revert_recommended",
-      );
+      expect(
+        (adoptedCandidate?.metadata as { verificationStatus?: string })?.verificationStatus,
+      ).toBe("revert_recommended");
       expect(
         String(
           (
@@ -896,9 +1031,12 @@ describe("runtime mutations", () => {
 
       const memoryStore = loadRuntimeMemoryStore({ env, now: now + 40 });
       const governanceStore = loadRuntimeGovernanceStore({ env, now: now + 40 });
-      const adoptedCandidate = memoryStore.evolutionMemory.find((entry) => entry.id === candidate.id);
+      const adoptedCandidate = memoryStore.evolutionMemory.find(
+        (entry) => entry.id === candidate.id,
+      );
       const evaluation = governanceStore.shadowEvaluations.find(
-        (entry) => entry.candidateRef === candidate.id || entry.candidateRef === candidate.candidateRef,
+        (entry) =>
+          entry.candidateRef === candidate.id || entry.candidateRef === candidate.candidateRef,
       );
 
       expect(acknowledgement).toMatchObject({
@@ -907,14 +1045,12 @@ describe("runtime mutations", () => {
       });
       expect(adoptedCandidate?.adoptionState).toBe("adopted");
       expect(
-        (
-          adoptedCandidate?.metadata as {
-            verificationAcknowledgedAt?: number;
-            verificationAcknowledgedState?: string;
-            verificationAcknowledgedObservationCount?: number;
-            verificationAcknowledgedNote?: string;
-          }
-        ),
+        adoptedCandidate?.metadata as {
+          verificationAcknowledgedAt?: number;
+          verificationAcknowledgedState?: string;
+          verificationAcknowledgedObservationCount?: number;
+          verificationAcknowledgedNote?: string;
+        },
       ).toMatchObject({
         verificationAcknowledgedAt: now + 30,
         verificationAcknowledgedState: "revert_recommended",
@@ -922,14 +1058,12 @@ describe("runtime mutations", () => {
         verificationAcknowledgedNote: "Keep live while gathering more post-adoption evidence.",
       });
       expect(
-        (
-          evaluation?.metadata as {
-            verificationAcknowledgedAt?: number;
-            verificationAcknowledgedState?: string;
-            verificationAcknowledgedObservationCount?: number;
-            verificationAcknowledgedNote?: string;
-          }
-        ),
+        evaluation?.metadata as {
+          verificationAcknowledgedAt?: number;
+          verificationAcknowledgedState?: string;
+          verificationAcknowledgedObservationCount?: number;
+          verificationAcknowledgedNote?: string;
+        },
       ).toMatchObject({
         verificationAcknowledgedAt: now + 30,
         verificationAcknowledgedState: "revert_recommended",
@@ -1040,8 +1174,8 @@ describe("runtime mutations", () => {
       const adoptedRetryCandidate = memoryStore.evolutionMemory.find(
         (entry) => entry.id === retryCandidate?.id,
       );
-      const workerStrategyId = String(adoptedWorkerCandidate?.metadata?.materializedStrategyId ?? "");
-      const retryStrategyId = String(adoptedRetryCandidate?.metadata?.materializedStrategyId ?? "");
+      const workerStrategyId = materializedStrategyIdFromMetadata(adoptedWorkerCandidate?.metadata);
+      const retryStrategyId = materializedStrategyIdFromMetadata(adoptedRetryCandidate?.metadata);
       const workerStrategy = memoryStore.strategies.find((entry) => entry.id === workerStrategyId);
       const retryStrategy = memoryStore.strategies.find((entry) => entry.id === retryStrategyId);
 
@@ -1114,8 +1248,12 @@ describe("runtime mutations", () => {
       const result = reviewRuntimeMemoryLifecycle({ env, now: now + 1000 });
       const nextMemoryStore = loadRuntimeMemoryStore({ env, now: now + 1000 });
       const reviewedMemory = nextMemoryStore.memories.find((entry) => entry.id === targetMemory.id);
-      const reviewedStrategy = nextMemoryStore.strategies.find((entry) => entry.id === targetStrategy.id);
-      const reviewedLearning = nextMemoryStore.metaLearning.find((entry) => entry.id === targetLearning.id);
+      const reviewedStrategy = nextMemoryStore.strategies.find(
+        (entry) => entry.id === targetStrategy.id,
+      );
+      const reviewedLearning = nextMemoryStore.metaLearning.find(
+        (entry) => entry.id === targetLearning.id,
+      );
       const reviewedEvolution = nextMemoryStore.evolutionMemory.find(
         (entry) => entry.id === "evolution-memory-review",
       );
@@ -1124,19 +1262,28 @@ describe("runtime mutations", () => {
       expect(result.weakenedStrategyIds).toContain(targetStrategy.id);
       expect(result.staleMetaLearningIds).toContain(targetLearning.id);
       expect(result.staleEvolutionIds).toContain("evolution-memory-review");
-      expect((reviewedMemory?.decayScore ?? 0)).toBeGreaterThanOrEqual(80);
-      expect((reviewedStrategy?.confidence ?? 100)).toBeLessThan(targetStrategy.confidence);
+      expect(reviewedMemory?.decayScore ?? 0).toBeGreaterThanOrEqual(80);
+      expect(reviewedStrategy?.confidence ?? 100).toBeLessThan(targetStrategy.confidence);
       expect(reviewedMemory?.version).toBeGreaterThan(initialMemoryVersion);
       expect(reviewedStrategy?.version).toBeGreaterThan(initialStrategyVersion);
-      expect((reviewedLearning?.metadata as { lifecycle?: { stale?: boolean; agedMemoryIds?: string[] } })
-        ?.lifecycle).toMatchObject({
+      expect(
+        (
+          reviewedLearning?.metadata as {
+            lifecycle?: { stale?: boolean; agedMemoryIds?: string[] };
+          }
+        )?.lifecycle,
+      ).toMatchObject({
         stale: true,
         agedMemoryIds: [targetMemory.id],
       });
       expect(
         (
           reviewedEvolution?.metadata as {
-            lifecycle?: { stale?: boolean; agedMemoryIds?: string[]; weakenedStrategyIds?: string[] };
+            lifecycle?: {
+              stale?: boolean;
+              agedMemoryIds?: string[];
+              weakenedStrategyIds?: string[];
+            };
           }
         )?.lifecycle,
       ).toMatchObject({
@@ -1154,7 +1301,9 @@ describe("runtime mutations", () => {
         { env, now: now + 2000 },
       );
       const reinforcedStore = loadRuntimeMemoryStore({ env, now: now + 2000 });
-      const reinforcedLearning = reinforcedStore.metaLearning.find((entry) => entry.id === targetLearning.id);
+      const reinforcedLearning = reinforcedStore.metaLearning.find(
+        (entry) => entry.id === targetLearning.id,
+      );
       const reinforcedEvolution = reinforcedStore.evolutionMemory.find(
         (entry) => entry.id === "evolution-memory-review",
       );
@@ -1197,7 +1346,9 @@ describe("runtime mutations", () => {
         },
         { env, now },
       );
-      const supportMemoryId = distilled.memories.find((entry) => entry.memoryType === "execution")?.id;
+      const supportMemoryId = distilled.memories.find(
+        (entry) => entry.memoryType === "execution",
+      )?.id;
       if (!supportMemoryId) {
         throw new Error("expected execution memory");
       }
@@ -1280,8 +1431,8 @@ describe("runtime mutations", () => {
       );
 
       expect(reopened.promotedIds).toContain(blockedCandidate.id);
-      expect(adopted.adoptedIds).toContain(blockedCandidate.id);
-      expect(reopenedCandidate?.adoptionState).toBe("adopted");
+      expect(adopted.adoptedIds).not.toContain(blockedCandidate.id);
+      expect(reopenedCandidate?.adoptionState).toBe("candidate");
       expect(
         (reopenedCandidate?.metadata as { lifecycle?: { stale?: boolean } })?.lifecycle?.stale,
       ).toBe(false);
@@ -1327,7 +1478,9 @@ describe("runtime mutations", () => {
       const reviewResult = reviewRuntimeMemoryLifecycle({ env, now: now + 1000 });
       const nextMemoryStore = loadRuntimeMemoryStore({ env, now: now + 1000 });
       const reviewedMemory = nextMemoryStore.memories.find((entry) => entry.id === targetMemory.id);
-      const reviewedStrategy = nextMemoryStore.strategies.find((entry) => entry.id === targetStrategy.id);
+      const reviewedStrategy = nextMemoryStore.strategies.find(
+        (entry) => entry.id === targetStrategy.id,
+      );
 
       expect(configured).toMatchObject({
         reviewIntervalHours: 6,

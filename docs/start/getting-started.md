@@ -1,5 +1,5 @@
 ---
-summary: "Get OpenClaw installed and run your first chat in minutes."
+summary: "Get ClawMark installed and run your first chat in minutes."
 read_when:
   - First time setup from zero
   - You want the fastest path to a working chat
@@ -11,10 +11,10 @@ title: "Getting Started"
 Goal: go from zero to a first working chat with minimal setup.
 
 <Info>
-Fastest chat: open the Control UI (no channel setup needed). Run `openclaw dashboard`
+Fastest chat: open the User Console (no channel setup needed). Run `openclaw dashboard`
 and chat in the browser, or open `http://127.0.0.1:18789/` on the
-<Tooltip headline="Gateway host" tip="The machine running the OpenClaw gateway service.">gateway host</Tooltip>.
-Docs: [Dashboard](/web/dashboard) and [Control UI](/web/control-ui).
+<Tooltip headline="Gateway host" tip="The machine running the ClawMark gateway service.">gateway host</Tooltip>.
+Docs: [Dashboard](/web/dashboard) and [User Console](/web/control-ui).
 </Info>
 
 ## Prereqs
@@ -28,7 +28,7 @@ Check your Node version with `node --version` if you are unsure.
 ## Quick setup (CLI)
 
 <Steps>
-  <Step title="Install OpenClaw (recommended)">
+  <Step title="Install ClawMark (recommended)">
     <Tabs>
       <Tab title="macOS/Linux">
         ```bash
@@ -69,7 +69,7 @@ Check your Node version with `node --version` if you are unsure.
     ```
 
   </Step>
-  <Step title="Open the Control UI">
+  <Step title="Open the User Console">
     ```bash
     openclaw dashboard
     ```
@@ -77,7 +77,7 @@ Check your Node version with `node --version` if you are unsure.
 </Steps>
 
 <Check>
-If the Control UI loads, your Gateway is ready for use.
+If the User Console loads, your Gateway is ready for use.
 </Check>
 
 ## Optional checks and extras
@@ -95,7 +95,7 @@ If the Control UI loads, your Gateway is ready for use.
     Requires a configured channel.
 
     ```bash
-    openclaw message send --target +15555550123 --message "Hello from OpenClaw"
+    openclaw message send --target +15555550123 --message "Hello from ClawMark"
     ```
 
   </Accordion>
@@ -103,11 +103,13 @@ If the Control UI loads, your Gateway is ready for use.
 
 ## Useful environment variables
 
-If you run OpenClaw as a service account or want custom config/state locations:
+If you run ClawMark as a service account or want custom config/state locations:
 
 - `OPENCLAW_HOME` sets the home directory used for internal path resolution.
 - `OPENCLAW_STATE_DIR` overrides the state directory.
 - `OPENCLAW_CONFIG_PATH` overrides the config file path.
+
+These env vars keep the historical `OPENCLAW_*` names for compatibility.
 
 Full environment variable reference: [Environment vars](/help/environment).
 
@@ -126,7 +128,7 @@ Full environment variable reference: [Environment vars](/help/environment).
 
 - A running Gateway
 - Auth configured
-- Control UI access or a connected channel
+- User Console access or a connected channel
 
 ## Next steps
 

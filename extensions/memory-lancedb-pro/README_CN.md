@@ -32,23 +32,23 @@
 
 OpenClaw 内置的 `memory-lancedb` 插件仅提供基本的向量搜索。**memory-lancedb-pro** 在此基础上进行了全面升级：
 
-| 功能 | 内置 `memory-lancedb` | **memory-lancedb-pro** |
-|------|----------------------|----------------------|
-| 向量搜索 | ✅ | ✅ |
-| BM25 全文检索 | ❌ | ✅ |
-| 混合融合（Vector + BM25） | ❌ | ✅ |
-| 跨编码器 Rerank（Jina） | ❌ | ✅ |
-| 时效性加成 | ❌ | ✅ |
-| 时间衰减 | ❌ | ✅ |
-| 长度归一化 | ❌ | ✅ |
-| MMR 多样性去重 | ❌ | ✅ |
-| 多 Scope 隔离 | ❌ | ✅ |
-| 噪声过滤 | ❌ | ✅ |
-| 自适应检索 | ❌ | ✅ |
-| 管理 CLI | ❌ | ✅ |
-| Session 记忆 | ❌ | ✅ |
-| Task-aware Embedding | ❌ | ✅ |
-| 任意 OpenAI 兼容 Embedding | 有限 | ✅（OpenAI、Gemini、Jina、Ollama 等） |
+| 功能                       | 内置 `memory-lancedb` | **memory-lancedb-pro**                |
+| -------------------------- | --------------------- | ------------------------------------- |
+| 向量搜索                   | ✅                    | ✅                                    |
+| BM25 全文检索              | ❌                    | ✅                                    |
+| 混合融合（Vector + BM25）  | ❌                    | ✅                                    |
+| 跨编码器 Rerank（Jina）    | ❌                    | ✅                                    |
+| 时效性加成                 | ❌                    | ✅                                    |
+| 时间衰减                   | ❌                    | ✅                                    |
+| 长度归一化                 | ❌                    | ✅                                    |
+| MMR 多样性去重             | ❌                    | ✅                                    |
+| 多 Scope 隔离              | ❌                    | ✅                                    |
+| 噪声过滤                   | ❌                    | ✅                                    |
+| 自适应检索                 | ❌                    | ✅                                    |
+| 管理 CLI                   | ❌                    | ✅                                    |
+| Session 记忆               | ❌                    | ✅                                    |
+| Task-aware Embedding       | ❌                    | ✅                                    |
+| 任意 OpenAI 兼容 Embedding | 有限                  | ✅（OpenAI、Gemini、Jina、Ollama 等） |
 
 ---
 
@@ -89,27 +89,27 @@ OpenClaw 内置的 `memory-lancedb` 插件仅提供基本的向量搜索。**mem
 
 ### 文件说明
 
-| 文件 | 用途 |
-|------|------|
-| `index.ts` | 插件入口。注册到 OpenClaw Plugin API，解析配置，挂载生命周期钩子（`before_agent_start` / `before_prompt_build` / `agent_end`），负责 generic auto-recall 的 `mmr | setwise-v2` 分流，并编排 reflection 注入流程 |
-| `openclaw.plugin.json` | 插件元数据 + 完整 JSON Schema 配置声明（含 `uiHints`） |
-| `package.json` | NPM 包信息，依赖 `@lancedb/lancedb`、`openai`、`@sinclair/typebox` |
-| `cli.ts` | CLI 命令实现：`memory list/search/stats/delete/delete-bulk/export/import/reembed/migrate` |
-| `src/store.ts` | LanceDB 存储层。表创建 / FTS 索引 / Vector Search / BM25 Search / CRUD / 批量删除 / 统计 |
-| `src/embedder.ts` | Embedding 抽象层。兼容 OpenAI API 的任意 Provider（OpenAI、Gemini、Jina、Ollama 等），支持 task-aware embedding（`taskQuery`/`taskPassage`） |
-| `src/retriever.ts` | 混合检索引擎。Vector + BM25 → RRF 融合 → rerank → 时效 / 重要性 / 长度 / 衰减加权 → 噪声过滤 → 粗粒度 MMR 去重。 |
-| `src/recall-engine.ts` | 共享 recall 辅助层：prompt 触发判断、session 重复注入抑制、tag block 组装、max-age 过滤、按 key 保留最近 N 条 |
-| `src/auto-recall-final-selection.ts` | generic auto-recall 适配层。把 `RetrievalResult` 映射为最终选择候选，并在最终截断点应用 generic 的 `mmr | setwise-v2` 行为 |
-| `src/final-topk-setwise-selection.ts` | 共享最终 top-k 选择器。负责 shortlist presort、确定性的 set-wise 选择、词法重叠抑制，以及可选的 embedding 语义冗余抑制 |
-| `src/reflection-recall.ts` | `<inherited-rules>` 的动态 Reflection-Recall 排序链路。负责 reflection item 过滤/截断、分数计算、保持 `kind + strictKey` 分区，并将选中的 group 映射回 recall rows |
-| `src/reflection-aggregation.ts` | Reflection group 聚合层。把打分后的 reflection item 聚合为 strict-key group，选择代表文本并计算 group final score |
-| `src/reflection-recall-final-selection.ts` | Reflection 专用适配层，把动态 Reflection-Recall 的 group 接到共享 final selector 上做最终 top-k 排序 |
-| `src/reflection-selection.ts` | 历史 derived-focus / handoff-note 仍在使用的 reflection 多样性排序 helper |
-| `src/scopes.ts` | 多 Scope 访问控制。支持 `global`、`agent:<id>`、`custom:<name>`、`project:<id>`、`user:<id>` 等 Scope 模式 |
-| `src/tools.ts` | Agent 工具定义：`memory_recall`、`memory_store`、`memory_forget`（核心）、`self_improvement_log`（默认）+ `self_improvement_review`、`self_improvement_extract_skill`（管理模式） |
-| `src/noise-filter.ts` | 噪声过滤器。过滤 Agent 拒绝回复、Meta 问题、寒暄等低质量记忆 |
-| `src/adaptive-retrieval.ts` | 自适应检索。判断 query 是否需要触发记忆检索（跳过问候、命令、简单确认等） |
-| `src/migrate.ts` | 迁移工具。从旧版 `memory-lancedb` 插件迁移数据到 Pro 版 |
+| 文件                                       | 用途                                                                                                                                                                              |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `index.ts`                                 | 插件入口。注册到 OpenClaw Plugin API，解析配置，挂载生命周期钩子（`before_agent_start` / `before_prompt_build` / `agent_end`），负责 generic auto-recall 的 `mmr                  | setwise-v2` 分流，并编排 reflection 注入流程 |
+| `openclaw.plugin.json`                     | 插件元数据 + 完整 JSON Schema 配置声明（含 `uiHints`）                                                                                                                            |
+| `package.json`                             | NPM 包信息，依赖 `@lancedb/lancedb`、`openai`、`@sinclair/typebox`                                                                                                                |
+| `cli.ts`                                   | CLI 命令实现：`memory list/search/stats/delete/delete-bulk/export/import/reembed/migrate`                                                                                         |
+| `src/store.ts`                             | LanceDB 存储层。表创建 / FTS 索引 / Vector Search / BM25 Search / CRUD / 批量删除 / 统计                                                                                          |
+| `src/embedder.ts`                          | Embedding 抽象层。兼容 OpenAI API 的任意 Provider（OpenAI、Gemini、Jina、Ollama 等），支持 task-aware embedding（`taskQuery`/`taskPassage`）                                      |
+| `src/retriever.ts`                         | 混合检索引擎。Vector + BM25 → RRF 融合 → rerank → 时效 / 重要性 / 长度 / 衰减加权 → 噪声过滤 → 粗粒度 MMR 去重。                                                                  |
+| `src/recall-engine.ts`                     | 共享 recall 辅助层：prompt 触发判断、session 重复注入抑制、tag block 组装、max-age 过滤、按 key 保留最近 N 条                                                                     |
+| `src/auto-recall-final-selection.ts`       | generic auto-recall 适配层。把 `RetrievalResult` 映射为最终选择候选，并在最终截断点应用 generic 的 `mmr                                                                           | setwise-v2` 行为                             |
+| `src/final-topk-setwise-selection.ts`      | 共享最终 top-k 选择器。负责 shortlist presort、确定性的 set-wise 选择、词法重叠抑制，以及可选的 embedding 语义冗余抑制                                                            |
+| `src/reflection-recall.ts`                 | `<inherited-rules>` 的动态 Reflection-Recall 排序链路。负责 reflection item 过滤/截断、分数计算、保持 `kind + strictKey` 分区，并将选中的 group 映射回 recall rows                |
+| `src/reflection-aggregation.ts`            | Reflection group 聚合层。把打分后的 reflection item 聚合为 strict-key group，选择代表文本并计算 group final score                                                                 |
+| `src/reflection-recall-final-selection.ts` | Reflection 专用适配层，把动态 Reflection-Recall 的 group 接到共享 final selector 上做最终 top-k 排序                                                                              |
+| `src/reflection-selection.ts`              | 历史 derived-focus / handoff-note 仍在使用的 reflection 多样性排序 helper                                                                                                         |
+| `src/scopes.ts`                            | 多 Scope 访问控制。支持 `global`、`agent:<id>`、`custom:<name>`、`project:<id>`、`user:<id>` 等 Scope 模式                                                                        |
+| `src/tools.ts`                             | Agent 工具定义：`memory_recall`、`memory_store`、`memory_forget`（核心）、`self_improvement_log`（默认）+ `self_improvement_review`、`self_improvement_extract_skill`（管理模式） |
+| `src/noise-filter.ts`                      | 噪声过滤器。过滤 Agent 拒绝回复、Meta 问题、寒暄等低质量记忆                                                                                                                      |
+| `src/adaptive-retrieval.ts`                | 自适应检索。判断 query 是否需要触发记忆检索（跳过问候、命令、简单确认等）                                                                                                         |
+| `src/migrate.ts`                           | 迁移工具。从旧版 `memory-lancedb` 插件迁移数据到 Pro 版                                                                                                                           |
 
 ---
 
@@ -136,14 +136,14 @@ Query → BM25 FTS ─────┘
 
 ### 3. 多层评分管线
 
-| 阶段 | 公式 | 效果 |
-|------|------|------|
-| **时效加成** | `exp(-ageDays / halfLife) * weight` | 新记忆分数更高（默认半衰期 14 天，权重 0.10） |
-| **重要性加权** | `score *= (0.7 + 0.3 * importance)` | importance=1.0 → ×1.0，importance=0.5 → ×0.85 |
-| **长度归一化** | `score *= 1 / (1 + 0.5 * log2(len/anchor))` | 防止长条目凭关键词密度霸占所有查询（锚点：500 字符） |
-| **时间衰减** | `score *= 0.5 + 0.5 * exp(-ageDays / halfLife)` | 旧条目逐渐降权，下限 0.5×（60 天半衰期） |
-| **硬最低分** | 低于阈值直接丢弃 | 移除不相关结果（默认 0.35） |
-| **MMR 多样性** | cosine 相似度 > 0.85 → 降级 | 防止近似重复结果 |
+| 阶段           | 公式                                            | 效果                                                 |
+| -------------- | ----------------------------------------------- | ---------------------------------------------------- |
+| **时效加成**   | `exp(-ageDays / halfLife) * weight`             | 新记忆分数更高（默认半衰期 14 天，权重 0.10）        |
+| **重要性加权** | `score *= (0.7 + 0.3 * importance)`             | importance=1.0 → ×1.0，importance=0.5 → ×0.85        |
+| **长度归一化** | `score *= 1 / (1 + 0.5 * log2(len/anchor))`     | 防止长条目凭关键词密度霸占所有查询（锚点：500 字符） |
+| **时间衰减**   | `score *= 0.5 + 0.5 * exp(-ageDays / halfLife)` | 旧条目逐渐降权，下限 0.5×（60 天半衰期）             |
+| **硬最低分**   | 低于阈值直接丢弃                                | 移除不相关结果（默认 0.35）                          |
+| **MMR 多样性** | cosine 相似度 > 0.85 → 降级                     | 防止近似重复结果                                     |
 
 ### 4. 多 Scope 隔离
 
@@ -160,6 +160,7 @@ Query → BM25 FTS ─────┘
 ### 6. 噪声过滤
 
 在自动捕获和工具存储阶段同时生效：
+
 - 过滤 Agent 拒绝回复（"I don't have any information"）
 - 过滤 Meta 问题（"do you remember"）
 - 过滤寒暄（"hi"、"hello"、"HEARTBEAT"）
@@ -178,6 +179,7 @@ Query → BM25 FTS ─────┘
   - 完全禁用本插件的 session strategy hooks
 
 兼容字段：
+
 - `sessionMemory.enabled=true|false` 仍映射到 `systemSessionMemory|none`
 - `sessionMemory.messageCount` 仍映射到 `memoryReflection.messageCount`
 
@@ -225,6 +227,7 @@ Query → BM25 FTS ─────┘
 如果你希望插件在新会话前继承规则、并可选地把反思写入 LanceDB，就配置这一组功能。
 
 优先关注这些配置：
+
 - `memoryReflection.enabled`：开启/关闭 reflection 功能
 - `memoryReflection.injectMode`：
   - `inheritance-only` = 只注入继承规则
@@ -258,6 +261,7 @@ Query → BM25 FTS ─────┘
 ```
 
 快速行为说明：
+
 - `before_prompt_build` 可注入 `<inherited-rules>`
 - `/new` / `/reset` 可生成 reflection note
 - `before_prompt_build` 还可注入 `<error-detected>` 提醒
@@ -268,10 +272,12 @@ Query → BM25 FTS ─────┘
 如果你想在 LanceDB 之外，再保留一份可读的 Markdown 记忆副本，就开启这个功能。
 
 主要配置：
+
 - `mdMirror.enabled`：开启/关闭 Markdown 双写
 - `mdMirror.dir`：当 agent workspace 路径不可用时的回退目录
 
 它会做什么：
+
 - 把 memory entry 双写到可读的 Markdown 文件
 - 优先写到映射 workspace 下的 `memory/YYYY-MM-DD.md`
 - 必要时回退到 `mdMirror.dir`
@@ -373,7 +379,7 @@ Query → BM25 FTS ─────┘
 > 详见 [Release Notes](https://github.com/win4r/memory-lancedb-pro/releases/tag/v1.1.0-beta.6)。欢迎通过 [GitHub Issues](https://github.com/win4r/memory-lancedb-pro/issues) 反馈问题。
 >
 > `dev` dist-tag 是实验性渠道，用于提前测试 smart-memory 相关能力，可能与主线 beta 不完全同步。
- 
+
 ### AI 安装指引（防幻觉版）
 
 如果你是用 AI 按 README 操作，**不要假设任何默认值**。请先运行以下命令，并以真实输出为准：
@@ -386,6 +392,7 @@ openclaw config get plugins.entries.memory-lancedb-pro
 ```
 
 建议：
+
 - `plugins.load.paths` 建议优先用**绝对路径**（除非你已确认当前 workspace）。
 - 如果配置里使用 `${JINA_API_KEY}`（或任何 `${...}` 变量），务必确保运行 Gateway 的**服务进程环境**里真的有这些变量（systemd/launchd/docker 通常不会继承你终端的 export）。
 - 修改插件配置后，运行 `openclaw gateway restart` 使其生效。
@@ -397,6 +404,7 @@ openclaw config get plugins.entries.memory-lancedb-pro
 - 如果你选择了其它 rerank provider（如 `siliconflow` / `pinecone`），则 `retrieval.rerankApiKey` 应填写对应提供商的 key。
 
 Key 存储建议：
+
 - 不要把 key 提交到 git。
 - 使用 `${...}` 环境变量没问题，但务必确保运行 Gateway 的**服务进程环境**里真的有该变量（systemd/launchd/docker 往往不会继承你终端的 export）。
 
@@ -628,22 +636,24 @@ openclaw config get plugins.slots.memory
 为了让"经常被用到的记忆"衰减得更慢，检索器可以根据 **手动 recall 的频率**（类似间隔重复/记忆强化）来延长有效的 time-decay half-life。
 
 配置项（位于 `retrieval` 下）：
+
 - `reinforcementFactor`（范围 0-2，默认 `0.5`）- 设为 `0` 可关闭
 - `maxHalfLifeMultiplier`（范围 1-10，默认 `3`）- 硬上限：有效 half-life ≤ 基础值 × multiplier
 
 说明：
+
 - 强化逻辑只对白名单 `source: "manual"` 生效（用户/工具主动 recall），避免 auto-recall 意外"强化"噪声。
 
 ### Embedding 提供商
 
 本插件支持 **任意 OpenAI 兼容的 Embedding API**：
 
-| 提供商 | 模型 | Base URL | 维度 |
-|--------|------|----------|------|
-| **Jina**（推荐） | `jina-embeddings-v5-text-small` | `https://api.jina.ai/v1` | 1024 |
-| **OpenAI** | `text-embedding-3-small` | `https://api.openai.com/v1` | 1536 |
-| **Google Gemini** | `gemini-embedding-001` | `https://generativelanguage.googleapis.com/v1beta/openai/` | 3072 |
-| **Ollama**（本地） | `nomic-embed-text` | `http://localhost:11434/v1` | _与本地模型输出一致_（建议显式设置 `embedding.dimensions`） |
+| 提供商             | 模型                            | Base URL                                                   | 维度                                                        |
+| ------------------ | ------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------- |
+| **Jina**（推荐）   | `jina-embeddings-v5-text-small` | `https://api.jina.ai/v1`                                   | 1024                                                        |
+| **OpenAI**         | `text-embedding-3-small`        | `https://api.openai.com/v1`                                | 1536                                                        |
+| **Google Gemini**  | `gemini-embedding-001`          | `https://generativelanguage.googleapis.com/v1beta/openai/` | 3072                                                        |
+| **Ollama**（本地） | `nomic-embed-text`              | `http://localhost:11434/v1`                                | _与本地模型输出一致_（建议显式设置 `embedding.dimensions`） |
 
 ---
 
@@ -665,6 +675,7 @@ OpenClaw 会把每个 Agent 的完整会话自动落盘为 JSONL：
 - 通知：可选（可做到即使 0 条也通知）
 
 示例文件：
+
 - `examples/new-session-distill/`
 
 ---
@@ -847,47 +858,57 @@ openclaw memory-pro migrate verify [--source /path]
 
 ```markdown
 ## /lesson command
+
 When the user sends `/lesson <content>`:
+
 1. Use `memory_store` to save the raw lesson as `category=fact`
 2. Use `memory_store` again to save the actionable takeaway as `category=decision`
 3. Confirm both saved items briefly
 
 ## /learn command
+
 When the user sends `/learn <summary>`:
+
 1. Use `self_improvement_log` with `type=learning`
 2. Include `details`, `suggestedAction`, `category`, `area`, and `priority` if the user provided them
 3. Confirm the created learning entry id
 
 ## /error command
+
 When the user sends `/error <summary>`:
+
 1. Use `self_improvement_log` with `type=error`
 2. Capture the reproducible failure signature, context, and suggested prevention/fix
 3. Confirm the created error entry id
 
 ## /review-learnings command
+
 When the user sends `/review-learnings`:
+
 1. Use `self_improvement_review`
 2. Return the governance snapshot
 
 ## /skill command
+
 When the user sends `/skill <learningId> <skill-name>`:
+
 1. Use `self_improvement_extract_skill`
 2. Confirm the generated skill path
 ```
 
 ### 内建工具速查
 
-| 工具 | 说明 |
-|------|------|
-| `memory_store` | 存储记忆（支持 category / importance / scope） |
-| `memory_recall` | 搜索记忆（hybrid vector + BM25） |
-| `memory_forget` | 通过 ID 或搜索条件删除记忆 |
-| `memory_update` | 原地更新已有记忆 |
-| `memory_list` | 按条件列出近期记忆 |
-| `memory_stats` | 查看 scope/category 统计 |
-| `self_improvement_log` | 将结构化 learning/error 写入 `.learnings/` |
-| `self_improvement_review` | 汇总 `.learnings/` 治理积压 |
-| `self_improvement_extract_skill` | 从学习条目生成 skill scaffold |
+| 工具                             | 说明                                           |
+| -------------------------------- | ---------------------------------------------- |
+| `memory_store`                   | 存储记忆（支持 category / importance / scope） |
+| `memory_recall`                  | 搜索记忆（hybrid vector + BM25）               |
+| `memory_forget`                  | 通过 ID 或搜索条件删除记忆                     |
+| `memory_update`                  | 原地更新已有记忆                               |
+| `memory_list`                    | 按条件列出近期记忆                             |
+| `memory_stats`                   | 查看 scope/category 统计                       |
+| `self_improvement_log`           | 将结构化 learning/error 写入 `.learnings/`     |
+| `self_improvement_review`        | 汇总 `.learnings/` 治理积压                    |
+| `self_improvement_extract_skill` | 从学习条目生成 skill scaffold                  |
 
 > **说明**：像 `/lesson`、`/learn`、`/error`、`/review-learnings`、`/skill` 这样的命令属于 prompt 级快捷方式；插件真正暴露的是上面这些工具。
 
@@ -897,16 +918,16 @@ When the user sends `/skill <learningId> <skill-name>`:
 
 LanceDB 表 `memories`：
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | string (UUID) | 主键 |
-| `text` | string | 记忆文本（FTS 索引） |
-| `vector` | float[] | Embedding 向量 |
-| `category` | string | `preference` / `fact` / `decision` / `entity` / `reflection` / `other` |
-| `scope` | string | Scope 标识（如 `global`、`agent:main`） |
-| `importance` | float | 重要性分数 0-1 |
-| `timestamp` | int64 | 创建时间戳 (ms) |
-| `metadata` | string (JSON) | 扩展元数据 |
+| 字段         | 类型          | 说明                                                                   |
+| ------------ | ------------- | ---------------------------------------------------------------------- |
+| `id`         | string (UUID) | 主键                                                                   |
+| `text`       | string        | 记忆文本（FTS 索引）                                                   |
+| `vector`     | float[]       | Embedding 向量                                                         |
+| `category`   | string        | `preference` / `fact` / `decision` / `entity` / `reflection` / `other` |
+| `scope`      | string        | Scope 标识（如 `global`、`agent:main`）                                |
+| `importance` | float         | 重要性分数 0-1                                                         |
+| `timestamp`  | int64         | 创建时间戳 (ms)                                                        |
+| `metadata`   | string (JSON) | 扩展元数据                                                             |
 
 ---
 
@@ -967,10 +988,10 @@ Config-only changes do NOT need cache clearing.
 
 ## 依赖
 
-| 包 | 用途 |
-|----|------|
-| `@lancedb/lancedb` ≥0.26.2 | 向量数据库（ANN + FTS） |
-| `openai` ≥6.21.0 | OpenAI 兼容 Embedding API 客户端 |
+| 包                          | 用途                             |
+| --------------------------- | -------------------------------- |
+| `@lancedb/lancedb` ≥0.26.2  | 向量数据库（ANN + FTS）          |
+| `openai` ≥6.21.0            | OpenAI 兼容 Embedding API 客户端 |
 | `@sinclair/typebox` 0.34.48 | JSON Schema 类型定义（工具参数） |
 
 ---

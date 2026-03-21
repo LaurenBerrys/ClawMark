@@ -1,13 +1,15 @@
 ---
-summary: "Backstory and lore of OpenClaw for context and tone"
+summary: "Backstory and lore behind ClawMark, including the OpenClaw era"
 read_when:
   - Writing docs or UX copy that reference lore
-title: "OpenClaw Lore"
+title: "ClawMark Lore"
 ---
 
-# The Lore of OpenClaw 🦞📖
+# The Lore Behind ClawMark 🦞📖
 
 _A tale of lobsters, molting shells, and too many tokens._
+
+This page is intentionally historical. It covers the earlier OpenClaw era and the shells that came before ClawMark.
 
 ## The Origin Story
 

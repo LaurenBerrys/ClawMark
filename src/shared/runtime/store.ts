@@ -12,6 +12,7 @@ import type {
   RoleOptimizationCandidate,
   RetrievalCandidate,
   RetrievalSourceSet,
+  ArchivedTaskStep,
   RuntimeEventRecord,
   RuntimeFederationStore,
   RuntimeGovernanceStore,
@@ -29,10 +30,7 @@ import type {
   TeamKnowledgeRecord,
   UserModelOptimizationCandidate,
 } from "./contracts.js";
-import {
-  normalizeRuntimeInfoDomain,
-  normalizeRuntimeInfoDomainList,
-} from "./intel-domains.js";
+import { normalizeRuntimeInfoDomain, normalizeRuntimeInfoDomainList } from "./intel-domains.js";
 import {
   DEFAULT_RUNTIME_MEMORY_LIFECYCLE_CONTROLS,
   resolveRuntimeMemoryLifecycleControls,
@@ -56,6 +54,7 @@ const TABLES = {
   tasks: "runtime_tasks",
   runs: "runtime_task_runs",
   steps: "runtime_task_steps",
+  archivedSteps: "runtime_task_archived_steps",
   reviews: "runtime_task_reviews",
   reports: "runtime_task_reports",
   memories: "runtime_memories",
@@ -174,13 +173,16 @@ function readUserModelMirrorMetadata(metadata: RuntimeMetadata | undefined): {
   const lastImportedAt = Number((record as Record<string, unknown>).lastImportedAt);
   const lastImportedMtimeMs = Number((record as Record<string, unknown>).lastImportedMtimeMs);
   return {
-    lastSyncedAt: Number.isFinite(lastSyncedAt) && lastSyncedAt > 0 ? Math.trunc(lastSyncedAt) : undefined,
+    lastSyncedAt:
+      Number.isFinite(lastSyncedAt) && lastSyncedAt > 0 ? Math.trunc(lastSyncedAt) : undefined,
     lastSyncedMtimeMs:
       Number.isFinite(lastSyncedMtimeMs) && lastSyncedMtimeMs > 0
         ? Math.trunc(lastSyncedMtimeMs)
         : undefined,
     lastImportedAt:
-      Number.isFinite(lastImportedAt) && lastImportedAt > 0 ? Math.trunc(lastImportedAt) : undefined,
+      Number.isFinite(lastImportedAt) && lastImportedAt > 0
+        ? Math.trunc(lastImportedAt)
+        : undefined,
     lastImportedMtimeMs:
       Number.isFinite(lastImportedMtimeMs) && lastImportedMtimeMs > 0
         ? Math.trunc(lastImportedMtimeMs)
@@ -211,7 +213,10 @@ function resolveUserModelMirrorSignal(
   }
   const exists = typeof lastModifiedAt === "number";
   const metadata = readUserModelMirrorMetadata(userConsoleStore?.metadata);
-  const baselineMtime = Math.max(metadata.lastSyncedMtimeMs ?? 0, metadata.lastImportedMtimeMs ?? 0);
+  const baselineMtime = Math.max(
+    metadata.lastSyncedMtimeMs ?? 0,
+    metadata.lastImportedMtimeMs ?? 0,
+  );
   return {
     path: mirrorPath,
     exists,
@@ -348,8 +353,9 @@ function buildCoordinatorSuggestionSessionCandidate(params: {
   const localTaskId = normalizeText(suggestion.localTaskId) || normalizeText(task?.id);
   const sourceTaskId = normalizeText(suggestion.taskId);
   const surfaceId =
-    normalizeText(typeof suggestion.metadata?.surfaceId === "string" ? suggestion.metadata.surfaceId : "") ||
-    normalizeText(surface?.id);
+    normalizeText(
+      typeof suggestion.metadata?.surfaceId === "string" ? suggestion.metadata.surfaceId : "",
+    ) || normalizeText(surface?.id);
   const taskContext = readTaskContextSignalMetadata(task);
   const route =
     normalizeText(
@@ -530,6 +536,7 @@ function buildDefaultTaskDefaults(): RuntimeTaskDefaults {
     defaultRetrievalMode: "light",
     maxInputTokensPerTurn: 6000,
     maxContextChars: 9000,
+    compactionWatermark: 4000,
     maxRemoteCallsPerTask: 6,
     leaseDurationMs: 10 * 60 * 1000,
     maxConcurrentRunsPerWorker: 2,
@@ -544,6 +551,7 @@ function buildDefaultTaskStore(): RuntimeTaskStore {
     tasks: [],
     runs: [],
     steps: [],
+    archivedSteps: [],
     reviews: [],
     reports: [],
   };
@@ -721,6 +729,10 @@ function normalizeTaskStore(raw: RuntimeTaskStore | null): RuntimeTaskStore {
         fallback.defaults.maxInputTokensPerTurn,
       ),
       maxContextChars: toNumber(raw.defaults?.maxContextChars, fallback.defaults.maxContextChars),
+      compactionWatermark:
+        toNumber(raw.defaults?.compactionWatermark, fallback.defaults.compactionWatermark) > 0
+          ? toNumber(raw.defaults?.compactionWatermark, fallback.defaults.compactionWatermark)
+          : fallback.defaults.compactionWatermark,
       maxRemoteCallsPerTask: toNumber(
         raw.defaults?.maxRemoteCallsPerTask,
         fallback.defaults.maxRemoteCallsPerTask,
@@ -745,6 +757,7 @@ function normalizeTaskStore(raw: RuntimeTaskStore | null): RuntimeTaskStore {
     })),
     runs: toArray(raw.runs),
     steps: toArray(raw.steps),
+    archivedSteps: toArray<ArchivedTaskStep>(raw.archivedSteps),
     reviews: toArray(raw.reviews),
     reports: toArray<RuntimeTaskStore["reports"][number]>(raw.reports).map((report) => ({
       ...report,
@@ -767,13 +780,13 @@ function normalizeTaskStore(raw: RuntimeTaskStore | null): RuntimeTaskStore {
         report.kind === "waiting_external" ||
         report.kind === "cancelled"
           ? report.kind
-          :  report.requiresUserAction
+          : report.requiresUserAction
             ? "waiting_user"
             : "completion",
       state:
         report.state === "pending" || report.state === "delivered" || report.state === "resolved"
           ? report.state
-          :  report.requiresUserAction
+          : report.requiresUserAction
             ? "pending"
             : "delivered",
       reportPolicy:
@@ -786,7 +799,7 @@ function normalizeTaskStore(raw: RuntimeTaskStore | null): RuntimeTaskStore {
       title: typeof report.title === "string" ? report.title : "",
       summary: typeof report.summary === "string" ? report.summary : "",
       nextAction: typeof report.nextAction === "string" ? report.nextAction : undefined,
-      requiresUserAction:  report.requiresUserAction,
+      requiresUserAction: report.requiresUserAction,
       reportTarget: normalizeSurfaceReportTarget(report.reportTarget) ?? undefined,
       surfaceId: typeof report.surfaceId === "string" ? report.surfaceId : undefined,
       surfaceLabel: typeof report.surfaceLabel === "string" ? report.surfaceLabel : undefined,
@@ -839,7 +852,9 @@ function normalizeIntelStore(raw: RuntimeIntelStore | null): RuntimeIntelStore {
         ...metadata,
         enabledDomainIds: normalizeRuntimeInfoDomainList(metadata.enabledDomainIds),
         domains:
-          metadata.domains && typeof metadata.domains === "object" && !Array.isArray(metadata.domains)
+          metadata.domains &&
+          typeof metadata.domains === "object" &&
+          !Array.isArray(metadata.domains)
             ? Object.fromEntries(
                 Object.entries(metadata.domains as Record<string, unknown>).map(([key, value]) => [
                   normalizeRuntimeInfoDomain(key),
@@ -863,10 +878,12 @@ function normalizeIntelStore(raw: RuntimeIntelStore | null): RuntimeIntelStore {
     ),
     exploitItemsPerDigest: toNumber(raw.exploitItemsPerDigest, fallback.exploitItemsPerDigest),
     exploreItemsPerDigest: toNumber(raw.exploreItemsPerDigest, fallback.exploreItemsPerDigest),
-    candidates: toArray<RuntimeIntelStore["candidates"][number]>(raw.candidates).map((candidate) => ({
-      ...candidate,
-      domain: normalizeRuntimeInfoDomain(candidate.domain),
-    })),
+    candidates: toArray<RuntimeIntelStore["candidates"][number]>(raw.candidates).map(
+      (candidate) => ({
+        ...candidate,
+        domain: normalizeRuntimeInfoDomain(candidate.domain),
+      }),
+    ),
     digestItems: toArray<RuntimeIntelStore["digestItems"][number]>(raw.digestItems).map((item) => ({
       ...item,
       domain: normalizeRuntimeInfoDomain(item.domain),
@@ -901,13 +918,13 @@ function normalizeIntelStore(raw: RuntimeIntelStore | null): RuntimeIntelStore {
           : undefined,
         selectionScore: toNumber(record.selectionScore, 0),
         explorationScore: toNumber(record.explorationScore, 0),
-        selected:  record.selected,
+        selected: record.selected,
         selectedMode:
           record.selectedMode === "exploit" ||
           record.selectedMode === "explore" ||
           record.selectedMode === "none"
             ? record.selectedMode
-            :  record.selected
+            : record.selected
               ? "exploit"
               : "none",
         createdAt: toNumber(record.createdAt, Date.now()),
@@ -1036,13 +1053,10 @@ function normalizeUserConsoleStore(raw: RuntimeUserConsoleStore | null): Runtime
           : undefined,
       reportTarget: normalizeSurfaceReportTarget(overlay.reportTarget) ?? undefined,
       localBusinessPolicy: hasExplicitSurfaceLocalBusinessPolicy(overlay.localBusinessPolicy)
-        ? sanitizeSurfaceLocalBusinessPolicy(
-            overlay.localBusinessPolicy,
-            {
-              ownerKind: surfaceOwnerKindById.get(overlay.surfaceId) === "agent" ? "agent" : "user",
-              role: typeof overlay.role === "string" ? overlay.role : "",
-            },
-          )
+        ? sanitizeSurfaceLocalBusinessPolicy(overlay.localBusinessPolicy, {
+            ownerKind: surfaceOwnerKindById.get(overlay.surfaceId) === "agent" ? "agent" : "user",
+            role: typeof overlay.role === "string" ? overlay.role : "",
+          })
         : undefined,
       createdAt: toNumber(overlay.createdAt, fallback.userModel.createdAt),
       updatedAt: toNumber(overlay.updatedAt, fallback.userModel.updatedAt),
@@ -1281,8 +1295,8 @@ function normalizeFederationStore(raw: RuntimeFederationStore | null): RuntimeFe
           record.review.riskLevel === "high")
           ? {
               riskLevel: record.review.riskLevel,
-              autoAdoptEligible:  record.review.autoAdoptEligible,
-              requiresReasonOnAdopt:  record.review.requiresReasonOnAdopt,
+              autoAdoptEligible: record.review.autoAdoptEligible,
+              requiresReasonOnAdopt: record.review.requiresReasonOnAdopt,
               routeScope: record.review.routeScope === "route" ? "route" : "global",
               summary: typeof record.review.summary === "string" ? record.review.summary : "",
               signals: toArray<string>(record.review.signals).filter(
@@ -1313,13 +1327,9 @@ function normalizeFederationStore(raw: RuntimeFederationStore | null): RuntimeFe
             ? record.localTaskStatus
             : undefined,
         sourceRuntimeId:
-          typeof record.sourceRuntimeId === "string"
-            ? record.sourceRuntimeId
-            : "unknown-runtime",
+          typeof record.sourceRuntimeId === "string" ? record.sourceRuntimeId : "unknown-runtime",
         sourcePackageId:
-          typeof record.sourcePackageId === "string"
-            ? record.sourcePackageId
-            : "unknown-package",
+          typeof record.sourcePackageId === "string" ? record.sourcePackageId : "unknown-package",
         createdAt: toNumber(record.createdAt, Date.now()),
         updatedAt: toNumber(record.updatedAt, Date.now()),
         adoptedAt: Number.isFinite(record.adoptedAt) ? Number(record.adoptedAt) : undefined,
@@ -1378,9 +1388,7 @@ function normalizeFederationStore(raw: RuntimeFederationStore | null): RuntimeFe
       lastReviewAt:
         Number.isFinite(lastReviewAt) && lastReviewAt > 0 ? Math.trunc(lastReviewAt) : undefined,
       lastExpiredAt:
-        Number.isFinite(lastExpiredAt) && lastExpiredAt > 0
-          ? Math.trunc(lastExpiredAt)
-          : undefined,
+        Number.isFinite(lastExpiredAt) && lastExpiredAt > 0 ? Math.trunc(lastExpiredAt) : undefined,
       lastExpiredCount:
         Number.isFinite(lastExpiredCount) && lastExpiredCount >= 0
           ? Math.trunc(lastExpiredCount)
@@ -1542,6 +1550,12 @@ function importLegacyRuntimeStore(paths: RuntimeStorePaths): void {
     );
     replaceTableRows(
       db,
+      TABLES.archivedSteps,
+      normalizeTaskStore(readJsonFile<RuntimeTaskStore | null>(paths.taskStorePath, null))
+        .archivedSteps,
+    );
+    replaceTableRows(
+      db,
       TABLES.reviews,
       normalizeTaskStore(readJsonFile<RuntimeTaskStore | null>(paths.taskStorePath, null)).reviews,
     );
@@ -1672,6 +1686,7 @@ function readTaskStoreFromDb(db: DatabaseSync): RuntimeTaskStore {
     tasks: readTableRows(db, TABLES.tasks),
     runs: readTableRows(db, TABLES.runs),
     steps: readTableRows(db, TABLES.steps),
+    archivedSteps: readTableRows(db, TABLES.archivedSteps),
     reviews: readTableRows(db, TABLES.reviews),
     reports: readTableRows(db, TABLES.reports),
     metadata: readJsonMeta(db, "task_store_metadata"),
@@ -1685,6 +1700,7 @@ function writeTaskStoreToDb(db: DatabaseSync, store: RuntimeTaskStore): RuntimeT
   replaceTableRows(db, TABLES.tasks, normalized.tasks);
   replaceTableRows(db, TABLES.runs, normalized.runs);
   replaceTableRows(db, TABLES.steps, normalized.steps);
+  replaceTableRows(db, TABLES.archivedSteps, normalized.archivedSteps);
   replaceTableRows(db, TABLES.reviews, normalized.reviews);
   replaceTableRows(db, TABLES.reports, normalized.reports);
   return normalized;
@@ -1813,11 +1829,7 @@ function writeUserConsoleStoreToDb(
   replaceTableRows(db, TABLES.agentOverlays, normalized.agentOverlays);
   replaceTableRows(db, TABLES.surfaces, normalized.surfaces);
   replaceTableRows(db, TABLES.surfaceRoleOverlays, normalized.surfaceRoleOverlays);
-  replaceTableRows(
-    db,
-    TABLES.roleOptimizationCandidates,
-    normalized.roleOptimizationCandidates,
-  );
+  replaceTableRows(db, TABLES.roleOptimizationCandidates, normalized.roleOptimizationCandidates);
   replaceTableRows(
     db,
     TABLES.userModelOptimizationCandidates,
@@ -1846,11 +1858,7 @@ function writeFederationStoreToDb(
   writeJsonMeta(db, "federation_store_metadata", normalized.metadata ?? {});
   writeJsonMeta(db, "federation_sync_cursor", normalized.syncCursor ?? null);
   replaceTableRows(db, TABLES.federationInbox, normalized.inbox);
-  replaceTableRows(
-    db,
-    TABLES.federationCoordinatorSuggestions,
-    normalized.coordinatorSuggestions,
-  );
+  replaceTableRows(db, TABLES.federationCoordinatorSuggestions, normalized.coordinatorSuggestions);
   replaceTableRows(db, TABLES.federationSharedStrategies, normalized.sharedStrategies);
   replaceTableRows(db, TABLES.federationTeamKnowledge, normalized.teamKnowledge);
   return normalized;
@@ -2160,7 +2168,8 @@ export function readRuntimeEventById(
 
 export function buildRuntimeRetrievalSourceSet(opts: RuntimeStoreOptions = {}): RetrievalSourceSet {
   const now = resolveNow(opts.now);
-  const { taskStore, memoryStore, userConsoleStore, federationStore } = loadRuntimeStoreBundle(opts);
+  const { taskStore, memoryStore, userConsoleStore, federationStore } =
+    loadRuntimeStoreBundle(opts);
   const mirrorSignal = resolveUserModelMirrorSignal(userConsoleStore, opts);
   const tasksById = new Map(taskStore.tasks.map((task) => [task.id, task]));
   const agentById = new Map(userConsoleStore?.agents.map((agent) => [agent.id, agent]) ?? []);
@@ -2231,7 +2240,9 @@ export function buildRuntimeRetrievalSourceSet(opts: RuntimeStoreOptions = {}): 
       ]
         .filter(Boolean)
         .join(" · "),
-      score: toSessionSignalScore(!preference.expiresAt || preference.expiresAt > now ? 0.92 : 0.25),
+      score: toSessionSignalScore(
+        !preference.expiresAt || preference.expiresAt > now ? 0.92 : 0.25,
+      ),
       confidence: !preference.expiresAt || preference.expiresAt > now ? 95 : 30,
       sourceRef: "runtime-session-working-preference",
       metadata: {
@@ -2283,37 +2294,33 @@ export function buildRuntimeRetrievalSourceSet(opts: RuntimeStoreOptions = {}): 
       buildCoordinatorSuggestionSessionCandidate({
         suggestion,
         task:
-          (suggestion.localTaskId
-            ? tasksById.get(suggestion.localTaskId)
-            : undefined) ??
+          (suggestion.localTaskId ? tasksById.get(suggestion.localTaskId) : undefined) ??
           (suggestion.lastMaterializedLocalTaskId
             ? tasksById.get(suggestion.lastMaterializedLocalTaskId)
             : undefined) ??
           (suggestion.taskId ? tasksById.get(suggestion.taskId) : undefined),
-        surface:
-          normalizeText(
-            typeof suggestion.metadata?.surfaceId === "string" ? suggestion.metadata.surfaceId : "",
-          )
-            ? surfaceById.get(
-                normalizeText(
-                  typeof suggestion.metadata?.surfaceId === "string"
-                    ? suggestion.metadata.surfaceId
-                    : "",
-                ),
-              )
-            : undefined,
-        overlay:
-          normalizeText(
-            typeof suggestion.metadata?.surfaceId === "string" ? suggestion.metadata.surfaceId : "",
-          )
-            ? surfaceOverlayById.get(
-                normalizeText(
-                  typeof suggestion.metadata?.surfaceId === "string"
-                    ? suggestion.metadata.surfaceId
-                    : "",
-                ),
-              )
-            : undefined,
+        surface: normalizeText(
+          typeof suggestion.metadata?.surfaceId === "string" ? suggestion.metadata.surfaceId : "",
+        )
+          ? surfaceById.get(
+              normalizeText(
+                typeof suggestion.metadata?.surfaceId === "string"
+                  ? suggestion.metadata.surfaceId
+                  : "",
+              ),
+            )
+          : undefined,
+        overlay: normalizeText(
+          typeof suggestion.metadata?.surfaceId === "string" ? suggestion.metadata.surfaceId : "",
+        )
+          ? surfaceOverlayById.get(
+              normalizeText(
+                typeof suggestion.metadata?.surfaceId === "string"
+                  ? suggestion.metadata.surfaceId
+                  : "",
+              ),
+            )
+          : undefined,
       }),
     ),
     ...(userConsoleStore?.userModelOptimizationCandidates ?? [])

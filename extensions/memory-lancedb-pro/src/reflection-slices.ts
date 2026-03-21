@@ -91,31 +91,51 @@ export function sanitizeReflectionSliceLines(lines: string[]): string[] {
 }
 
 function isInvariantRuleLike(line: string): boolean {
-  return /^(always|never|when\b|if\b|before\b|after\b|prefer\b|avoid\b|require\b|only\b|do not\b|must\b|should\b)/i.test(line) ||
-    /\b(must|should|never|always|prefer|avoid|required?)\b/i.test(line);
+  return (
+    /^(always|never|when\b|if\b|before\b|after\b|prefer\b|avoid\b|require\b|only\b|do not\b|must\b|should\b)/i.test(
+      line,
+    ) || /\b(must|should|never|always|prefer|avoid|required?)\b/i.test(line)
+  );
 }
 
 function isDerivedDeltaLike(line: string): boolean {
-  return /^(this run|next run|going forward|follow-up|re-check|retest|verify|confirm|avoid repeating|adjust|change|update|retry|keep|watch)\b/i.test(line) ||
-    /\b(this run|next run|delta|change|adjust|retry|re-check|retest|verify|confirm|avoid repeating|follow-up)\b/i.test(line);
+  return (
+    /^(this run|next run|going forward|follow-up|re-check|retest|verify|confirm|avoid repeating|adjust|change|update|retry|keep|watch)\b/i.test(
+      line,
+    ) ||
+    /\b(this run|next run|delta|change|adjust|retry|re-check|retest|verify|confirm|avoid repeating|follow-up)\b/i.test(
+      line,
+    )
+  );
 }
 
 function isOpenLoopAction(line: string): boolean {
-  return /^(investigate|verify|confirm|re-check|retest|update|add|remove|fix|avoid|keep|watch|document)\b/i.test(line);
+  return /^(investigate|verify|confirm|re-check|retest|update|add|remove|fix|avoid|keep|watch|document)\b/i.test(
+    line,
+  );
 }
 
 export function extractReflectionOpenLoops(reflectionText: string): string[] {
-  return sanitizeReflectionSliceLines(parseSectionBullets(reflectionText, "Open loops / next actions"))
+  return sanitizeReflectionSliceLines(
+    parseSectionBullets(reflectionText, "Open loops / next actions"),
+  )
     .filter(isOpenLoopAction)
     .slice(0, 8);
 }
 
 export function extractReflectionLessons(reflectionText: string): string[] {
-  return sanitizeReflectionSliceLines(parseSectionBullets(reflectionText, "Lessons & pitfalls (symptom / cause / fix / prevention)"));
+  return sanitizeReflectionSliceLines(
+    parseSectionBullets(reflectionText, "Lessons & pitfalls (symptom / cause / fix / prevention)"),
+  );
 }
 
-export function extractReflectionLearningGovernanceCandidates(reflectionText: string): ReflectionGovernanceEntry[] {
-  const section = extractSectionMarkdown(reflectionText, "Learning governance candidates (.learnings / promotion / skill extraction)");
+export function extractReflectionLearningGovernanceCandidates(
+  reflectionText: string,
+): ReflectionGovernanceEntry[] {
+  const section = extractSectionMarkdown(
+    reflectionText,
+    "Learning governance candidates (.learnings / promotion / skill extraction)",
+  );
   if (!section) return [];
 
   const entryBlocks = section
@@ -130,18 +150,24 @@ export function extractReflectionLearningGovernanceCandidates(reflectionText: st
   if (parsed.length > 0) return parsed;
 
   const fallbackBullets = sanitizeReflectionSliceLines(
-    parseSectionBullets(reflectionText, "Learning governance candidates (.learnings / promotion / skill extraction)")
+    parseSectionBullets(
+      reflectionText,
+      "Learning governance candidates (.learnings / promotion / skill extraction)",
+    ),
   );
   if (fallbackBullets.length === 0) return [];
 
-  return [{
-    priority: "medium",
-    status: "pending",
-    area: "config",
-    summary: "Reflection learning governance candidates",
-    details: fallbackBullets.map((line) => `- ${line}`).join("\n"),
-    suggestedAction: "Review the governance candidates, promote durable rules to AGENTS.md / SOUL.md / TOOLS.md when stable, and extract a skill if the pattern becomes reusable.",
-  }];
+  return [
+    {
+      priority: "medium",
+      status: "pending",
+      area: "config",
+      summary: "Reflection learning governance candidates",
+      details: fallbackBullets.map((line) => `- ${line}`).join("\n"),
+      suggestedAction:
+        "Review the governance candidates, promote durable rules to AGENTS.md / SOUL.md / TOOLS.md when stable, and extract a skill if the pattern becomes reusable.",
+    },
+  ];
 }
 
 function parseReflectionGovernanceEntry(block: string): ReflectionGovernanceEntry | null {
@@ -156,7 +182,9 @@ function parseReflectionGovernanceEntry(block: string): ReflectionGovernanceEntr
 
   const readSection = (label: string): string | undefined => {
     const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const match = body.match(new RegExp(`^###\\s+${escaped}\\s*\\n([\\s\\S]*?)(?=^###\\s+|$)`, "im"));
+    const match = body.match(
+      new RegExp(`^###\\s+${escaped}\\s*\\n([\\s\\S]*?)(?=^###\\s+|$)`, "im"),
+    );
     const value = match?.[1]?.trim();
     return value ? value : undefined;
   };
@@ -175,10 +203,16 @@ function parseReflectionGovernanceEntry(block: string): ReflectionGovernanceEntr
 }
 
 export function extractReflectionMappedMemories(reflectionText: string): ReflectionMappedMemory[] {
-  return extractReflectionMappedMemoryItems(reflectionText).map(({ text, category, heading }) => ({ text, category, heading }));
+  return extractReflectionMappedMemoryItems(reflectionText).map(({ text, category, heading }) => ({
+    text,
+    category,
+    heading,
+  }));
 }
 
-export function extractReflectionMappedMemoryItems(reflectionText: string): ReflectionMappedMemoryItem[] {
+export function extractReflectionMappedMemoryItems(
+  reflectionText: string,
+): ReflectionMappedMemoryItem[] {
   const mappedSections: Array<{
     heading: string;
     category: "preference" | "fact" | "decision";
@@ -209,7 +243,14 @@ export function extractReflectionMappedMemoryItems(reflectionText: string): Refl
   return mappedSections.flatMap(({ heading, category, mappedKind }) => {
     const lines = sanitizeReflectionSliceLines(parseSectionBullets(reflectionText, heading));
     const groupSize = lines.length;
-    return lines.map((text, ordinal) => ({ text, category, heading, mappedKind, ordinal, groupSize }));
+    return lines.map((text, ordinal) => ({
+      text,
+      category,
+      heading,
+      mappedKind,
+      ordinal,
+      groupSize,
+    }));
   });
 }
 
@@ -218,24 +259,27 @@ export function extractReflectionSlices(reflectionText: string): ReflectionSlice
   const derivedSection = parseSectionBullets(reflectionText, "Derived");
   const mergedSection = parseSectionBullets(reflectionText, "Invariants & Reflections");
 
-  const invariantsPrimary = sanitizeReflectionSliceLines(invariantSection).filter(isInvariantRuleLike);
+  const invariantsPrimary =
+    sanitizeReflectionSliceLines(invariantSection).filter(isInvariantRuleLike);
   const derivedPrimary = sanitizeReflectionSliceLines(derivedSection).filter(isDerivedDeltaLike);
 
   const invariantLinesLegacy = sanitizeReflectionSliceLines(
-    mergedSection.filter((line) => /invariant|stable|policy|rule/i.test(line))
+    mergedSection.filter((line) => /invariant|stable|policy|rule/i.test(line)),
   ).filter(isInvariantRuleLike);
   const reflectionLinesLegacy = sanitizeReflectionSliceLines(
-    mergedSection.filter((line) => /reflect|inherit|derive|change|apply/i.test(line))
+    mergedSection.filter((line) => /reflect|inherit|derive|change|apply/i.test(line)),
   ).filter(isDerivedDeltaLike);
-  const durableDecisionLines = sanitizeReflectionSliceLines(parseSectionBullets(reflectionText, "Decisions (durable)"))
-    .filter(isInvariantRuleLike);
+  const durableDecisionLines = sanitizeReflectionSliceLines(
+    parseSectionBullets(reflectionText, "Decisions (durable)"),
+  ).filter(isInvariantRuleLike);
 
-  const invariants = invariantsPrimary.length > 0
-    ? invariantsPrimary
-    : (invariantLinesLegacy.length > 0 ? invariantLinesLegacy : durableDecisionLines);
-  const derived = derivedPrimary.length > 0
-    ? derivedPrimary
-    : reflectionLinesLegacy;
+  const invariants =
+    invariantsPrimary.length > 0
+      ? invariantsPrimary
+      : invariantLinesLegacy.length > 0
+        ? invariantLinesLegacy
+        : durableDecisionLines;
+  const derived = derivedPrimary.length > 0 ? derivedPrimary : reflectionLinesLegacy;
 
   return {
     invariants: invariants.slice(0, 8),

@@ -8,7 +8,7 @@ title: "Authentication"
 
 # Authentication
 
-OpenClaw supports OAuth and API keys for model providers. For always-on gateway
+ClawMark supports OAuth and API keys for model providers. For always-on gateway
 hosts, API keys are usually the most predictable option. Subscription/OAuth
 flows are also supported when they match your provider account model.
 
@@ -64,7 +64,7 @@ it on the **gateway host**:
 claude setup-token
 ```
 
-Then paste it into OpenClaw:
+Then paste it into ClawMark:
 
 ```bash
 openclaw models auth setup-token --provider anthropic
@@ -132,7 +132,7 @@ hits a provider rate limit.
   - `<PROVIDER>_API_KEY_*`
 - Google providers also include `GOOGLE_API_KEY` as an additional fallback.
 - The same key list is deduplicated before use.
-- OpenClaw retries with the next key only for rate-limit errors (for example
+- ClawMark retries with the next key only for rate-limit errors (for example
   `429`, `rate_limit`, `quota`, `resource exhausted`).
 - Non-rate-limit errors are not retried with alternate keys.
 - If all keys fail, the final error from the last attempt is returned.

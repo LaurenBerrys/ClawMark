@@ -6,53 +6,59 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('downloadCore surfaces visible failure state instead of silently stalling', () async {
-    final tempDir = await Directory.systemTemp.createTemp('clawmark-bootstrap-test-');
-    addTearDown(() async {
-      if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
-      }
-    });
+  test(
+    'downloadCore surfaces visible failure state instead of silently stalling',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'clawmark-bootstrap-test-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
 
-    final releaseStateFile = File('${tempDir.path}/release-state.json');
-    await releaseStateFile.writeAsString(
-      const JsonEncoder.withIndent('  ').convert({
-        'lastCheckedAt': 1774050965464,
-        'releaseStatus': 'available',
-        'releaseStatusMessage': '已找到可安装的 ClawMarkCore 版本。',
-        'release': {
-          'version': '2026.3.12',
-          'platform': 'macos',
-          'arch': 'arm64',
-          'assetName': 'ClawMarkCore-macos-arm64-2026.3.12.tar.gz',
-          'archiveFormat': 'tar.gz',
-          'sha256':
-              'b78878411ce311a0938f305115dd6e8288565d76741bf1945ab54d8a7755377f',
-          'sizeBytes': 227170227,
-          'downloadUrl': 'http://127.0.0.1:9/ClawMarkCore-macos-arm64-2026.3.12.tar.gz',
-          'publishedAt': '2026-03-20T18:41:21.143Z',
-        },
-      }),
-    );
+      final releaseStateFile = File('${tempDir.path}/release-state.json');
+      await releaseStateFile.writeAsString(
+        const JsonEncoder.withIndent('  ').convert({
+          'lastCheckedAt': 1774050965464,
+          'releaseStatus': 'available',
+          'releaseStatusMessage': '已找到可安装的 ClawMark 核心版本。',
+          'release': {
+            'version': '2026.3.12',
+            'platform': 'macos',
+            'arch': 'arm64',
+            'assetName': 'ClawMarkCore-macos-arm64-2026.3.12.tar.gz',
+            'archiveFormat': 'tar.gz',
+            'sha256':
+                'b78878411ce311a0938f305115dd6e8288565d76741bf1945ab54d8a7755377f',
+            'sizeBytes': 227170227,
+            'downloadUrl':
+                'http://127.0.0.1:9/ClawMarkCore-macos-arm64-2026.3.12.tar.gz',
+            'publishedAt': '2026-03-20T18:41:21.143Z',
+          },
+        }),
+      );
 
-    final bridge = _BootstrapTestBridge(downloadsRoot: tempDir.path);
-    final container = ProviderContainer(
-      overrides: [desktopBridgeProvider.overrideWithValue(bridge)],
-    );
-    addTearDown(container.dispose);
+      final bridge = _BootstrapTestBridge(downloadsRoot: tempDir.path);
+      final container = ProviderContainer(
+        overrides: [desktopBridgeProvider.overrideWithValue(bridge)],
+      );
+      addTearDown(container.dispose);
 
-    final initial = await container.read(bootstrapControllerProvider.future);
-    expect(initial.phase, 'download_available');
+      final initial = await container.read(bootstrapControllerProvider.future);
+      expect(initial.phase, 'download_available');
 
-    final controller = container.read(bootstrapControllerProvider.notifier);
-    await controller.downloadCore();
+      final controller = container.read(bootstrapControllerProvider.notifier);
+      await controller.downloadCore();
 
-    final resolved = container.read(bootstrapControllerProvider).requireValue;
-    expect(resolved.phase, 'download_available');
-    expect(resolved.statusMessage, 'ClawMarkCore 下载或安装失败，请查看错误后重试。');
-    expect(resolved.errorMessage, isNotNull);
-    expect(resolved.errorMessage, contains('网络连接失败'));
-  });
+      final resolved = container.read(bootstrapControllerProvider).requireValue;
+      expect(resolved.phase, 'download_available');
+      expect(resolved.statusMessage, 'ClawMark 核心下载或安装失败，请查看错误后重试。');
+      expect(resolved.errorMessage, isNotNull);
+      expect(resolved.errorMessage, contains('网络连接失败'));
+    },
+  );
 }
 
 class _BootstrapTestBridge extends DesktopBridge {

@@ -1,3 +1,4 @@
+import type { RuntimeCapabilityPolicy } from "./capability-plane.js";
 import type {
   ContextPack,
   MemoryRecord,
@@ -6,7 +7,6 @@ import type {
   RetrievalSourceSet,
   StrategyRecord,
 } from "./contracts.js";
-import type { RuntimeCapabilityPolicy } from "./capability-plane.js";
 
 type ScoredRecord<T> = {
   record: T;

@@ -8,7 +8,7 @@ title: "Doctor"
 
 # Doctor
 
-`openclaw doctor` is the repair + migration tool for OpenClaw. It fixes stale
+`openclaw doctor` is the repair + migration tool for ClawMark. It fixes stale
 config/state, checks health, and provides actionable repair steps.
 
 ## Quick start
@@ -59,7 +59,7 @@ cat ~/.openclaw/openclaw.json
 ## What it does (summary)
 
 - Optional pre-flight update for git installs (interactive only).
-- UI protocol freshness check (rebuilds Control UI when the protocol schema is newer).
+- UI protocol freshness check (rebuilds User Console when the protocol schema is newer).
 - Health check + restart prompt.
 - Skills status summary (eligible/missing/blocked).
 - Config normalization for legacy values.
@@ -236,9 +236,9 @@ switch to legacy names if the current image is missing.
 ### 8) Gateway service migrations and cleanup hints
 
 Doctor detects legacy gateway services (launchd/systemd/schtasks) and
-offers to remove them and install the OpenClaw service using the current gateway
+offers to remove them and install the ClawMark service using the current gateway
 port. It can also scan for extra gateway-like services and print cleanup hints.
-Profile-named OpenClaw gateway services are considered first-class and are not
+Profile-named ClawMark gateway services are considered first-class and are not
 flagged as "extra."
 
 ### 9) Security warnings

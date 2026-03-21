@@ -37,7 +37,7 @@ openclaw onboard --opencode-go-api-key "$OPENCODE_API_KEY"
 
 ## Routing behavior
 
-OpenClaw handles per-model routing automatically when the model ref uses `opencode-go/...`.
+ClawMark handles per-model routing automatically when the model ref uses `opencode-go/...`.
 
 ## Notes
 

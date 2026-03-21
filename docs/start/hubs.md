@@ -1,5 +1,5 @@
 ---
-summary: "Hubs that link to every OpenClaw doc"
+summary: "Hubs that link to every ClawMark doc"
 read_when:
   - You want a complete map of the documentation
 title: "Docs Hubs"
@@ -8,7 +8,7 @@ title: "Docs Hubs"
 # Docs hubs
 
 <Note>
-If you are new to OpenClaw, start with [Getting Started](/start/getting-started).
+If you are new to ClawMark, start with [Getting Started](/start/getting-started).
 </Note>
 
 Use these hubs to discover every page, including deep dives and reference docs that don’t appear in the left nav.
@@ -26,7 +26,7 @@ Use these hubs to discover every page, including deep dives and reference docs t
 - [Docs directory](/start/docs-directory)
 - [Configuration](/gateway/configuration)
 - [Configuration examples](/gateway/configuration-examples)
-- [OpenClaw assistant](/start/openclaw)
+- [Personal assistant setup](/start/openclaw)
 - [Showcase](/start/showcase)
 - [Lore](/start/lore)
 
@@ -96,7 +96,7 @@ Use these hubs to discover every page, including deep dives and reference docs t
 - [Logging](/gateway/logging)
 - [Sandboxing](/gateway/sandboxing)
 - [Dashboard](/web/dashboard)
-- [Control UI](/web/control-ui)
+- [User Console](/web/control-ui)
 - [Remote access](/gateway/remote)
 - [Remote gateway README](/gateway/remote-gateway-readme)
 - [Tailscale](/gateway/tailscale)

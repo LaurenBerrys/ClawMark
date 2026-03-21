@@ -1,7 +1,7 @@
 ---
 summary: "CLI reference for `openclaw webhooks` (webhook helpers + Gmail Pub/Sub)"
 read_when:
-  - You want to wire Gmail Pub/Sub events into OpenClaw
+  - You want to wire Gmail Pub/Sub events into ClawMark
   - You want webhook helper commands
 title: "webhooks"
 ---

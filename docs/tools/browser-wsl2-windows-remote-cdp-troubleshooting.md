@@ -1,7 +1,7 @@
 ---
 summary: "Troubleshoot WSL2 Gateway + Windows Chrome remote CDP and extension-relay setups in layers"
 read_when:
-  - Running OpenClaw Gateway in WSL2 while Chrome lives on Windows
+  - Running ClawMark Gateway in WSL2 while Chrome lives on Windows
   - Seeing overlapping browser/control-ui errors across WSL2 and Windows
   - Deciding between raw remote CDP and the Chrome extension relay in split-host setups
 title: "WSL2 + Windows + remote Chrome CDP troubleshooting"
@@ -11,7 +11,7 @@ title: "WSL2 + Windows + remote Chrome CDP troubleshooting"
 
 This guide covers the common split-host setup where:
 
-- OpenClaw Gateway runs inside WSL2
+- ClawMark Gateway runs inside WSL2
 - Chrome runs on Windows
 - browser control must cross the WSL2/Windows boundary
 
@@ -33,7 +33,7 @@ Choose this when:
 
 ### Option 2: Chrome extension relay
 
-Use the built-in `chrome` profile plus the OpenClaw Chrome extension.
+Use the built-in `chrome` profile plus the ClawMark Chrome extension.
 
 Choose this when:
 
@@ -48,17 +48,17 @@ If you use the extension relay across namespaces, `browser.relayBindHost` is the
 Reference shape:
 
 - WSL2 runs the Gateway on `127.0.0.1:18789`
-- Windows opens the Control UI in a normal browser at `http://127.0.0.1:18789/`
+- Windows opens the User Console in a normal browser at `http://127.0.0.1:18789/`
 - Windows Chrome exposes a CDP endpoint on port `9222`
 - WSL2 can reach that Windows CDP endpoint
-- OpenClaw points a browser profile at the address that is reachable from WSL2
+- ClawMark points a browser profile at the address that is reachable from WSL2
 
 ## Why this setup is confusing
 
 Several failures can overlap:
 
 - WSL2 cannot reach the Windows CDP endpoint
-- the Control UI is opened from a non-secure origin
+- the User Console is opened from a non-secure origin
 - `gateway.controlUi.allowedOrigins` does not match the page origin
 - token or pairing is missing
 - the browser profile points at the wrong address
@@ -66,7 +66,7 @@ Several failures can overlap:
 
 Because of that, fixing one layer can still leave a different error visible.
 
-## Critical rule for the Control UI
+## Critical rule for the User Console
 
 When the UI is opened from Windows, use Windows localhost unless you have a deliberate HTTPS setup.
 
@@ -74,7 +74,7 @@ Use:
 
 `http://127.0.0.1:18789/`
 
-Do not default to a LAN IP for the Control UI. Plain HTTP on a LAN or tailnet address can trigger insecure-origin/device-auth behavior that is unrelated to CDP itself. See [Control UI](/web/control-ui).
+Do not default to a LAN IP for the User Console. Plain HTTP on a LAN or tailnet address can trigger insecure-origin/device-auth behavior that is unrelated to CDP itself. See [User Console](/web/control-ui).
 
 ## Validate in layers
 
@@ -95,7 +95,7 @@ curl http://127.0.0.1:9222/json/version
 curl http://127.0.0.1:9222/json/list
 ```
 
-If this fails on Windows, OpenClaw is not the problem yet.
+If this fails on Windows, ClawMark is not the problem yet.
 
 ### Layer 2: Verify WSL2 can reach that Windows endpoint
 
@@ -117,11 +117,11 @@ If this fails:
 - the address is wrong for the WSL2 side
 - firewall / port forwarding / local proxying is still missing
 
-Fix that before touching OpenClaw config.
+Fix that before touching ClawMark config.
 
 ### Layer 3: Configure the correct browser profile
 
-For raw remote CDP, point OpenClaw at the address that is reachable from WSL2:
+For raw remote CDP, point ClawMark at the address that is reachable from WSL2:
 
 ```json5
 {
@@ -143,7 +143,7 @@ Notes:
 
 - use the WSL2-reachable address, not whatever only works on Windows
 - keep `attachOnly: true` for externally managed browsers
-- test the same URL with `curl` before expecting OpenClaw to succeed
+- test the same URL with `curl` before expecting ClawMark to succeed
 
 ### Layer 4: If you use the Chrome extension relay instead
 
@@ -169,7 +169,7 @@ Use this only when needed:
 
 If you do not need the extension relay, prefer the raw remote CDP profile above.
 
-### Layer 5: Verify the Control UI layer separately
+### Layer 5: Verify the User Console layer separately
 
 Open the UI from Windows:
 
@@ -179,11 +179,11 @@ Then verify:
 
 - the page origin matches what `gateway.controlUi.allowedOrigins` expects
 - token auth or pairing is configured correctly
-- you are not debugging a Control UI auth problem as if it were a browser problem
+- you are not debugging a User Console auth problem as if it were a browser problem
 
 Helpful page:
 
-- [Control UI](/web/control-ui)
+- [User Console](/web/control-ui)
 
 ### Layer 6: Verify end-to-end browser control
 
@@ -227,16 +227,16 @@ Treat each message as a layer-specific clue:
 
 1. Windows: does `curl http://127.0.0.1:9222/json/version` work?
 2. WSL2: does `curl http://WINDOWS_HOST_OR_IP:9222/json/version` work?
-3. OpenClaw config: does `browser.profiles.<name>.cdpUrl` use that exact WSL2-reachable address?
-4. Control UI: are you opening `http://127.0.0.1:18789/` instead of a LAN IP?
+3. ClawMark config: does `browser.profiles.<name>.cdpUrl` use that exact WSL2-reachable address?
+4. User Console: are you opening `http://127.0.0.1:18789/` instead of a LAN IP?
 5. Extension relay only: do you actually need `browser.relayBindHost`, and if so is it set explicitly?
 
 ## Practical takeaway
 
-The setup is usually viable. The hard part is that browser transport, Control UI origin security, token/pairing, and extension-relay topology can each fail independently while looking similar from the user side.
+The setup is usually viable. The hard part is that browser transport, User Console origin security, token/pairing, and extension-relay topology can each fail independently while looking similar from the user side.
 
 When in doubt:
 
 - verify the Windows Chrome endpoint locally first
 - verify the same endpoint from WSL2 second
-- only then debug OpenClaw config or Control UI auth
+- only then debug ClawMark config or User Console auth

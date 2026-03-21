@@ -80,11 +80,7 @@ export type RuntimeCapabilityPolicy = {
   resolveMcpGrant: (agentId: string, mcpServerId: string) => RuntimeMcpGrantRecord | undefined;
 };
 
-export type RuntimeCapabilityExecutionMode =
-  | "blocked"
-  | "shadow_only"
-  | "candidate_only"
-  | "live";
+export type RuntimeCapabilityExecutionMode = "blocked" | "shadow_only" | "candidate_only" | "live";
 
 export type RuntimeCapabilityExecutionStatus = {
   state: GovernanceState | "implicit";
@@ -115,9 +111,13 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
   const output: string[] = [];
   for (const value of values) {
     const text = normalizeText(value);
-    if (!text) {continue;}
+    if (!text) {
+      continue;
+    }
     const key = text.toLowerCase();
-    if (seen.has(key)) {continue;}
+    if (seen.has(key)) {
+      continue;
+    }
     seen.add(key);
     output.push(text);
   }
@@ -142,10 +142,7 @@ function buildMcpGrantId(agentId: string, mcpServerId: string): string {
 }
 
 function normalizeGovernanceState(value: unknown): GovernanceState {
-  return value === "blocked" ||
-    value === "candidate" ||
-    value === "adopted" ||
-    value === "core"
+  return value === "blocked" || value === "candidate" || value === "adopted" || value === "core"
     ? value
     : "shadow";
 }
@@ -154,7 +151,9 @@ function normalizeMcpGrantState(value: unknown): RuntimeMcpGrantState {
   return value === "allowed" ? "allowed" : "denied";
 }
 
-function buildExecutionStatusForState(state: GovernanceState | "implicit"): RuntimeCapabilityExecutionStatus {
+function buildExecutionStatusForState(
+  state: GovernanceState | "implicit",
+): RuntimeCapabilityExecutionStatus {
   if (state === "blocked") {
     return {
       state,
@@ -172,7 +171,8 @@ function buildExecutionStatusForState(state: GovernanceState | "implicit"): Runt
       liveEligible: false,
       preferenceRank: 1,
       preferenceLabel: "shadow",
-      summary: "Shadow only. Observe it, but do not place it on the live execution lane by default.",
+      summary:
+        "Shadow only. Observe it, but do not place it on the live execution lane by default.",
     };
   }
   if (state === "candidate") {
@@ -236,7 +236,9 @@ function collectConfiguredAgents(config: Record<string, unknown> | null): string
   const list = Array.isArray(agents?.list) ? agents.list : [];
   return uniqueStrings(
     list.map((entry) => {
-      if (typeof entry === "string") {return entry;}
+      if (typeof entry === "string") {
+        return entry;
+      }
       const record = toRecord(entry);
       return normalizeText(record?.id ?? record?.agentId ?? record?.name);
     }),
@@ -263,10 +265,14 @@ function collectConfiguredSkills(config: Record<string, unknown> | null): string
   const directSkills = toRecord(config?.skills) ?? {};
   const configured = new Set<string>();
   for (const [skillId, value] of Object.entries(toolSkills)) {
-    if (isEnabledRecord(value)) {configured.add(skillId);}
+    if (isEnabledRecord(value)) {
+      configured.add(skillId);
+    }
   }
   for (const [skillId, value] of Object.entries(directSkills)) {
-    if (isEnabledRecord(value)) {configured.add(skillId);}
+    if (isEnabledRecord(value)) {
+      configured.add(skillId);
+    }
   }
   return [...configured].toSorted((left, right) => left.localeCompare(right));
 }
@@ -276,7 +282,9 @@ function collectConfiguredMcps(config: Record<string, unknown> | null): string[]
   const servers = toRecord(mcp?.servers) ?? {};
   const configured = new Set<string>();
   for (const [serverId, value] of Object.entries(servers)) {
-    if (isEnabledRecord(value)) {configured.add(serverId);}
+    if (isEnabledRecord(value)) {
+      configured.add(serverId);
+    }
   }
   const entryLists = [mcp?.entries, mcp?.list].filter(Array.isArray);
   for (const list of entryLists) {
@@ -287,7 +295,9 @@ function collectConfiguredMcps(config: Record<string, unknown> | null): string[]
       }
       const record = toRecord(entry);
       const targetId = normalizeText(record?.id ?? record?.name ?? record?.serverId);
-      if (targetId && isEnabledRecord(record)) {configured.add(targetId);}
+      if (targetId && isEnabledRecord(record)) {
+        configured.add(targetId);
+      }
     }
   }
   return [...configured].toSorted((left, right) => left.localeCompare(right));
@@ -334,7 +344,7 @@ function buildConfiguredEntries(
             ? `Local agent ${targetId} is staged in shadow until the runtime explicitly adopts it into the live route.`
             : registryType === "skill" && skillIsLocal && !skillIsConfigured
               ? `Local skill ${targetId} is staged in shadow until the runtime explicitly adopts it into the live route.`
-            : `${registryType} ${targetId} is available in the runtime capability plane.`),
+              : `${registryType} ${targetId} is available in the runtime capability plane.`),
         updatedAt: now,
         metadata: {
           ...existing?.metadata,
@@ -351,7 +361,7 @@ function buildConfiguredEntries(
               ? "runtime-user-console"
               : registryType === "skill" && skillIsLocal && !skillIsConfigured
                 ? "runtime-user-console"
-              : "runtime-config",
+                : "runtime-config",
           accessMode:
             registryType === "mcp"
               ? "read_only_minimal"
@@ -421,8 +431,7 @@ function buildConfiguredMcpGrants(
           ...existing?.metadata,
           configured: agentIsConfigured,
           localAgent: agentIsLocal || undefined,
-          source:
-            agentIsLocal && !agentIsConfigured ? "runtime-user-console" : "runtime-config",
+          source: agentIsLocal && !agentIsConfigured ? "runtime-user-console" : "runtime-config",
           defaultGrant: !existing,
         },
       });
@@ -546,7 +555,9 @@ function readAppliedPolicyOverlayEntries(
     for (const entry of governanceEntries) {
       const record = toRecord(entry);
       const registryType =
-        record?.registryType === "agent" || record?.registryType === "mcp" ? record.registryType : "skill";
+        record?.registryType === "agent" || record?.registryType === "mcp"
+          ? record.registryType
+          : "skill";
       pushOverlayEntry(
         registryType,
         normalizeText(record?.targetId ?? record?.id ?? record?.name),
@@ -570,7 +581,14 @@ function readAppliedPolicyOverlayEntries(
         continue;
       }
       for (const [targetId, state] of Object.entries(stateMap)) {
-        pushOverlayEntry(registryType, targetId, state, overlay.overlayId, overlay.route, overlay.appliedAt);
+        pushOverlayEntry(
+          registryType,
+          targetId,
+          state,
+          overlay.overlayId,
+          overlay.route,
+          overlay.appliedAt,
+        );
       }
     }
 
@@ -693,10 +711,24 @@ function readAppliedPolicyOverlayMcpGrants(
       const allowed = Array.isArray(record?.allowed) ? record.allowed : [];
       const denied = Array.isArray(record?.denied) ? record.denied : [];
       for (const mcpServerId of allowed) {
-        pushOverlayGrant(agentId, mcpServerId, "allowed", overlay.overlayId, overlay.route, overlay.appliedAt);
+        pushOverlayGrant(
+          agentId,
+          mcpServerId,
+          "allowed",
+          overlay.overlayId,
+          overlay.route,
+          overlay.appliedAt,
+        );
       }
       for (const mcpServerId of denied) {
-        pushOverlayGrant(agentId, mcpServerId, "denied", overlay.overlayId, overlay.route, overlay.appliedAt);
+        pushOverlayGrant(
+          agentId,
+          mcpServerId,
+          "denied",
+          overlay.overlayId,
+          overlay.route,
+          overlay.appliedAt,
+        );
       }
     }
   }
@@ -793,7 +825,8 @@ export function resolveRuntimeCapabilityPolicy(
   for (const grant of mcpGrants) {
     const agentKey = grant.agentId.toLowerCase();
     const mcpKey = grant.mcpServerId.toLowerCase();
-    const grantsForAgent = mcpGrantByAgent.get(agentKey) ?? new Map<string, RuntimeMcpGrantRecord>();
+    const grantsForAgent =
+      mcpGrantByAgent.get(agentKey) ?? new Map<string, RuntimeMcpGrantRecord>();
     grantsForAgent.set(mcpKey, grant);
     mcpGrantByAgent.set(agentKey, grantsForAgent);
   }

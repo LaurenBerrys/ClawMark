@@ -167,10 +167,7 @@ export class MemoryScopeManager implements ScopeManager {
     const trimmedScope = scope.trim();
 
     // Check if scope is defined or is a built-in pattern
-    return (
-      this.config.definitions[trimmedScope] !== undefined ||
-      this.isBuiltInScope(trimmedScope)
-    );
+    return this.config.definitions[trimmedScope] !== undefined || this.isBuiltInScope(trimmedScope);
   }
 
   getAllScopes(): string[] {
@@ -204,7 +201,7 @@ export class MemoryScopeManager implements ScopeManager {
 
     // Clean up agent access references
     for (const [agentId, scopes] of Object.entries(this.config.agentAccess)) {
-      const filtered = scopes.filter(s => s !== scope);
+      const filtered = scopes.filter((s) => s !== scope);
       if (filtered.length !== scopes.length) {
         this.config.agentAccess[agentId] = filtered;
       }
@@ -365,10 +362,14 @@ export function isScopeAccessible(scope: string, allowedScopes: string[]): boole
   return allowedScopes.includes(scope);
 }
 
-export function filterScopesForAgent(scopes: string[], agentId?: string, scopeManager?: ScopeManager): string[] {
+export function filterScopesForAgent(
+  scopes: string[],
+  agentId?: string,
+  scopeManager?: ScopeManager,
+): string[] {
   if (!scopeManager || !agentId) {
     return scopes;
   }
 
-  return scopes.filter(scope => scopeManager.isAccessible(scope, agentId));
+  return scopes.filter((scope) => scopeManager.isAccessible(scope, agentId));
 }

@@ -3,11 +3,11 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { RuntimeMemoryStore, TaskRecord, TaskReview } from "./contracts.js";
-import { applyRuntimeTaskOutcomeMemoryUpdate } from "./memory-update-engine.js";
 import {
   buildRuntimeMemoryMarkdownMirrorStatus,
   syncRuntimeMemoryMarkdownMirror,
 } from "./memory-markdown-mirror.js";
+import { applyRuntimeTaskOutcomeMemoryUpdate } from "./memory-update-engine.js";
 import { buildRuntimeDashboardSnapshot } from "./runtime-dashboard.js";
 import { loadRuntimeMemoryStore, saveRuntimeMemoryStore } from "./store.js";
 
@@ -192,7 +192,9 @@ describe("runtime memory markdown mirror", () => {
       expect(result.memoryCount).toBe(1);
       expect(readme).toContain("# Runtime Memory Markdown Mirror");
       expect(readme).toContain("Formal memories: 1");
-      expect(memoriesFile).toContain("Prefer authoritative runtime stores over extension-local state");
+      expect(memoriesFile).toContain(
+        "Prefer authoritative runtime stores over extension-local state",
+      );
       expect(strategiesFile).toContain("Summarize runtime memory state before planning task work");
       expect(evolutionFile).toContain("Refresh runtime retrieval policy after mirror syncs");
     });

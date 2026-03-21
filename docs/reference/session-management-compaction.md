@@ -9,7 +9,7 @@ title: "Session Management Deep Dive"
 
 # Session Management & Compaction (Deep Dive)
 
-This document explains how OpenClaw manages sessions end-to-end:
+This document explains how ClawMark manages sessions end-to-end:
 
 - **Session routing** (how inbound messages map to a `sessionKey`)
 - **Session store** (`sessions.json`) and what it tracks
@@ -30,16 +30,16 @@ If you want a higher-level overview first, start with:
 
 ## Source of truth: the Gateway
 
-OpenClaw is designed around a single **Gateway process** that owns session state.
+ClawMark is designed around a single **Gateway process** that owns session state.
 
-- UIs (macOS app, web Control UI, TUI) should query the Gateway for session lists and token counts.
+- UIs (macOS app, web User Console, TUI) should query the Gateway for session lists and token counts.
 - In remote mode, session files are on the remote host; “checking your local Mac files” won’t reflect what the Gateway is using.
 
 ---
 
 ## Two persistence layers
 
-OpenClaw persists sessions in two layers:
+ClawMark persists sessions in two layers:
 
 1. **Session store (`sessions.json`)**
    - Key/value map: `sessionKey -> SessionEntry`
@@ -61,7 +61,7 @@ Per agent, on the Gateway host:
 - Transcripts: `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl`
   - Telegram topic sessions: `.../<sessionId>-topic-<threadId>.jsonl`
 
-OpenClaw resolves these via `src/config/sessions.ts`.
+ClawMark resolves these via `src/config/sessions.ts`.
 
 ---
 
@@ -83,7 +83,7 @@ Enforcement order for disk budget cleanup (`mode: "enforce"`):
 2. If still above the target, evict oldest session entries and their transcript files.
 3. Keep going until usage is at or below `highWaterBytes`.
 
-In `mode: "warn"`, OpenClaw reports potential evictions but does not mutate the store/files.
+In `mode: "warn"`, ClawMark reports potential evictions but does not mutate the store/files.
 
 Run maintenance on demand:
 
@@ -177,7 +177,7 @@ Notable entry types:
 - `compaction`: persisted compaction summary with `firstKeptEntryId` and `tokensBefore`
 - `branch_summary`: persisted summary when navigating a tree branch
 
-OpenClaw intentionally does **not** “fix up” transcripts; the Gateway uses `SessionManager` to read/write them.
+ClawMark intentionally does **not** “fix up” transcripts; the Gateway uses `SessionManager` to read/write them.
 
 ---
 
@@ -224,7 +224,7 @@ Where:
 - `contextWindow` is the model’s context window
 - `reserveTokens` is headroom reserved for prompts + the next model output
 
-These are Pi runtime semantics (OpenClaw consumes the events, but Pi decides when to compact).
+These are Pi runtime semantics (ClawMark consumes the events, but Pi decides when to compact).
 
 ---
 
@@ -242,12 +242,12 @@ Pi’s compaction settings live in Pi settings:
 }
 ```
 
-OpenClaw also enforces a safety floor for embedded runs:
+ClawMark also enforces a safety floor for embedded runs:
 
-- If `compaction.reserveTokens < reserveTokensFloor`, OpenClaw bumps it.
+- If `compaction.reserveTokens < reserveTokensFloor`, ClawMark bumps it.
 - Default floor is `20000` tokens.
 - Set `agents.defaults.compaction.reserveTokensFloor: 0` to disable the floor.
-- If it’s already higher, OpenClaw leaves it alone.
+- If it’s already higher, ClawMark leaves it alone.
 
 Why: leave enough headroom for multi-turn “housekeeping” (like memory writes) before compaction becomes unavoidable.
 
@@ -269,14 +269,14 @@ You can observe compaction and session state via:
 
 ## Silent housekeeping (`NO_REPLY`)
 
-OpenClaw supports “silent” turns for background tasks where the user should not see intermediate output.
+ClawMark supports “silent” turns for background tasks where the user should not see intermediate output.
 
 Convention:
 
 - The assistant starts its output with `NO_REPLY` to indicate “do not deliver a reply to the user”.
-- OpenClaw strips/suppresses this in the delivery layer.
+- ClawMark strips/suppresses this in the delivery layer.
 
-As of `2026.1.10`, OpenClaw also suppresses **draft/typing streaming** when a partial chunk begins with `NO_REPLY`, so silent operations don’t leak partial output mid-turn.
+As of `2026.1.10`, ClawMark also suppresses **draft/typing streaming** when a partial chunk begins with `NO_REPLY`, so silent operations don’t leak partial output mid-turn.
 
 ---
 
@@ -286,7 +286,7 @@ Goal: before auto-compaction happens, run a silent agentic turn that writes dura
 state to disk (e.g. `memory/YYYY-MM-DD.md` in the agent workspace) so compaction can’t
 erase critical context.
 
-OpenClaw uses the **pre-threshold flush** approach:
+ClawMark uses the **pre-threshold flush** approach:
 
 1. Monitor session context usage.
 2. When it crosses a “soft threshold” (below Pi’s compaction threshold), run a silent
@@ -308,7 +308,7 @@ Notes:
 - The flush is skipped when the session workspace is read-only (`workspaceAccess: "ro"` or `"none"`).
 - See [Memory](/concepts/memory) for the workspace file layout and write patterns.
 
-Pi also exposes a `session_before_compact` hook in the extension API, but OpenClaw’s
+Pi also exposes a `session_before_compact` hook in the extension API, but ClawMark’s
 flush logic lives on the Gateway side today.
 
 ---

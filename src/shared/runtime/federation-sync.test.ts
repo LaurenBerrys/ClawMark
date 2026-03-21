@@ -4,14 +4,14 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { configureRuntimeFederationPushPolicy } from "./federation-policy.js";
 import { listRuntimeFederationAssignments } from "./federation-assignments.js";
+import { configureRuntimeFederationPushPolicy } from "./federation-policy.js";
 import {
   configureRuntimeFederationRemoteSyncMaintenance,
   readFederationRemoteSyncMaintenanceControls,
 } from "./federation-remote-maintenance.js";
-import { distillTaskOutcomeToMemory } from "./mutations.js";
 import { previewRuntimeFederationRemote, syncRuntimeFederationRemote } from "./federation-sync.js";
+import { distillTaskOutcomeToMemory } from "./mutations.js";
 import { buildFederationRuntimeSnapshot } from "./runtime-dashboard.js";
 import { loadRuntimeFederationStore, loadRuntimeTaskStore, saveRuntimeTaskStore } from "./store.js";
 
@@ -144,7 +144,9 @@ describe("runtime federation remote sync", () => {
       expect(preview.pendingEvents[0]).toMatchObject({
         operation: "upsert",
       });
-      expect(preview.localOutboxHeadEventId).toBe(federationStore.syncCursor?.metadata?.localOutboxHeadEventId);
+      expect(preview.localOutboxHeadEventId).toBe(
+        federationStore.syncCursor?.metadata?.localOutboxHeadEventId,
+      );
       expect(snapshot.pendingOutboxEventCount).toBe(preview.pendingOutboxEventCount);
     });
   });
@@ -221,10 +223,7 @@ describe("runtime federation remote sync", () => {
         },
       });
 
-      expect(preview.allowedPushScopes).toEqual([
-        "shareable_derived",
-        "capability_governance",
-      ]);
+      expect(preview.allowedPushScopes).toEqual(["shareable_derived", "capability_governance"]);
       expect(preview.pushedEnvelopeKeys).toEqual([
         "runtimeManifest",
         "shareableReviews",
@@ -489,7 +488,9 @@ describe("runtime federation remote sync", () => {
         expect(federationStore.inbox[0]?.packageType).toBe("team-knowledge-package");
         expect(federationStore.syncCursor?.lastPushedAt).toBe(now);
         expect(federationStore.syncCursor?.lastPulledAt).toBe(now);
-        expect(federationStore.syncCursor?.lastOutboxEventId).toBe(result.outboxSync.latestOutboxEventId);
+        expect(federationStore.syncCursor?.lastOutboxEventId).toBe(
+          result.outboxSync.latestOutboxEventId,
+        );
         expect(federationStore.syncCursor?.metadata?.pendingOutboxEventCount).toBe(0);
         expect(federationStore.syncCursor?.metadata?.localOutboxHeadEventId).toBe(
           result.outboxSync.latestOutboxEventId,
@@ -553,7 +554,9 @@ describe("runtime federation remote sync", () => {
           cursor?: { lastOutboxEventId?: string };
           events?: unknown[];
         };
-        expect(secondPushBody.cursor?.lastOutboxEventId).toBe(result.outboxSync.latestOutboxEventId);
+        expect(secondPushBody.cursor?.lastOutboxEventId).toBe(
+          result.outboxSync.latestOutboxEventId,
+        );
         expect(secondPushBody.events).toEqual([]);
       } finally {
         server.close();
@@ -619,363 +622,377 @@ describe("runtime federation remote sync", () => {
   });
 
   it("records scheduled remote sync maintenance metadata after a successful managed sync", async () => {
-    await withTempRoot("openclaw-runtime-federation-remote-maintenance-success-", async (_root, env) => {
-      const now = 1_700_000_711_100;
-      const server = http.createServer(async (req, res) => {
-        if (req.method !== "POST") {
-          res.writeHead(405).end();
-          return;
-        }
-        await readRequestBody(req);
-        res.writeHead(200, { "content-type": "application/json" });
-        if (req.url === "/runtime/inbox") {
-          res.end(JSON.stringify({ schemaVersion: "v1", packages: [], assignments: [] }));
-          return;
-        }
-        res.end(JSON.stringify({ ok: true }));
-      });
+    await withTempRoot(
+      "openclaw-runtime-federation-remote-maintenance-success-",
+      async (_root, env) => {
+        const now = 1_700_000_711_100;
+        const server = http.createServer(async (req, res) => {
+          if (req.method !== "POST") {
+            res.writeHead(405).end();
+            return;
+          }
+          await readRequestBody(req);
+          res.writeHead(200, { "content-type": "application/json" });
+          if (req.url === "/runtime/inbox") {
+            res.end(JSON.stringify({ schemaVersion: "v1", packages: [], assignments: [] }));
+            return;
+          }
+          res.end(JSON.stringify({ ok: true }));
+        });
 
-      server.listen(0, "127.0.0.1");
-      await once(server, "listening");
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        throw new Error("failed to resolve test server address");
-      }
-      const baseUrl = `http://127.0.0.1:${address.port}/runtime`;
+        server.listen(0, "127.0.0.1");
+        await once(server, "listening");
+        const address = server.address();
+        if (!address || typeof address === "string") {
+          throw new Error("failed to resolve test server address");
+        }
+        const baseUrl = `http://127.0.0.1:${address.port}/runtime`;
 
-      try {
-        configureRuntimeFederationRemoteSyncMaintenance(
-          {
+        try {
+          configureRuntimeFederationRemoteSyncMaintenance(
+            {
+              enabled: true,
+              syncIntervalMinutes: 90,
+              retryAfterFailureMinutes: 20,
+            },
+            { env, now: now - 1_000 },
+          );
+
+          await syncRuntimeFederationRemote({
+            env,
+            now,
+            trigger: "scheduled",
+            config: {
+              federation: {
+                remote: {
+                  enabled: true,
+                  url: baseUrl,
+                  token: "brain-token",
+                  allowPrivateNetwork: true,
+                },
+              },
+            },
+          });
+
+          const federationStore = loadRuntimeFederationStore({ env, now });
+          const controls = readFederationRemoteSyncMaintenanceControls(federationStore.metadata);
+          const snapshot = buildFederationRuntimeSnapshot({
+            env,
+            now,
+            config: {
+              federation: {
+                remote: {
+                  enabled: true,
+                  url: baseUrl,
+                  token: "brain-token",
+                  allowPrivateNetwork: true,
+                },
+              },
+            },
+          });
+
+          expect(controls).toMatchObject({
             enabled: true,
             syncIntervalMinutes: 90,
             retryAfterFailureMinutes: 20,
-          },
-          { env, now: now - 1_000 },
-        );
-
-        await syncRuntimeFederationRemote({
-          env,
-          now,
-          trigger: "scheduled",
-          config: {
-            federation: {
-              remote: {
-                enabled: true,
-                url: baseUrl,
-                token: "brain-token",
-                allowPrivateNetwork: true,
-              },
-            },
-          },
-        });
-
-        const federationStore = loadRuntimeFederationStore({ env, now });
-        const controls = readFederationRemoteSyncMaintenanceControls(federationStore.metadata);
-        const snapshot = buildFederationRuntimeSnapshot({
-          env,
-          now,
-          config: {
-            federation: {
-              remote: {
-                enabled: true,
-                url: baseUrl,
-                token: "brain-token",
-                allowPrivateNetwork: true,
-              },
-            },
-          },
-        });
-
-        expect(controls).toMatchObject({
-          enabled: true,
-          syncIntervalMinutes: 90,
-          retryAfterFailureMinutes: 20,
-          lastAutoSyncAttemptAt: now,
-          lastAutoSyncStatus: "success",
-          lastAutoSyncSucceededAt: now,
-        });
-        expect(snapshot.remoteMaintenance).toMatchObject({
-          enabled: true,
-          due: false,
-          lastAttemptAt: now,
-          lastAttemptStatus: "success",
-          lastSuccessfulSyncAt: now,
-          nextSyncAt: now + 90 * 60 * 1000,
-        });
-      } finally {
-        server.close();
-        await once(server, "close");
-      }
-    });
+            lastAutoSyncAttemptAt: now,
+            lastAutoSyncStatus: "success",
+            lastAutoSyncSucceededAt: now,
+          });
+          expect(snapshot.remoteMaintenance).toMatchObject({
+            enabled: true,
+            due: false,
+            lastAttemptAt: now,
+            lastAttemptStatus: "success",
+            lastSuccessfulSyncAt: now,
+            nextSyncAt: now + 90 * 60 * 1000,
+          });
+        } finally {
+          server.close();
+          await once(server, "close");
+        }
+      },
+    );
   });
 
   it("does not mark manual remote sync as an auto-maintenance attempt", async () => {
-    await withTempRoot("openclaw-runtime-federation-remote-maintenance-manual-", async (_root, env) => {
-      const now = 1_700_000_712_100;
-      const server = http.createServer(async (req, res) => {
-        if (req.method !== "POST") {
-          res.writeHead(405).end();
-          return;
-        }
-        await readRequestBody(req);
-        res.writeHead(200, { "content-type": "application/json" });
-        if (req.url === "/runtime/inbox") {
-          res.end(JSON.stringify({ schemaVersion: "v1", packages: [], assignments: [] }));
-          return;
-        }
-        res.end(JSON.stringify({ ok: true }));
-      });
-
-      server.listen(0, "127.0.0.1");
-      await once(server, "listening");
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        throw new Error("failed to resolve test server address");
-      }
-      const baseUrl = `http://127.0.0.1:${address.port}/runtime`;
-
-      try {
-        configureRuntimeFederationRemoteSyncMaintenance(
-          {
-            enabled: true,
-            syncIntervalMinutes: 60,
-            retryAfterFailureMinutes: 15,
-          },
-          { env, now: now - 1_000 },
-        );
-
-        await syncRuntimeFederationRemote({
-          env,
-          now,
-          trigger: "manual",
-          config: {
-            federation: {
-              remote: {
-                enabled: true,
-                url: baseUrl,
-                token: "brain-token",
-                allowPrivateNetwork: true,
-              },
-            },
-          },
+    await withTempRoot(
+      "openclaw-runtime-federation-remote-maintenance-manual-",
+      async (_root, env) => {
+        const now = 1_700_000_712_100;
+        const server = http.createServer(async (req, res) => {
+          if (req.method !== "POST") {
+            res.writeHead(405).end();
+            return;
+          }
+          await readRequestBody(req);
+          res.writeHead(200, { "content-type": "application/json" });
+          if (req.url === "/runtime/inbox") {
+            res.end(JSON.stringify({ schemaVersion: "v1", packages: [], assignments: [] }));
+            return;
+          }
+          res.end(JSON.stringify({ ok: true }));
         });
 
-        const federationStore = loadRuntimeFederationStore({ env, now });
-        const controls = readFederationRemoteSyncMaintenanceControls(federationStore.metadata);
+        server.listen(0, "127.0.0.1");
+        await once(server, "listening");
+        const address = server.address();
+        if (!address || typeof address === "string") {
+          throw new Error("failed to resolve test server address");
+        }
+        const baseUrl = `http://127.0.0.1:${address.port}/runtime`;
 
-        expect(controls.lastAutoSyncAttemptAt).toBeUndefined();
-        expect(controls.lastAutoSyncStatus).toBeUndefined();
-        expect(controls.lastAutoSyncSucceededAt).toBeUndefined();
-      } finally {
-        server.close();
-        await once(server, "close");
-      }
-    });
+        try {
+          configureRuntimeFederationRemoteSyncMaintenance(
+            {
+              enabled: true,
+              syncIntervalMinutes: 60,
+              retryAfterFailureMinutes: 15,
+            },
+            { env, now: now - 1_000 },
+          );
+
+          await syncRuntimeFederationRemote({
+            env,
+            now,
+            trigger: "manual",
+            config: {
+              federation: {
+                remote: {
+                  enabled: true,
+                  url: baseUrl,
+                  token: "brain-token",
+                  allowPrivateNetwork: true,
+                },
+              },
+            },
+          });
+
+          const federationStore = loadRuntimeFederationStore({ env, now });
+          const controls = readFederationRemoteSyncMaintenanceControls(federationStore.metadata);
+
+          expect(controls.lastAutoSyncAttemptAt).toBeUndefined();
+          expect(controls.lastAutoSyncStatus).toBeUndefined();
+          expect(controls.lastAutoSyncSucceededAt).toBeUndefined();
+        } finally {
+          server.close();
+          await once(server, "close");
+        }
+      },
+    );
   });
 
   it("keeps remote packages with blocked scope in the inbox validation path without adopting them", async () => {
-    await withTempRoot("openclaw-runtime-federation-remote-invalid-package-", async (_root, env) => {
-      const now = 1_700_000_720_100;
-      const server = http.createServer(async (req, res) => {
-        if (req.method !== "POST") {
-          res.writeHead(405).end();
-          return;
-        }
-        if (req.url === "/runtime/outbox") {
-          await readRequestBody(req);
-          res.writeHead(200, { "content-type": "application/json" });
-          res.end(JSON.stringify({ ok: true }));
-          return;
-        }
-        if (req.url === "/runtime/inbox") {
-          await readRequestBody(req);
-          res.writeHead(200, { "content-type": "application/json" });
-          res.end(
-            JSON.stringify({
-              schemaVersion: "v1",
-              packages: [
-                {
-                  schemaVersion: "v1",
-                  type: "team-knowledge-package",
-                  sourceRuntimeId: "brain-os-runtime",
-                  generatedAt: 1_700_000_720_000,
-                  payload: {
-                    records: [
-                      {
-                        id: "team-knowledge-private-1",
-                        namespace: "private",
-                        title: "Private note should not import",
-                        summary: "This record must stay outside the local shareable namespace.",
-                        tags: ["private"],
-                        createdAt: 1_700_000_719_000,
-                        updatedAt: 1_700_000_719_100,
-                      },
-                    ],
+    await withTempRoot(
+      "openclaw-runtime-federation-remote-invalid-package-",
+      async (_root, env) => {
+        const now = 1_700_000_720_100;
+        const server = http.createServer(async (req, res) => {
+          if (req.method !== "POST") {
+            res.writeHead(405).end();
+            return;
+          }
+          if (req.url === "/runtime/outbox") {
+            await readRequestBody(req);
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+          if (req.url === "/runtime/inbox") {
+            await readRequestBody(req);
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(
+              JSON.stringify({
+                schemaVersion: "v1",
+                packages: [
+                  {
+                    schemaVersion: "v1",
+                    type: "team-knowledge-package",
+                    sourceRuntimeId: "brain-os-runtime",
+                    generatedAt: 1_700_000_720_000,
+                    payload: {
+                      records: [
+                        {
+                          id: "team-knowledge-private-1",
+                          namespace: "private",
+                          title: "Private note should not import",
+                          summary: "This record must stay outside the local shareable namespace.",
+                          tags: ["private"],
+                          createdAt: 1_700_000_719_000,
+                          updatedAt: 1_700_000_719_100,
+                        },
+                      ],
+                    },
                   },
-                },
-              ],
-            }),
-          );
-          return;
+                ],
+              }),
+            );
+            return;
+          }
+          res.writeHead(404).end();
+        });
+
+        server.listen(0, "127.0.0.1");
+        await once(server, "listening");
+        const address = server.address();
+        if (!address || typeof address === "string") {
+          throw new Error("failed to resolve test server address");
         }
-        res.writeHead(404).end();
-      });
+        const baseUrl = `http://127.0.0.1:${address.port}/runtime`;
 
-      server.listen(0, "127.0.0.1");
-      await once(server, "listening");
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        throw new Error("failed to resolve test server address");
-      }
-      const baseUrl = `http://127.0.0.1:${address.port}/runtime`;
-
-      try {
-        const result = await syncRuntimeFederationRemote({
-          env,
-          now,
-          config: {
-            federation: {
-              remote: {
-                enabled: true,
-                url: baseUrl,
-                token: "brain-token",
-                allowPrivateNetwork: true,
-              },
-              push: {
-                allowedScopes: ["team_shareable_knowledge"],
+        try {
+          const result = await syncRuntimeFederationRemote({
+            env,
+            now,
+            config: {
+              federation: {
+                remote: {
+                  enabled: true,
+                  url: baseUrl,
+                  token: "brain-token",
+                  allowPrivateNetwork: true,
+                },
+                push: {
+                  allowedScopes: ["team_shareable_knowledge"],
+                },
               },
             },
-          },
-        });
+          });
 
-        const federationStore = loadRuntimeFederationStore({
-          env,
-          now,
-        });
-        const snapshot = buildFederationRuntimeSnapshot({
-          env,
-          now,
-        });
+          const federationStore = loadRuntimeFederationStore({
+            env,
+            now,
+          });
+          const snapshot = buildFederationRuntimeSnapshot({
+            env,
+            now,
+          });
 
-        expect(result.pulledPackageCount).toBe(1);
-        expect(federationStore.inbox).toHaveLength(1);
-        expect(federationStore.inbox[0]?.packageType).toBe("team-knowledge-package");
-        expect(federationStore.inbox[0]?.state).toBe("received");
-        expect(federationStore.inbox[0]?.validationErrors).toContain(
-          "payload.records[0].namespace must be team-shareable",
-        );
-        expect(federationStore.teamKnowledge).toEqual([]);
-        expect(snapshot.inbox.latestPackages[0]).toMatchObject({
-          packageType: "team-knowledge-package",
-          validationErrorCount: 1,
-          validationErrors: ["payload.records[0].namespace must be team-shareable"],
-        });
-      } finally {
-        server.close();
-        await once(server, "close");
-      }
-    });
+          expect(result.pulledPackageCount).toBe(1);
+          expect(federationStore.inbox).toHaveLength(1);
+          expect(federationStore.inbox[0]?.packageType).toBe("team-knowledge-package");
+          expect(federationStore.inbox[0]?.state).toBe("received");
+          expect(federationStore.inbox[0]?.validationErrors).toContain(
+            "payload.records[0].namespace must be team-shareable",
+          );
+          expect(federationStore.teamKnowledge).toEqual([]);
+          expect(snapshot.inbox.latestPackages[0]).toMatchObject({
+            packageType: "team-knowledge-package",
+            validationErrorCount: 1,
+            validationErrors: ["payload.records[0].namespace must be team-shareable"],
+          });
+        } finally {
+          server.close();
+          await once(server, "close");
+        }
+      },
+    );
   });
 
   it("persists malformed remote packages as invalid inbox records instead of failing managed sync", async () => {
-    await withTempRoot("openclaw-runtime-federation-remote-malformed-package-", async (_root, env) => {
-      const now = 1_700_000_721_100;
-      const server = http.createServer(async (req, res) => {
-        if (req.method !== "POST") {
-          res.writeHead(405).end();
-          return;
-        }
-        if (req.url === "/runtime/outbox") {
-          await readRequestBody(req);
-          res.writeHead(200, { "content-type": "application/json" });
-          res.end(JSON.stringify({ ok: true }));
-          return;
-        }
-        if (req.url === "/runtime/inbox") {
-          await readRequestBody(req);
-          res.writeHead(200, { "content-type": "application/json" });
-          res.end(
-            JSON.stringify({
-              schemaVersion: "v1",
-              packages: [
-                {
-                  schemaVersion: "v1",
-                  sourceRuntimeId: "brain-os-runtime",
-                  generatedAt: 1_700_000_721_000,
-                  payload: {
-                    records: [],
+    await withTempRoot(
+      "openclaw-runtime-federation-remote-malformed-package-",
+      async (_root, env) => {
+        const now = 1_700_000_721_100;
+        const server = http.createServer(async (req, res) => {
+          if (req.method !== "POST") {
+            res.writeHead(405).end();
+            return;
+          }
+          if (req.url === "/runtime/outbox") {
+            await readRequestBody(req);
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+          if (req.url === "/runtime/inbox") {
+            await readRequestBody(req);
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(
+              JSON.stringify({
+                schemaVersion: "v1",
+                packages: [
+                  {
+                    schemaVersion: "v1",
+                    sourceRuntimeId: "brain-os-runtime",
+                    generatedAt: 1_700_000_721_000,
+                    payload: {
+                      records: [],
+                    },
                   },
-                },
-              ],
-            }),
-          );
-          return;
+                ],
+              }),
+            );
+            return;
+          }
+          res.writeHead(404).end();
+        });
+
+        server.listen(0, "127.0.0.1");
+        await once(server, "listening");
+        const address = server.address();
+        if (!address || typeof address === "string") {
+          throw new Error("failed to resolve test server address");
         }
-        res.writeHead(404).end();
-      });
+        const baseUrl = `http://127.0.0.1:${address.port}/runtime`;
 
-      server.listen(0, "127.0.0.1");
-      await once(server, "listening");
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        throw new Error("failed to resolve test server address");
-      }
-      const baseUrl = `http://127.0.0.1:${address.port}/runtime`;
-
-      try {
-        const result = await syncRuntimeFederationRemote({
-          env,
-          now,
-          config: {
-            federation: {
-              remote: {
-                enabled: true,
-                url: baseUrl,
-                token: "brain-token",
-                allowPrivateNetwork: true,
-              },
-              push: {
-                allowedScopes: ["team_shareable_knowledge"],
+        try {
+          const result = await syncRuntimeFederationRemote({
+            env,
+            now,
+            config: {
+              federation: {
+                remote: {
+                  enabled: true,
+                  url: baseUrl,
+                  token: "brain-token",
+                  allowPrivateNetwork: true,
+                },
+                push: {
+                  allowedScopes: ["team_shareable_knowledge"],
+                },
               },
             },
-          },
-        });
+          });
 
-        const federationStore = loadRuntimeFederationStore({
-          env,
-          now,
-        });
-        const snapshot = buildFederationRuntimeSnapshot({
-          env,
-          now,
-        });
+          const federationStore = loadRuntimeFederationStore({
+            env,
+            now,
+          });
+          const snapshot = buildFederationRuntimeSnapshot({
+            env,
+            now,
+          });
 
-        expect(result.pulledPackageCount).toBe(1);
-        expect(federationStore.inbox).toHaveLength(1);
-        expect(federationStore.inbox[0]).toMatchObject({
-          packageType: "invalid-package",
-          state: "received",
-          sourceRuntimeId: "brain-os-runtime",
-        });
-        expect(federationStore.inbox[0]?.validationErrors).toContain("type must be a non-empty string");
-        expect(snapshot.inbox.latestPackages[0]).toMatchObject({
-          packageType: "invalid-package",
-          validationErrorCount: 1,
-          localLandingLabel: "invalid-package",
-        });
-        expect(snapshot.inbox.latestPackages[0]?.payloadPreview).toEqual(
-          expect.arrayContaining(["type must be a non-empty string"]),
-        );
-        expect(snapshot.latestSyncAttempts[0]).toMatchObject({
-          status: "success",
-          stage: "sync_inbox",
-          pulledPackageCount: 1,
-          inboxProcessedCount: 1,
-        });
-      } finally {
-        server.close();
-        await once(server, "close");
-      }
-    });
+          expect(result.pulledPackageCount).toBe(1);
+          expect(federationStore.inbox).toHaveLength(1);
+          expect(federationStore.inbox[0]).toMatchObject({
+            packageType: "invalid-package",
+            state: "received",
+            sourceRuntimeId: "brain-os-runtime",
+          });
+          expect(federationStore.inbox[0]?.validationErrors).toContain(
+            "type must be a non-empty string",
+          );
+          expect(snapshot.inbox.latestPackages[0]).toMatchObject({
+            packageType: "invalid-package",
+            validationErrorCount: 1,
+            localLandingLabel: "invalid-package",
+          });
+          expect(snapshot.inbox.latestPackages[0]?.payloadPreview).toEqual(
+            expect.arrayContaining(["type must be a non-empty string"]),
+          );
+          expect(snapshot.latestSyncAttempts[0]).toMatchObject({
+            status: "success",
+            stage: "sync_inbox",
+            pulledPackageCount: 1,
+            inboxProcessedCount: 1,
+          });
+        } finally {
+          server.close();
+          await once(server, "close");
+        }
+      },
+    );
   });
 });

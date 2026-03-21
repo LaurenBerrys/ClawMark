@@ -71,7 +71,7 @@ Default mode is `gateway.reload.mode="hybrid"`.
 - Single multiplexed port for:
   - WebSocket control/RPC
   - HTTP APIs (OpenAI-compatible, Responses, tools invoke)
-  - Control UI and hooks
+  - User Console and hooks
 - Default bind mode: `loopback`.
 - Auth is required by default (`gateway.auth.token` / `gateway.auth.password`, or `OPENCLAW_GATEWAY_TOKEN` / `OPENCLAW_GATEWAY_PASSWORD`).
 

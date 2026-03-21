@@ -3,13 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildRuntimeDashboardSnapshot } from "./runtime-dashboard.js";
+import { getRuntimeUserModel, updateRuntimeUserModel } from "./user-console.js";
 import {
   buildRuntimeUserModelMirrorStatus,
   markRuntimeUserModelMirrorImported,
   readRuntimeUserModelMirrorImport,
   syncRuntimeUserModelMirror,
 } from "./user-model-mirror.js";
-import { getRuntimeUserModel, updateRuntimeUserModel } from "./user-console.js";
 
 async function withTempRoot(
   prefix: string,

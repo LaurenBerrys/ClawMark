@@ -1,3 +1,4 @@
+import type { RuntimeCapabilityPolicy } from "./capability-plane.js";
 import type {
   ContextPack,
   DecisionConfig,
@@ -12,7 +13,6 @@ import type {
   ThinkingLane,
 } from "./contracts.js";
 import { buildContextPack, buildRouteDomains } from "./retrieval-orchestrator.js";
-import type { RuntimeCapabilityPolicy } from "./capability-plane.js";
 
 type StrategyInsight = {
   id?: string;
@@ -317,7 +317,10 @@ function deriveDecisionUserPreferenceView(
     ),
   };
 
-  const applyCandidate = (candidate: RetrievalCandidate | undefined, source: DecisionPreferenceSource) => {
+  const applyCandidate = (
+    candidate: RetrievalCandidate | undefined,
+    source: DecisionPreferenceSource,
+  ) => {
     if (!candidate) {
       return;
     }
@@ -385,7 +388,9 @@ function deriveSurfacePolicyView(
       readSessionSignalKind(c) === "surface-role-overlay" &&
       readMetadataString(c, "surfaceId") === task.surfaceId,
   );
-  if (!candidate) {return null;}
+  if (!candidate) {
+    return null;
+  }
 
   return {
     role: readMetadataString(candidate, "role") || "general",
@@ -761,7 +766,9 @@ export function buildDecisionRecord(
     ...buildRouteSkillHints(resolveTaskRoute(task)),
   ])
     .filter((skillId) => {
-      if (!params.policy) {return true;}
+      if (!params.policy) {
+        return true;
+      }
       return params.policy.resolveExecutionStatus("skill", skillId).mode !== "blocked";
     })
     .slice(0, 12);
@@ -841,7 +848,9 @@ export function buildDecisionPromptBlock(decision: DecisionRecord | null | undef
 
   const metadata = isObject(decision.metadata) ? decision.metadata : {};
   const ecologyBinding = isObject(metadata.ecologyBinding) ? metadata.ecologyBinding : {};
-  const userPreferenceView = isObject(metadata.userPreferenceView) ? metadata.userPreferenceView : {};
+  const userPreferenceView = isObject(metadata.userPreferenceView)
+    ? metadata.userPreferenceView
+    : {};
   const memoryLines = toContextBullet("memory", decision.contextPack.memoryCandidates);
   const sessionLines = toContextBullet("session", decision.contextPack.sessionCandidates);
   const synthesisLines = decision.contextPack.synthesis.map((line) => `- ${line}`);

@@ -1,14 +1,14 @@
 ---
-summary: "Use Amazon Bedrock (Converse API) models with OpenClaw"
+summary: "Use Amazon Bedrock (Converse API) models with ClawMark"
 read_when:
-  - You want to use Amazon Bedrock models with OpenClaw
+  - You want to use Amazon Bedrock models with ClawMark
   - You need AWS credential/region setup for model calls
 title: "Amazon Bedrock"
 ---
 
 # Amazon Bedrock
 
-OpenClaw can use **Amazon Bedrock** models via pi‑ai’s **Bedrock Converse**
+ClawMark can use **Amazon Bedrock** models via pi‑ai’s **Bedrock Converse**
 streaming provider. Bedrock auth uses the **AWS SDK default credential chain**,
 not an API key.
 
@@ -21,7 +21,7 @@ not an API key.
 
 ## Automatic model discovery
 
-If AWS credentials are detected, OpenClaw can automatically discover Bedrock
+If AWS credentials are detected, ClawMark can automatically discover Bedrock
 models that support **streaming** and **text output**. Discovery uses
 `bedrock:ListFoundationModels` and is cached (default: 1 hour).
 
@@ -100,9 +100,9 @@ export AWS_BEARER_TOKEN_BEDROCK="..."
 
 ## EC2 Instance Roles
 
-When running OpenClaw on an EC2 instance with an IAM role attached, the AWS SDK
+When running ClawMark on an EC2 instance with an IAM role attached, the AWS SDK
 will automatically use the instance metadata service (IMDS) for authentication.
-However, OpenClaw's credential detection currently only checks for environment
+However, ClawMark's credential detection currently only checks for environment
 variables, not IMDS credentials.
 
 **Workaround:** Set `AWS_PROFILE=default` to signal that AWS credentials are
@@ -167,7 +167,7 @@ openclaw models list
 - Bedrock requires **model access** enabled in your AWS account/region.
 - Automatic discovery needs the `bedrock:ListFoundationModels` permission.
 - If you use profiles, set `AWS_PROFILE` on the gateway host.
-- OpenClaw surfaces the credential source in this order: `AWS_BEARER_TOKEN_BEDROCK`,
+- ClawMark surfaces the credential source in this order: `AWS_BEARER_TOKEN_BEDROCK`,
   then `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`, then `AWS_PROFILE`, then the
   default AWS SDK chain.
 - Reasoning support depends on the model; check the Bedrock model card for

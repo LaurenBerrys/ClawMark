@@ -395,6 +395,8 @@ function renderTaskStatusList(snapshot: RuntimeDashboardSnapshot) {
           ${renderStat("Lease", formatMs(snapshot.tasks.leaseDurationMs))}
           ${renderStat("Worker slots", `${snapshot.tasks.maxConcurrentRunsPerWorker} max`)}
           ${renderStat("Route slots", `${snapshot.tasks.maxConcurrentRunsPerRoute} max`)}
+          ${renderStat("Archived steps", snapshot.tasks.archivedStepCount)}
+          ${renderStat("Compaction", `${snapshot.retrieval.compactionWatermark} chars`)}
         </div>
         ${
           Object.keys(snapshot.tasks.activeWorkerSlots).length > 0
@@ -691,6 +693,7 @@ function renderTaskLoopControls(snapshot: RuntimeDashboardSnapshot, props: Runti
             ) as RuntimeTaskLoopConfigureInput["defaultRetrievalMode"]) || undefined,
           maxInputTokensPerTurn: readPositiveNumber(formData, "maxInputTokensPerTurn"),
           maxContextChars: readPositiveNumber(formData, "maxContextChars"),
+          compactionWatermark: readPositiveNumber(formData, "compactionWatermark"),
           maxRemoteCallsPerTask: readPositiveNumber(formData, "maxRemoteCallsPerTask"),
           leaseDurationMs:
             (readPositiveNumber(formData, "leaseDurationSeconds") ?? 0) > 0
@@ -795,6 +798,16 @@ function renderTaskLoopControls(snapshot: RuntimeDashboardSnapshot, props: Runti
             min="1"
             step="1"
             .value=${String(snapshot.retrieval.maxContextChars)}
+          />
+        </label>
+        <label>
+          <div class="muted">Compaction watermark</div>
+          <input
+            name="compactionWatermark"
+            type="number"
+            min="1"
+            step="1"
+            .value=${String(snapshot.retrieval.compactionWatermark)}
           />
         </label>
       </div>
@@ -2400,6 +2413,8 @@ function formatUserActionKindLabel(
   switch (kind) {
     case "waiting_user_task":
       return "Waiting user";
+    case "evolution_candidate_review":
+      return "Evolution approval";
     case "evolution_revert_recommendation":
       return "Live optimization review";
     case "user_model_mirror_import":
@@ -2489,8 +2504,56 @@ function renderUserConsoleActionItem(
               Keep Live For Now
             </button>
           `
-        : item.kind === "user_model_mirror_import"
+        : item.kind === "evolution_candidate_review" && item.candidateId
           ? html`
+            <button
+              class="btn"
+              ?disabled=${props.loading}
+              @click=${() => {
+                const reason = item.requiresReasonOnAdopt
+                  ? window.prompt(
+                      "Adoption reason",
+                      "Adopt this optimization candidate after local review.",
+                    )
+                  : "Adopted from the user action queue after local review.";
+                if (reason === null || (item.requiresReasonOnAdopt && !reason.trim())) {
+                  return;
+                }
+                void props.onEvolutionCandidateStateSet({
+                  id: item.candidateId as string,
+                  state: "adopted",
+                  reason:
+                    reason?.trim() || "Adopted from the user action queue after local review.",
+                });
+              }}
+            >
+              Adopt
+            </button>
+            <button
+              class="btn"
+              ?disabled=${props.loading}
+              @click=${() => {
+                const reason = window.prompt(
+                  "Reject reason (optional)",
+                  "Reject this optimization candidate from the user action queue.",
+                );
+                if (reason === null) {
+                  return;
+                }
+                void props.onEvolutionCandidateStateSet({
+                  id: item.candidateId as string,
+                  state: "reverted",
+                  reason:
+                    reason.trim() ||
+                    "Rejected this optimization candidate from the user action queue.",
+                });
+              }}
+            >
+              Reject
+            </button>
+          `
+          : item.kind === "user_model_mirror_import"
+            ? html`
             <button
               class="btn"
               ?disabled=${props.loading}
@@ -2517,8 +2580,8 @@ function renderUserConsoleActionItem(
               Discard + Force Sync
             </button>
           `
-          : item.kind === "user_model_optimization" && item.candidateId
-            ? html`
+            : item.kind === "user_model_optimization" && item.candidateId
+              ? html`
           <button
             class="btn"
             ?disabled=${props.loading}
@@ -2542,8 +2605,8 @@ function renderUserConsoleActionItem(
             Reject
           </button>
         `
-            : item.kind === "role_optimization" && item.candidateId
-              ? html`
+              : item.kind === "role_optimization" && item.candidateId
+                ? html`
             <button
               class="btn"
               ?disabled=${props.loading}
@@ -2567,8 +2630,8 @@ function renderUserConsoleActionItem(
               Reject
             </button>
           `
-              : item.kind === "federation_package" && item.packageId
-                ? html`
+                : item.kind === "federation_package" && item.packageId
+                  ? html`
               <button
                 class="btn"
                 ?disabled=${props.loading}
@@ -2597,8 +2660,8 @@ function renderUserConsoleActionItem(
                 Reject Package
               </button>
             `
-                : item.kind === "coordinator_suggestion"
-                  ? html`
+                  : item.kind === "coordinator_suggestion"
+                    ? html`
                 <button
                   class="btn"
                   ?disabled=${props.loading || Boolean(item.actionBlockedReason)}
@@ -2616,7 +2679,7 @@ function renderUserConsoleActionItem(
                   }
                 </button>
               `
-                  : nothing;
+                    : nothing;
   return html`
     <div class="list-item" style="display:grid; gap: 10px;">
       <div class="list-main">
@@ -2650,6 +2713,16 @@ function renderUserConsoleActionItem(
           : nothing
       }
       ${item.candidateId ? html`<div class="mono" style="font-size: 12px;">candidate=${item.candidateId}</div>` : nothing}
+      ${
+        item.candidateState
+          ? html`<div class="mono" style="font-size: 12px;">candidate state=${item.candidateState}</div>`
+          : nothing
+      }
+      ${
+        item.estimatedImpact
+          ? html`<div class="muted" style="font-size: 12px;">Estimated impact: ${item.estimatedImpact}</div>`
+          : nothing
+      }
       ${
         item.sourceTaskId
           ? html`<div class="mono" style="font-size: 12px;">source task=${item.sourceTaskId}</div>`
@@ -4037,6 +4110,7 @@ function renderEvolutionControls(snapshot: RuntimeDashboardSnapshot, props: Runt
         void props.onEvolutionConfigure({
           enabled: readChecked(formData, "enabled"),
           autoApplyLowRisk: readChecked(formData, "autoApplyLowRisk"),
+          autoCanaryEvolution: readChecked(formData, "autoCanaryEvolution"),
           reviewIntervalHours: readOptionalNumber(formData, "reviewIntervalHours"),
         });
       }}
@@ -4052,6 +4126,14 @@ function renderEvolutionControls(snapshot: RuntimeDashboardSnapshot, props: Runt
             type="checkbox"
             name="autoApplyLowRisk"
             ?checked=${snapshot.evolution.autoApplyLowRisk}
+          />
+        </label>
+        <label class="field" style="justify-content: end;">
+          <span>Auto canary evolution</span>
+          <input
+            type="checkbox"
+            name="autoCanaryEvolution"
+            ?checked=${snapshot.evolution.autoCanaryEvolution}
           />
         </label>
         <label class="field">
@@ -4080,6 +4162,33 @@ function renderEvolutionControls(snapshot: RuntimeDashboardSnapshot, props: Runt
       </div>
     </form>
   `;
+}
+
+function requestEvolutionAdoptionReason(
+  candidate: RuntimeDashboardSnapshot["evolution"]["candidates"][number],
+): string | null {
+  if (!candidate.requiresReasonOnAdopt) {
+    return "Adopted from the runtime dashboard after local review.";
+  }
+  const reason = window.prompt(
+    "Adoption reason",
+    `Adopt ${candidate.summary} after local review because it matches the expected impact and risk boundary.`,
+  );
+  if (reason === null) {
+    return null;
+  }
+  return reason.trim() || null;
+}
+
+function requestEvolutionRejectReason(summary: string): string | null {
+  const reason = window.prompt(
+    "Reject reason (optional)",
+    `Reject ${summary} from the runtime dashboard approval queue.`,
+  );
+  if (reason === null) {
+    return null;
+  }
+  return reason.trim() || `Rejected ${summary} from the runtime dashboard approval queue.`;
 }
 
 function renderEvolutionCandidates(snapshot: RuntimeDashboardSnapshot, props: RuntimeProps) {
@@ -4156,6 +4265,7 @@ function renderEvolutionCandidates(snapshot: RuntimeDashboardSnapshot, props: Ru
                   }
                 </div>
                 <div class="muted">${candidate.riskSummary}</div>
+                <div class="muted">Estimated impact: ${candidate.estimatedImpact}</div>
                 <div class="muted">${candidate.autoApplySummary}</div>
                 ${
                   candidate.verificationStatus
@@ -4228,16 +4338,20 @@ function renderEvolutionCandidates(snapshot: RuntimeDashboardSnapshot, props: Ru
                     : nothing
                 }
                 ${
-                  candidate.state !== "adopted"
+                  candidate.state === "candidate"
                     ? html`
                       <button
                         class="btn primary"
                         ?disabled=${props.loading}
                         @click=${() => {
+                          const reason = requestEvolutionAdoptionReason(candidate);
+                          if (reason == null) {
+                            return;
+                          }
                           void props.onEvolutionCandidateStateSet({
                             id: candidate.id,
                             state: "adopted",
-                            reason: "runtime-console-adopt",
+                            reason,
                           });
                         }}
                       >
@@ -4247,7 +4361,30 @@ function renderEvolutionCandidates(snapshot: RuntimeDashboardSnapshot, props: Ru
                     : nothing
                 }
                 ${
-                  candidate.state === "candidate" || candidate.state === "adopted"
+                  candidate.state === "candidate" || candidate.state === "shadow"
+                    ? html`
+                      <button
+                        class="btn"
+                        ?disabled=${props.loading}
+                        @click=${() => {
+                          const reason = requestEvolutionRejectReason(candidate.summary);
+                          if (reason == null) {
+                            return;
+                          }
+                          void props.onEvolutionCandidateStateSet({
+                            id: candidate.id,
+                            state: "reverted",
+                            reason,
+                          });
+                        }}
+                      >
+                        Reject
+                      </button>
+                    `
+                    : nothing
+                }
+                ${
+                  candidate.state === "adopted"
                     ? html`
                       <button
                         class="btn"
@@ -5977,6 +6114,7 @@ export function renderRuntime(props: RuntimeProps) {
                 ${renderStat("Candidates", snapshot.evolution.candidateCount)}
                 ${renderStat("Review hours", snapshot.evolution.reviewIntervalHours)}
                 ${renderStat("Auto apply", snapshot.evolution.autoApplyLowRisk ? "On" : "Off")}
+                ${renderStat("Auto canary", snapshot.evolution.autoCanaryEvolution ? "On" : "Off")}
                 ${renderStat(
                   "Last review",
                   snapshot.evolution.lastReviewAt

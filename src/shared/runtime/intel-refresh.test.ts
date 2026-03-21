@@ -2,10 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  dispatchRuntimeIntelDeliveries,
-  previewRuntimeIntelDeliveries,
-} from "./intel-delivery.js";
+import { dispatchRuntimeIntelDeliveries, previewRuntimeIntelDeliveries } from "./intel-delivery.js";
 import {
   configureRuntimeIntelPanel,
   deleteRuntimeIntelSource,
@@ -14,6 +11,16 @@ import {
 } from "./intel-refresh.js";
 import { loadRuntimeIntelStore, loadRuntimeMemoryStore, saveRuntimeIntelStore } from "./store.js";
 import { upsertRuntimeAgent, upsertRuntimeSurface } from "./user-console.js";
+
+function requestUrlToString(input: RequestInfo | URL): string {
+  if (typeof input === "string") {
+    return input;
+  }
+  if (input instanceof URL) {
+    return input.toString();
+  }
+  return input.url;
+}
 
 async function withTempRoot(
   prefix: string,
@@ -82,7 +89,7 @@ describe("runtime intel refresh", () => {
       const now = 1_700_350_000_000;
       const requestLog: string[] = [];
       const fetchImpl: typeof fetch = async (input) => {
-        const url = String(input);
+        const url = requestUrlToString(input);
         requestLog.push(url);
         if (url.includes("openai.com/news")) {
           return buildMockResponse(buildFeedXml("OpenAI", 6, "https://openai.com/news/", now));
@@ -109,12 +116,7 @@ describe("runtime intel refresh", () => {
         }
         if (url.includes("breakingdefense.com")) {
           return buildMockResponse(
-            buildFeedXml(
-              "Breaking Defense",
-              6,
-              "https://breakingdefense.com/story-",
-              now - 5_000,
-            ),
+            buildFeedXml("Breaking Defense", 6, "https://breakingdefense.com/story-", now - 5_000),
           );
         }
         if (url.includes("reuters.com/reuters/worldNews")) {
@@ -137,8 +139,10 @@ describe("runtime intel refresh", () => {
       const memoryStore = loadRuntimeMemoryStore({ env, now });
 
       expect(result.domains).toHaveLength(2);
-      expect(result.domains.every((entry) => ! entry.skipped)).toBe(true);
-      expect(result.domains.find((entry) => entry.domain === "ai")?.fetchedCount).toBeGreaterThan(20);
+      expect(result.domains.every((entry) => !entry.skipped)).toBe(true);
+      expect(result.domains.find((entry) => entry.domain === "ai")?.fetchedCount).toBeGreaterThan(
+        20,
+      );
       expect(result.domains.find((entry) => entry.domain === "ai")?.digestCount).toBe(10);
       expect(result.domains.find((entry) => entry.domain === "military")?.digestCount).toBe(10);
       expect(intelStore.candidates.filter((entry) => entry.domain === "ai")).toHaveLength(20);
@@ -168,7 +172,7 @@ describe("runtime intel refresh", () => {
       let requestCount = 0;
       const fetchImpl: typeof fetch = async (input) => {
         requestCount += 1;
-        const url = String(input);
+        const url = requestUrlToString(input);
         if (url.includes("defenseone.com")) {
           return buildMockResponse(
             buildFeedXml("Defense One", 6, "https://www.defenseone.com/story-", now),
@@ -239,7 +243,7 @@ describe("runtime intel refresh", () => {
 
       const requestLog: string[] = [];
       const fetchImpl: typeof fetch = async (input) => {
-        const url = String(input);
+        const url = requestUrlToString(input);
         requestLog.push(url);
         if (url.includes("api.github.com/search/repositories")) {
           return buildMockResponse(buildGitHubPayload(12, now));
@@ -266,7 +270,9 @@ describe("runtime intel refresh", () => {
         },
       ]);
       expect(intelStore.candidates.filter((entry) => entry.domain === "tech")).toHaveLength(12);
-      expect(requestLog.some((url) => url.includes("api.github.com/search/repositories"))).toBe(true);
+      expect(requestLog.some((url) => url.includes("api.github.com/search/repositories"))).toBe(
+        true,
+      );
     });
   });
 
@@ -347,7 +353,7 @@ describe("runtime intel refresh", () => {
 
       const requestLog: string[] = [];
       const fetchImpl: typeof fetch = async (input) => {
-        const url = String(input);
+        const url = requestUrlToString(input);
         requestLog.push(url);
         if (url === "https://custom.example/rss.xml") {
           return buildMockResponse(
@@ -375,7 +381,9 @@ describe("runtime intel refresh", () => {
         skipped: true,
         errors: ["domain disabled"],
       });
-      expect(result.domains.find((entry) => entry.domain === "tech")?.fetchedCount).toBeGreaterThan(0);
+      expect(result.domains.find((entry) => entry.domain === "tech")?.fetchedCount).toBeGreaterThan(
+        0,
+      );
       expect(intelStore.candidates.some((entry) => entry.sourceId === "custom-radar")).toBe(true);
       expect(intelStore.metadata?.instantPushEnabled).toBe(true);
       expect(intelStore.metadata?.instantPushMinScore).toBe(91);
@@ -562,25 +570,25 @@ describe("runtime intel refresh", () => {
       const pending = previewRuntimeIntelDeliveries({ env, now: now + 3 });
       expect(pending.dailyDigestCount).toBe(2);
       expect(pending.instantAlertCount).toBe(1);
-      expect(pending.items.find((item) => item.kind === "daily_digest")?.targets.map((target) => target.id)).toEqual([
-        "runtime-user",
-        `surface:${surface.id}`,
-      ]);
       expect(
-        pending.items.find((item) => item.kind === "instant_alert")?.targets.map((target) => target.id),
+        pending.items
+          .find((item) => item.kind === "daily_digest")
+          ?.targets.map((target) => target.id),
+      ).toEqual(["runtime-user", `surface:${surface.id}`]);
+      expect(
+        pending.items
+          .find((item) => item.kind === "instant_alert")
+          ?.targets.map((target) => target.id),
       ).toEqual([`agent:${agent.id}`]);
 
       const dispatched = dispatchRuntimeIntelDeliveries({ env, now: now + 4 });
       expect(dispatched.deliveredCount).toBe(5);
       expect(dispatched.deliveryRecords).toHaveLength(5);
       expect(
-        dispatched.deliveryRecords.filter((entry) => entry.kind === "daily_digest").map((entry) => entry.targetId),
-      ).toEqual([
-        "runtime-user",
-        `surface:${surface.id}`,
-        "runtime-user",
-        `surface:${surface.id}`,
-      ]);
+        dispatched.deliveryRecords
+          .filter((entry) => entry.kind === "daily_digest")
+          .map((entry) => entry.targetId),
+      ).toEqual(["runtime-user", `surface:${surface.id}`, "runtime-user", `surface:${surface.id}`]);
       expect(
         dispatched.deliveryRecords.find((entry) => entry.kind === "instant_alert")?.targetId,
       ).toBe(`agent:${agent.id}`);

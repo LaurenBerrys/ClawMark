@@ -539,8 +539,7 @@ function appendRankHistoryEntries(
   const selectionRankById = new Map(
     [...candidates]
       .toSorted((left, right) => {
-        const leftScore =
-          readNumericMetadata(left.metadata, "selectionScore") || left.score || 0;
+        const leftScore = readNumericMetadata(left.metadata, "selectionScore") || left.score || 0;
         const rightScore =
           readNumericMetadata(right.metadata, "selectionScore") || right.score || 0;
         return (
@@ -579,7 +578,8 @@ function appendRankHistoryEntries(
       domain: candidate.domain,
       selectionRank: selectionRankById.get(candidate.id),
       explorationRank: explorationRankById.get(candidate.id),
-      selectionScore: readNumericMetadata(candidate.metadata, "selectionScore") || candidate.score || 0,
+      selectionScore:
+        readNumericMetadata(candidate.metadata, "selectionScore") || candidate.score || 0,
       explorationScore: readNumericMetadata(candidate.metadata, "explorationScore"),
       selected: selectedModeById.has(candidate.id),
       selectedMode: selectedModeById.get(candidate.id) ?? "none",
@@ -668,7 +668,11 @@ function selectDigestCandidates(
   const explorationRanked = [...ranked].toSorted((left, right) => {
     const leftScore = readNumericMetadata(left.metadata, "explorationScore");
     const rightScore = readNumericMetadata(right.metadata, "explorationScore");
-    return rightScore - leftScore || (right.score ?? 0) - (left.score ?? 0) || right.createdAt - left.createdAt;
+    return (
+      rightScore - leftScore ||
+      (right.score ?? 0) - (left.score ?? 0) ||
+      right.createdAt - left.createdAt
+    );
   });
   for (const candidate of explorationRanked) {
     trySelect(explore, candidate, cappedExploreLimit, true);

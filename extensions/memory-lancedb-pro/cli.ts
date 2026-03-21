@@ -2,12 +2,12 @@
  * CLI Commands for Memory Management
  */
 
-import type { Command } from "commander";
 import { readFileSync } from "node:fs";
-import { loadLanceDB, type MemoryEntry, type MemoryStore } from "./src/store.js";
+import type { Command } from "commander";
+import type { MemoryMigrator } from "./src/migrate.js";
 import type { MemoryRetriever } from "./src/retriever.js";
 import type { MemoryScopeManager } from "./src/scopes.js";
-import type { MemoryMigrator } from "./src/migrate.js";
+import { loadLanceDB, type MemoryEntry, type MemoryStore } from "./src/store.js";
 
 // ============================================================================
 // Types
@@ -43,7 +43,9 @@ function clampInt(value: number, min: number, max: number): number {
 function formatMemory(memory: any, index?: number): string {
   const prefix = index !== undefined ? `${index + 1}. ` : "";
   const id = memory?.id ? String(memory.id) : "unknown";
-  const date = new Date(memory.timestamp || memory.createdAt || Date.now()).toISOString().split('T')[0];
+  const date = new Date(memory.timestamp || memory.createdAt || Date.now())
+    .toISOString()
+    .split("T")[0];
   const fullText = String(memory.text || "");
   const text = fullText.slice(0, 100) + (fullText.length > 100 ? "..." : "");
   return `${prefix}[${id}] [${memory.category}:${memory.scope}] ${text} (${date})`;
@@ -89,12 +91,7 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
           scopeFilter = [options.scope];
         }
 
-        const memories = await context.store.list(
-          scopeFilter,
-          options.category,
-          limit,
-          offset
-        );
+        const memories = await context.store.list(scopeFilter, options.category, limit, offset);
 
         if (options.json) {
           console.log(formatJson(memories));
@@ -153,7 +150,7 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
 
               console.log(
                 `${i + 1}. [${result.entry.id}] [${result.entry.category}:${result.entry.scope}] ${result.entry.text} ` +
-                `(${(result.score * 100).toFixed(0)}%, ${sources.join('+')})`
+                  `(${(result.score * 100).toFixed(0)}%, ${sources.join("+")})`,
               );
             });
           }
@@ -197,7 +194,7 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
           console.log(`• Total memories: ${stats.totalCount}`);
           console.log(`• Available scopes: ${scopeStats.totalScopes}`);
           console.log(`• Retrieval mode: ${retrievalConfig.mode}`);
-          console.log(`• FTS support: ${context.store.hasFtsSupport ? 'Yes' : 'No'}`);
+          console.log(`• FTS support: ${context.store.hasFtsSupport ? "Yes" : "No"}`);
           console.log();
 
           console.log("Memories by scope:");
@@ -269,7 +266,9 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
 
         if (options.dryRun) {
           console.log("DRY RUN - No memories will be deleted");
-          console.log(`Filters: scopes=${options.scope.join(',')}, before=${options.before || 'none'}`);
+          console.log(
+            `Filters: scopes=${options.scope.join(",")}, before=${options.before || "none"}`,
+          );
 
           // Show what would be deleted
           const stats = await context.store.stats(options.scope);
@@ -301,7 +300,7 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
         const memories = await context.store.list(
           scopeFilter,
           options.category,
-          1000 // Large limit for export
+          1000, // Large limit for export
         );
 
         const exportData = {
@@ -312,7 +311,7 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
             scope: options.scope,
             category: options.category,
           },
-          memories: memories.map(m => ({
+          memories: memories.map((m) => ({
             ...m,
             vector: undefined, // Exclude vectors to reduce size
           })),
@@ -468,7 +467,9 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
   // Re-embed an existing LanceDB into the current target DB (A/B testing)
   memory
     .command("reembed")
-    .description("Re-embed memories from a source LanceDB database into the current target database")
+    .description(
+      "Re-embed memories from a source LanceDB database into the current target database",
+    )
     .requiredOption("--source-db <path>", "Source LanceDB database directory")
     .option("--batch-size <n>", "Batch size for embedding calls", "32")
     .option("--limit <n>", "Limit number of rows to process (for testing)")
@@ -486,7 +487,9 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
 
         const sourceDbPath = options.sourceDb as string;
         const batchSize = clampInt(parseInt(options.batchSize, 10) || 32, 1, 128);
-        const limit = options.limit ? clampInt(parseInt(options.limit, 10) || 0, 1, 1000000) : undefined;
+        const limit = options.limit
+          ? clampInt(parseInt(options.limit, 10) || 0, 1, 1000000)
+          : undefined;
         const dryRun = options.dryRun === true;
         const skipExisting = options.skipExisting === true;
         const force = options.force === true;
@@ -502,7 +505,9 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
         } catch {}
 
         if (!force && sourceReal === targetReal) {
-          console.error("Refusing to re-embed in-place: source-db equals target dbPath. Use a new dbPath or pass --force.");
+          console.error(
+            "Refusing to re-embed in-place: source-db equals target dbPath. Use a new dbPath or pass --force.",
+          );
           process.exit(1);
         }
 
@@ -526,12 +531,14 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
         }
 
         console.log(
-          `Re-embedding ${rows.length} memories from ${sourceDbPath} → ${context.store.dbPath} (batchSize=${batchSize})`
+          `Re-embedding ${rows.length} memories from ${sourceDbPath} → ${context.store.dbPath} (batchSize=${batchSize})`,
         );
 
         if (dryRun) {
           console.log("DRY RUN - No memories will be written");
-          console.log(`First example: ${rows[0].id?.slice?.(0, 8)} ${String(rows[0].text).slice(0, 80)}`);
+          console.log(
+            `First example: ${rows[0].id?.slice?.(0, 8)} ${String(rows[0].text).slice(0, 80)}`,
+          );
           return;
         }
 
@@ -569,8 +576,8 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
               vector,
               category: (row.category as any) || "other",
               scope: (row.scope as string | undefined) || "global",
-              importance: (row.importance != null) ? Number(row.importance) : 0.7,
-              timestamp: (row.timestamp != null) ? Number(row.timestamp) : Date.now(),
+              importance: row.importance != null ? Number(row.importance) : 0.7,
+              timestamp: row.timestamp != null ? Number(row.timestamp) : Date.now(),
               metadata: typeof row.metadata === "string" ? row.metadata : "{}",
             };
 
@@ -579,11 +586,15 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
           }
 
           if (processed % 100 === 0 || processed === rows.length) {
-            console.log(`Progress: ${processed}/${rows.length} processed, ${imported} imported, ${skipped} skipped`);
+            console.log(
+              `Progress: ${processed}/${rows.length} processed, ${imported} imported, ${skipped} skipped`,
+            );
           }
         }
 
-        console.log(`Re-embed completed: ${imported} imported, ${skipped} skipped (processed=${processed}).`);
+        console.log(
+          `Re-embed completed: ${imported} imported, ${skipped} skipped (processed=${processed}).`,
+        );
       } catch (error) {
         console.error("Re-embed failed:", error);
         process.exit(1);
@@ -591,9 +602,7 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
     });
 
   // Migration commands
-  const migrate = memory
-    .command("migrate")
-    .description("Migration utilities");
+  const migrate = memory.command("migrate").description("Migration utilities");
 
   migrate
     .command("check")
@@ -604,14 +613,14 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
         const check = await context.migrator.checkMigrationNeeded(options.source);
 
         console.log("Migration Check Results:");
-        console.log(`• Legacy database found: ${check.sourceFound ? 'Yes' : 'No'}`);
+        console.log(`• Legacy database found: ${check.sourceFound ? "Yes" : "No"}`);
         if (check.sourceDbPath) {
           console.log(`• Source path: ${check.sourceDbPath}`);
         }
         if (check.entryCount !== undefined) {
           console.log(`• Entries to migrate: ${check.entryCount}`);
         }
-        console.log(`• Migration needed: ${check.needed ? 'Yes' : 'No'}`);
+        console.log(`• Migration needed: ${check.needed ? "Yes" : "No"}`);
       } catch (error) {
         console.error("Migration check failed:", error);
         process.exit(1);
@@ -635,12 +644,12 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
         });
 
         console.log("Migration Results:");
-        console.log(`• Status: ${result.success ? 'Success' : 'Failed'}`);
+        console.log(`• Status: ${result.success ? "Success" : "Failed"}`);
         console.log(`• Migrated: ${result.migratedCount}`);
         console.log(`• Skipped: ${result.skippedCount}`);
         if (result.errors.length > 0) {
           console.log(`• Errors: ${result.errors.length}`);
-          result.errors.forEach(error => console.log(`  - ${error}`));
+          result.errors.forEach((error) => console.log(`  - ${error}`));
         }
         console.log(`• Summary: ${result.summary}`);
 
@@ -662,13 +671,13 @@ export function registerMemoryCLI(program: Command, context: CLIContext): void {
         const result = await context.migrator.verifyMigration(options.source);
 
         console.log("Migration Verification:");
-        console.log(`• Valid: ${result.valid ? 'Yes' : 'No'}`);
+        console.log(`• Valid: ${result.valid ? "Yes" : "No"}`);
         console.log(`• Source count: ${result.sourceCount}`);
         console.log(`• Target count: ${result.targetCount}`);
 
         if (result.issues.length > 0) {
           console.log("• Issues:");
-          result.issues.forEach(issue => console.log(`  - ${issue}`));
+          result.issues.forEach((issue) => console.log(`  - ${issue}`));
         }
 
         if (!result.valid) {

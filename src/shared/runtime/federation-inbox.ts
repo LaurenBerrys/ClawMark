@@ -213,7 +213,8 @@ function buildInvalidFederationPackageRecord(params: {
       ? parsedRecord.type.trim()
       : undefined;
   const sourceRuntimeId =
-    typeof parsedRecord?.sourceRuntimeId === "string" && parsedRecord.sourceRuntimeId.trim().length > 0
+    typeof parsedRecord?.sourceRuntimeId === "string" &&
+    parsedRecord.sourceRuntimeId.trim().length > 0
       ? parsedRecord.sourceRuntimeId.trim()
       : "unknown-runtime";
   const generatedAt =
@@ -422,7 +423,9 @@ function normalizeStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
   }
-  return value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+  return value.filter(
+    (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+  );
 }
 
 function validateTeamKnowledgeRecord(record: unknown, index: number): string[] {
@@ -538,9 +541,7 @@ function validateGovernanceOverlayEntries(value: unknown): string[] {
     }
     const targetId = normalizeText(record.targetId ?? record.id ?? record.name);
     if (!targetId) {
-      errors.push(
-        `payload.policy.governanceEntries[${index}] must include targetId, id, or name`,
-      );
+      errors.push(`payload.policy.governanceEntries[${index}] must include targetId, id, or name`);
     }
     if (
       record.registryType != null &&
@@ -669,11 +670,9 @@ function sanitizeRuntimePolicyOverlayPolicy(value: unknown): Record<string, unkn
     }
   }
 
-  const stateFields = [
-    "skillStates",
-    "agentStates",
-    "mcpStates",
-  ] as const satisfies ReadonlyArray<"skillStates" | "agentStates" | "mcpStates">;
+  const stateFields = ["skillStates", "agentStates", "mcpStates"] as const satisfies ReadonlyArray<
+    "skillStates" | "agentStates" | "mcpStates"
+  >;
   for (const field of stateFields) {
     const map = toRecord(policy[field]);
     if (!map) {
@@ -845,7 +844,9 @@ function buildRuntimePolicyOverlayReview(
   };
 }
 
-function buildFederationPackageReview(pkg: FederationInboundPackage): FederationPackageReview | undefined {
+function buildFederationPackageReview(
+  pkg: FederationInboundPackage,
+): FederationPackageReview | undefined {
   if (pkg.type === "runtime-policy-overlay-package") {
     return buildRuntimePolicyOverlayReview(pkg);
   }
@@ -913,9 +914,7 @@ function buildFederationRoleOptimizationReasoning(record: FederationInboxRecord)
   if (candidateReasoning.length > 0) {
     return candidateReasoning;
   }
-  return [
-    `Federation recommended this surface role optimization from ${record.sourceRuntimeId}.`,
-  ];
+  return [`Federation recommended this surface role optimization from ${record.sourceRuntimeId}.`];
 }
 
 function resolveFederationRoleOptimizationConfidence(record: FederationInboxRecord): number {
@@ -1003,7 +1002,9 @@ export function materializeRuntimeCoordinatorSuggestionTask(
   const metadata = toRecord(suggestion.metadata);
 
   if (suggestion.localTaskId) {
-    const existingTask = stores.taskStore.tasks.find((entry) => entry.id === suggestion.localTaskId);
+    const existingTask = stores.taskStore.tasks.find(
+      (entry) => entry.id === suggestion.localTaskId,
+    );
     if (existingTask) {
       return {
         created: false,
@@ -1048,7 +1049,7 @@ export function materializeRuntimeCoordinatorSuggestionTask(
         surfaceProfile ? "surface-bound" : undefined,
         surfaceProfile ? `surface:${surfaceProfile.surface.id}` : undefined,
         surfaceProfile?.surface.channel,
-        ...((normalizeStringArray(metadata?.tags) ?? []).map((entry) => entry.trim())),
+        ...(normalizeStringArray(metadata?.tags) ?? []).map((entry) => entry.trim()),
       ]),
       artifactRefs: uniqueStrings([
         `federation-package:${suggestion.sourcePackageId}`,
@@ -1186,7 +1187,7 @@ function applyRoleOptimizationPackage(
     shadowedAt: existingCandidate?.shadowedAt ?? record.shadowedAt ?? now,
     recommendedAt:
       existingCandidate?.state === "adopted" || existingCandidate?.state === "rejected"
-        ? existingCandidate.recommendedAt ?? now
+        ? (existingCandidate.recommendedAt ?? now)
         : now,
     adoptedAt: existingCandidate?.adoptedAt,
     rejectedAt: existingCandidate?.rejectedAt,
@@ -1437,9 +1438,8 @@ export function syncRuntimeFederationInbox(
       parsed = JSON.parse(rawText);
     } catch (error) {
       invalid += 1;
-      const parseError = error instanceof Error && error.message
-        ? `invalid JSON: ${error.message}`
-        : "invalid JSON";
+      const parseError =
+        error instanceof Error && error.message ? `invalid JSON: ${error.message}` : "invalid JSON";
       const invalidRecord = buildInvalidFederationPackageRecord({
         inboxRoot,
         filePath,
@@ -1449,7 +1449,9 @@ export function syncRuntimeFederationInbox(
         sourceError: parseError,
         validationErrors: [parseError],
         existing:
-          existingForSourcePath?.packageType === "invalid-package" ? existingForSourcePath : undefined,
+          existingForSourcePath?.packageType === "invalid-package"
+            ? existingForSourcePath
+            : undefined,
       });
       replaceInvalidSourcePathRecord(invalidRecord.id);
       const existingIndex = nextInbox.findIndex((entry) => entry.id === invalidRecord.id);
@@ -1478,7 +1480,9 @@ export function syncRuntimeFederationInbox(
         sourceError: shapeErrors[0],
         validationErrors: shapeErrors,
         existing:
-          existingForSourcePath?.packageType === "invalid-package" ? existingForSourcePath : undefined,
+          existingForSourcePath?.packageType === "invalid-package"
+            ? existingForSourcePath
+            : undefined,
       });
       replaceInvalidSourcePathRecord(invalidRecord.id);
       const existingIndex = nextInbox.findIndex((entry) => entry.id === invalidRecord.id);

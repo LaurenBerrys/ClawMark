@@ -1,3 +1,7 @@
+import {
+  removeRuntimeCapabilityRegistryTargets,
+  upsertRuntimeCapabilityRegistryEntry,
+} from "./capability-plane.js";
 import type {
   AgentLocalOverlay,
   AgentRecord,
@@ -18,6 +22,7 @@ import type {
   UserModelOptimizationCandidateState,
   UserModelOptimizationField,
 } from "./contracts.js";
+import { applyRuntimeUserControlMemoryUpdate } from "./memory-update-engine.js";
 import {
   appendRuntimeEvent,
   loadRuntimeGovernanceStore,
@@ -26,13 +31,6 @@ import {
   saveRuntimeUserConsoleStore,
   type RuntimeStoreOptions,
 } from "./store.js";
-import {
-  applyRuntimeUserControlMemoryUpdate,
-} from "./memory-update-engine.js";
-import {
-  removeRuntimeCapabilityRegistryTargets,
-  upsertRuntimeCapabilityRegistryEntry,
-} from "./capability-plane.js";
 import {
   buildDefaultSurfaceLocalBusinessPolicy,
   hasExplicitSurfaceLocalBusinessPolicy,
@@ -242,10 +240,13 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
 }
 
 function isAutoManagedLocalSkillGovernanceEntry(
-  entry: {
-    state: string;
-    metadata?: RuntimeMetadata;
-  } | null | undefined,
+  entry:
+    | {
+        state: string;
+        metadata?: RuntimeMetadata;
+      }
+    | null
+    | undefined,
 ): boolean {
   if (!entry) {
     return false;
@@ -352,13 +353,9 @@ function normalizeUserModelOptimizationValue(
     case "interruptionThreshold":
       return value === "low" || value === "medium" || value === "high" ? value : undefined;
     case "reportVerbosity":
-      return value === "brief" || value === "balanced" || value === "detailed"
-        ? value
-        : undefined;
+      return value === "brief" || value === "balanced" || value === "detailed" ? value : undefined;
     case "confirmationBoundary":
-      return value === "strict" || value === "balanced" || value === "light"
-        ? value
-        : undefined;
+      return value === "strict" || value === "balanced" || value === "light" ? value : undefined;
     case "reportPolicy":
       return normalizeReportPolicy(value);
   }
@@ -587,11 +584,7 @@ function normalizeRoleOverlayPatch(
   if (typeof patch.tone === "string" && patch.tone.trim()) {
     normalized.tone = patch.tone.trim();
   }
-  if (
-    patch.initiative === "low" ||
-    patch.initiative === "medium" ||
-    patch.initiative === "high"
-  ) {
+  if (patch.initiative === "low" || patch.initiative === "medium" || patch.initiative === "high") {
     normalized.initiative = patch.initiative;
   }
   if (Array.isArray(patch.allowedTopics)) {
@@ -675,7 +668,8 @@ function deriveSurfaceTone(
   agentOverlay: AgentLocalOverlay | undefined,
   role: string,
 ): string {
-  const inherited = agentOverlay?.communicationStyle?.trim() || userModel.communicationStyle?.trim();
+  const inherited =
+    agentOverlay?.communicationStyle?.trim() || userModel.communicationStyle?.trim();
   if (inherited) {
     return inherited;
   }
@@ -828,7 +822,9 @@ function buildRoleOptimizationSuggestion(
   }
   if (!overlay?.tone) {
     proposed.tone = deriveSurfaceTone(userModel, agentOverlay, targetRole);
-    reasoning.push("The surface should inherit a stable communication tone instead of improvising per session.");
+    reasoning.push(
+      "The surface should inherit a stable communication tone instead of improvising per session.",
+    );
   }
   if (!overlay?.initiative) {
     proposed.initiative = deriveSurfaceInitiative(surface, targetRole);
@@ -836,10 +832,15 @@ function buildRoleOptimizationSuggestion(
   }
   if (!overlay?.reportTarget) {
     proposed.reportTarget = "runtime-user";
-    reasoning.push("Role overlays should report back to the user console unless an explicit local target is set.");
+    reasoning.push(
+      "Role overlays should report back to the user console unless an explicit local target is set.",
+    );
   }
   if (!hasExplicitSurfaceLocalBusinessPolicy(overlay?.localBusinessPolicy)) {
-    proposed.localBusinessPolicy = buildDefaultSurfaceLocalBusinessPolicy(surface.ownerKind, targetRole);
+    proposed.localBusinessPolicy = buildDefaultSurfaceLocalBusinessPolicy(
+      surface.ownerKind,
+      targetRole,
+    );
     reasoning.push(
       "Each surface should carry an explicit local business policy so service channels stay scoped and cannot rewrite the runtime core.",
     );
@@ -914,7 +915,9 @@ function buildRoleOptimizationSuggestion(
     if (cleanedAllowed.length !== allowedTopics.length) {
       proposed.allowedTopics = cleanedAllowed;
       proposed.restrictedTopics = restrictedTopics;
-      reasoning.push("Allowed topics overlapped with restricted topics and were normalized to avoid mixed instructions.");
+      reasoning.push(
+        "Allowed topics overlapped with restricted topics and were normalized to avoid mixed instructions.",
+      );
     }
   }
 
@@ -988,7 +991,8 @@ export function listRuntimeSessionWorkingPreferences(
   return [...requireStore(opts).sessionWorkingPreferences]
     .filter((entry) => !entry.expiresAt || entry.expiresAt > now)
     .toSorted(
-      (left, right) => right.updatedAt - left.updatedAt || left.sessionId.localeCompare(right.sessionId),
+      (left, right) =>
+        right.updatedAt - left.updatedAt || left.sessionId.localeCompare(right.sessionId),
     );
 }
 
@@ -1016,8 +1020,7 @@ export function reviewRuntimeUserConsoleMaintenance(
       sessionWorkingPreferences: nextSessionWorkingPreferences,
       metadata: mergeUserConsoleMaintenanceMetadata(store.metadata, {
         lastReviewAt: now,
-        lastSessionCleanupAt:
-          removedSessionPreferenceIds.length > 0 ? now : undefined,
+        lastSessionCleanupAt: removedSessionPreferenceIds.length > 0 ? now : undefined,
       }),
     },
     {
@@ -1261,8 +1264,7 @@ export function upsertRuntimeSessionWorkingPreference(
         ? input.id.trim()
         : (existing?.id ?? `session-pref-${sessionId}`),
     sessionId,
-    label:
-      typeof input.label === "string" ? input.label.trim() || undefined : existing?.label,
+    label: typeof input.label === "string" ? input.label.trim() || undefined : existing?.label,
     communicationStyle:
       typeof input.communicationStyle === "string"
         ? input.communicationStyle.trim() || undefined
@@ -1359,8 +1361,7 @@ export function resolveRuntimeUserPreferenceView(
       store.userModel.communicationStyle,
     interruptionThreshold:
       sessionWorkingPreference?.interruptionThreshold ?? store.userModel.interruptionThreshold,
-    reportVerbosity:
-      sessionWorkingPreference?.reportVerbosity ?? store.userModel.reportVerbosity,
+    reportVerbosity: sessionWorkingPreference?.reportVerbosity ?? store.userModel.reportVerbosity,
     confirmationBoundary:
       sessionWorkingPreference?.confirmationBoundary ?? store.userModel.confirmationBoundary,
     reportPolicy:
@@ -1561,11 +1562,7 @@ export function reviewRuntimeUserModelOptimizations(
           ]
         : []),
       ...(competingValues.length > 0
-        ? [
-            `Competing session values are still present: ${competingValues
-              .slice(0, 3)
-              .join(", ")}.`,
-          ]
+        ? [`Competing session values are still present: ${competingValues.slice(0, 3).join(", ")}.`]
         : []),
     ];
     const nextCandidate: UserModelOptimizationCandidate = {
@@ -1602,7 +1599,9 @@ export function reviewRuntimeUserModelOptimizations(
         competingValues,
         riskLevel:
           field === "communicationStyle"
-            ? (stabilityRatio >= 0.8 && dominant.count >= 3 ? "low" : "medium")
+            ? stabilityRatio >= 0.8 && dominant.count >= 3
+              ? "low"
+              : "medium"
             : "low",
       },
     };
@@ -1667,7 +1666,9 @@ export function adoptRuntimeUserModelOptimizationCandidate(
     ...opts,
     now,
   });
-  const candidate = store.userModelOptimizationCandidates.find((entry) => entry.id === normalizedId);
+  const candidate = store.userModelOptimizationCandidates.find(
+    (entry) => entry.id === normalizedId,
+  );
   if (!candidate) {
     throw new Error(`Unknown user model optimization candidate: ${id}`);
   }
@@ -1690,8 +1691,7 @@ export function adoptRuntimeUserModelOptimizationCandidate(
     updatedAt: now,
     metadata: {
       ...(refreshedStore.userModelOptimizationCandidates.find((entry) => entry.id === normalizedId)
-        ?.metadata ??
-        candidate.metadata),
+        ?.metadata ?? candidate.metadata),
       adoptedUserModelAt: now,
     },
   };
@@ -1737,7 +1737,9 @@ export function rejectRuntimeUserModelOptimizationCandidate(
     ...opts,
     now,
   });
-  const candidate = store.userModelOptimizationCandidates.find((entry) => entry.id === normalizedId);
+  const candidate = store.userModelOptimizationCandidates.find(
+    (entry) => entry.id === normalizedId,
+  );
   if (!candidate) {
     throw new Error(`Unknown user model optimization candidate: ${input.id}`);
   }
@@ -1755,7 +1757,10 @@ export function rejectRuntimeUserModelOptimizationCandidate(
     {
       ...store,
       userModelOptimizationCandidates: sortUserModelOptimizationCandidates(
-        upsertById(removeById(store.userModelOptimizationCandidates, normalizedId), rejectedCandidate),
+        upsertById(
+          removeById(store.userModelOptimizationCandidates, normalizedId),
+          rejectedCandidate,
+        ),
       ),
     },
     {
@@ -1973,9 +1978,7 @@ export function deleteRuntimeAgent(
   });
   const remainingLocalSkillIds = new Set(
     uniqueStrings(
-      store.agents
-        .filter((agent) => agent.id !== id)
-        .flatMap((agent) => agent.skillIds ?? []),
+      store.agents.filter((agent) => agent.id !== id).flatMap((agent) => agent.skillIds ?? []),
     ).map((skillId) => skillId.toLowerCase()),
   );
   saveRuntimeUserConsoleStore(
@@ -2012,7 +2015,9 @@ export function deleteRuntimeAgent(
     if (remainingLocalSkillIds.has(skillId.toLowerCase())) {
       continue;
     }
-    if (!isAutoManagedLocalSkillGovernanceEntry(governanceEntryBySkillId.get(skillId.toLowerCase()))) {
+    if (
+      !isAutoManagedLocalSkillGovernanceEntry(governanceEntryBySkillId.get(skillId.toLowerCase()))
+    ) {
       continue;
     }
     removeRuntimeCapabilityRegistryTargets(
@@ -2217,8 +2222,7 @@ export function upsertRuntimeSurfaceRoleOverlay(
           (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
         )
       : (existing?.restrictedTopics ?? []),
-    reportTarget:
-      normalizeSurfaceReportTarget(input.reportTarget) ?? existing?.reportTarget,
+    reportTarget: normalizeSurfaceReportTarget(input.reportTarget) ?? existing?.reportTarget,
     localBusinessPolicy: sanitizeSurfaceLocalBusinessPolicy(
       input.localBusinessPolicy ?? existing?.localBusinessPolicy,
       {
@@ -2281,7 +2285,8 @@ export function reviewRuntimeRoleOptimizations(
 
   for (const surface of store.surfaces) {
     const overlay = overlayBySurfaceId.get(surface.id);
-    const agent = surface.ownerKind === "agent" && surface.ownerId ? agentById.get(surface.ownerId) : undefined;
+    const agent =
+      surface.ownerKind === "agent" && surface.ownerId ? agentById.get(surface.ownerId) : undefined;
     const suggestion = buildRoleOptimizationSuggestion(
       surface,
       overlay,
@@ -2293,10 +2298,7 @@ export function reviewRuntimeRoleOptimizations(
     const candidateId = buildRoleOptimizationCandidateId(surface.id);
     const existing = nextCandidates.find((entry) => entry.id === candidateId);
     if (!suggestion) {
-      if (
-        existing &&
-        (existing.state === "shadow" || existing.state === "recommended")
-      ) {
+      if (existing && (existing.state === "shadow" || existing.state === "recommended")) {
         const expiredCandidate: RoleOptimizationCandidate = {
           ...existing,
           state: "expired",
@@ -2416,9 +2418,7 @@ export function adoptRuntimeRoleOptimizationCandidate(
     (entry) => entry.surfaceId === candidate.surfaceId,
   );
   const patch = normalizeRoleOverlayPatch(candidate.proposedOverlay);
-  const role =
-    (typeof patch.role === "string" && patch.role.trim()) ||
-    existingOverlay?.role;
+  const role = (typeof patch.role === "string" && patch.role.trim()) || existingOverlay?.role;
   if (!role) {
     throw new Error(`Role optimization candidate ${id} does not resolve a role`);
   }
@@ -2435,12 +2435,12 @@ export function adoptRuntimeRoleOptimizationCandidate(
         patch.initiative === "low" || patch.initiative === "medium" || patch.initiative === "high"
           ? patch.initiative
           : existingOverlay?.initiative,
-      allowedTopics:
-        Array.isArray(patch.allowedTopics) ? patch.allowedTopics : existingOverlay?.allowedTopics,
-      restrictedTopics:
-        Array.isArray(patch.restrictedTopics)
-          ? patch.restrictedTopics
-          : existingOverlay?.restrictedTopics,
+      allowedTopics: Array.isArray(patch.allowedTopics)
+        ? patch.allowedTopics
+        : existingOverlay?.allowedTopics,
+      restrictedTopics: Array.isArray(patch.restrictedTopics)
+        ? patch.restrictedTopics
+        : existingOverlay?.restrictedTopics,
       reportTarget:
         normalizeSurfaceReportTarget(patch.reportTarget) ?? existingOverlay?.reportTarget,
       localBusinessPolicy: patch.localBusinessPolicy ?? existingOverlay?.localBusinessPolicy,
@@ -2460,14 +2460,14 @@ export function adoptRuntimeRoleOptimizationCandidate(
     now,
   });
   const adoptedCandidate: RoleOptimizationCandidate = {
-    ...(refreshedStore.roleOptimizationCandidates.find((entry) => entry.id === normalizedId) ?? candidate),
+    ...(refreshedStore.roleOptimizationCandidates.find((entry) => entry.id === normalizedId) ??
+      candidate),
     state: "adopted",
     adoptedAt: now,
     updatedAt: now,
     metadata: {
       ...(refreshedStore.roleOptimizationCandidates.find((entry) => entry.id === normalizedId)
-        ?.metadata ??
-        candidate.metadata),
+        ?.metadata ?? candidate.metadata),
       adoptedOverlayId: overlay.id,
     },
   };
@@ -2561,9 +2561,10 @@ export function rejectRuntimeRoleOptimizationCandidate(
  * Automatically adopts low-risk user model and role optimizations when enabled.
  * Aligns with v6 self-evolution principles.
  */
-export function maybeAutoApplyLowRiskUserOptimizations(
-  opts: RuntimeStoreOptions = {},
-): { userModelAdoptedIds: string[]; roleAdoptedIds: string[] } {
+export function maybeAutoApplyLowRiskUserOptimizations(opts: RuntimeStoreOptions = {}): {
+  userModelAdoptedIds: string[];
+  roleAdoptedIds: string[];
+} {
   const now = resolveNow(opts.now);
   const store = loadRuntimeStoreBundle({
     ...opts,
@@ -2598,7 +2599,10 @@ export function maybeAutoApplyLowRiskUserOptimizations(
   });
   if (refreshedStore.userConsoleStore) {
     for (const candidate of refreshedStore.userConsoleStore.roleOptimizationCandidates) {
-      if (candidate.state === "recommended" && (candidate.metadata as Record<string, unknown>)?.riskLevel === "low") {
+      if (
+        candidate.state === "recommended" &&
+        (candidate.metadata as Record<string, unknown>)?.riskLevel === "low"
+      ) {
         try {
           adoptRuntimeRoleOptimizationCandidate(candidate.id, { ...opts, now });
           roleAdoptedIds.push(candidate.id);

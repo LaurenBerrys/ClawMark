@@ -125,6 +125,7 @@ describe("runtime store metadata normalization", () => {
             defaultRetrievalMode: "light",
             maxInputTokensPerTurn: 6000,
             maxContextChars: 9000,
+            compactionWatermark: 4000,
             maxRemoteCallsPerTask: 6,
             leaseDurationMs: 90_000,
             maxConcurrentRunsPerWorker: 2,
@@ -158,6 +159,7 @@ describe("runtime store metadata normalization", () => {
               updatedAt: now,
             },
           ],
+          archivedSteps: [],
           steps: [],
           reviews: [],
           reports: [
@@ -314,9 +316,7 @@ describe("runtime store metadata normalization", () => {
 
       const retrievalSources = buildRuntimeRetrievalSourceSet({ env, now });
       expect(retrievalSources.sessions.map((entry) => entry.recordId)).toContain("runtime-user");
-      expect(retrievalSources.sessions.map((entry) => entry.recordId)).toContain(
-        "session-launch",
-      );
+      expect(retrievalSources.sessions.map((entry) => entry.recordId)).toContain("session-launch");
       expect(retrievalSources.sessions.map((entry) => entry.recordId)).toContain("agent-sales");
       expect(retrievalSources.sessions.map((entry) => entry.recordId)).toContain(
         "surface-wechat-sales",
@@ -359,7 +359,7 @@ describe("runtime store metadata normalization", () => {
               role: "support_operator",
               allowedTopics: [],
               restrictedTopics: [],
-              localBusinessPolicy: ({
+              localBusinessPolicy: {
                 runtimeCoreBinding: "allowed",
                 formalMemoryWrite: true,
                 userModelWrite: true,
@@ -369,7 +369,7 @@ describe("runtime store metadata normalization", () => {
                 privacyBoundary: "user-local",
                 roleScope: "  support   queue  ",
                 customLeak: "should-drop",
-              } as unknown as SurfaceLocalBusinessPolicy),
+              } as unknown as SurfaceLocalBusinessPolicy,
               createdAt: now,
               updatedAt: now,
             },
@@ -406,6 +406,7 @@ describe("runtime store metadata normalization", () => {
             defaultRetrievalMode: "light",
             maxInputTokensPerTurn: 6000,
             maxContextChars: 9000,
+            compactionWatermark: 4000,
             maxRemoteCallsPerTask: 6,
             leaseDurationMs: 90_000,
             maxConcurrentRunsPerWorker: 2,
@@ -439,6 +440,7 @@ describe("runtime store metadata normalization", () => {
               updatedAt: now,
             },
           ],
+          archivedSteps: [],
           steps: [],
           reviews: [],
           reports: [
@@ -646,6 +648,7 @@ describe("runtime store metadata normalization", () => {
             defaultRetrievalMode: "light",
             maxInputTokensPerTurn: 6000,
             maxContextChars: 9000,
+            compactionWatermark: 4000,
             maxRemoteCallsPerTask: 6,
             leaseDurationMs: 90_000,
             maxConcurrentRunsPerWorker: 2,
@@ -672,6 +675,7 @@ describe("runtime store metadata normalization", () => {
             },
           ],
           runs: [],
+          archivedSteps: [],
           steps: [],
           reviews: [],
           reports: [],
@@ -736,6 +740,7 @@ describe("runtime store metadata normalization", () => {
             defaultRetrievalMode: "light",
             maxInputTokensPerTurn: 6000,
             maxContextChars: 9000,
+            compactionWatermark: 4000,
             maxRemoteCallsPerTask: 6,
             leaseDurationMs: 90_000,
             maxConcurrentRunsPerWorker: 2,
@@ -762,6 +767,7 @@ describe("runtime store metadata normalization", () => {
             },
           ],
           runs: [],
+          archivedSteps: [],
           steps: [],
           reviews: [],
           reports: [],
@@ -804,7 +810,9 @@ describe("runtime store metadata normalization", () => {
       );
 
       expect(coordinatorSuggestion).toMatchObject({
-        excerpt: expect.stringContaining("requeue:Linked local task task-local-cancelled was cancelled locally."),
+        excerpt: expect.stringContaining(
+          "requeue:Linked local task task-local-cancelled was cancelled locally.",
+        ),
         metadata: expect.objectContaining({
           sessionSignalKind: "coordinator-suggestion",
           localTaskStatus: "cancelled",

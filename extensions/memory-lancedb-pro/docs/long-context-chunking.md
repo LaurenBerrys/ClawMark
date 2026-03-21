@@ -13,6 +13,7 @@ Input length exceeds context length: 12453 tokens. Maximum length: 8192 tokens.
 ```
 
 This plugin now handles such cases gracefully by:
+
 1. Detecting context length errors before they cause failures
 2. Automatically splitting the document into overlapping chunks
 3. Embedding each chunk separately
@@ -94,7 +95,7 @@ If you prefer to handle chunking manually or want the model to fail on long docu
           "embedding": {
             "apiKey": "${JINA_API_KEY}",
             "model": "jina-embeddings-v5-text-small",
-            "chunking": false  // Disable auto-chunking
+            "chunking": false // Disable auto-chunking
           }
         }
       }
@@ -116,11 +117,11 @@ For advanced users who want to tune chunking behavior:
         "config": {
           "embedding": {
             "autoChunk": {
-              "maxChunkSize": 2000,      // Characters per chunk
-              "overlapSize": 500,          // Overlap between chunks
-              "minChunkSize": 500,         // Minimum acceptable chunk size
-              "semanticSplit": true,       // Prefer sentence boundaries
-              "maxLinesPerChunk": 100      // Max lines before forced split
+              "maxChunkSize": 2000, // Characters per chunk
+              "overlapSize": 500, // Overlap between chunks
+              "minChunkSize": 500, // Minimum acceptable chunk size
+              "semanticSplit": true, // Prefer sentence boundaries
+              "maxLinesPerChunk": 100 // Max lines before forced split
             }
           }
         }
@@ -134,12 +135,12 @@ For advanced users who want to tune chunking behavior:
 
 The chunker automatically adapts to these embedding models:
 
-| Model | Context Limit | Chunk Size | Overlap |
-|-------|---------------|------------|----------|
-| Jina jina-embeddings-v5-text-small | 8192 | 5734 | 409 |
-| OpenAI text-embedding-3-small | 8192 | 5734 | 409 |
-| OpenAI text-embedding-3-large | 8192 | 5734 | 409 |
-| Gemini gemini-embedding-001 | 2048 | 1433 | 102 |
+| Model                              | Context Limit | Chunk Size | Overlap |
+| ---------------------------------- | ------------- | ---------- | ------- |
+| Jina jina-embeddings-v5-text-small | 8192          | 5734       | 409     |
+| OpenAI text-embedding-3-small      | 8192          | 5734       | 409     |
+| OpenAI text-embedding-3-large      | 8192          | 5734       | 409     |
+| Gemini gemini-embedding-001        | 2048          | 1433       | 102     |
 
 ## Performance Considerations
 
@@ -153,6 +154,7 @@ The chunker automatically adapts to these embedding models:
 ### Caching
 
 Chunked embeddings are cached by their original document hash, so:
+
 - Subsequent requests for the same document get the cached averaged embedding
 - Cache hit rate improves as long documents are processed repeatedly
 
@@ -177,11 +179,13 @@ Successfully embedded long document as 3 averaged chunks
 ### Common Scenarios
 
 **Scenario 1: Long memory text**
+
 - When a user's message or system prompt is very long
 - Automatically chunked before embedding
 - No error thrown, memory is still stored and retrievable
 
 **Scenario 2: Batch embedding long documents**
+
 - If some documents in a batch exceed limits
 - Only the long ones are chunked
 - Successful documents processed normally
@@ -238,14 +242,14 @@ Planned improvements:
 
 ### Edge Cases
 
-| Case | Handling |
-|------|----------|
-| Empty document | Returns empty embedding immediately |
-| Very small documents | No chunking, normal processing |
-| Perfect boundaries | Split at sentence ends, no truncation |
-| No boundaries found | Hard split at max position |
-| Single oversized chunk | Process as-is, let provider error |
-| All chunks too small | Last chunk takes remaining text |
+| Case                   | Handling                              |
+| ---------------------- | ------------------------------------- |
+| Empty document         | Returns empty embedding immediately   |
+| Very small documents   | No chunking, normal processing        |
+| Perfect boundaries     | Split at sentence ends, no truncation |
+| No boundaries found    | Hard split at max position            |
+| Single oversized chunk | Process as-is, let provider error     |
+| All chunks too small   | Last chunk takes remaining text       |
 
 ## References
 
@@ -255,4 +259,4 @@ Planned improvements:
 
 ---
 
-*This feature was added to handle long-context documents gracefully without losing memory quality.*
+_This feature was added to handle long-context documents gracefully without losing memory quality._

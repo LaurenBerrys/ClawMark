@@ -1,7 +1,7 @@
 ---
 summary: "Nostr DM channel via NIP-04 encrypted messages"
 read_when:
-  - You want OpenClaw to receive DMs via Nostr
+  - You want ClawMark to receive DMs via Nostr
   - You're setting up decentralized messaging
 title: "Nostr"
 ---
@@ -10,7 +10,7 @@ title: "Nostr"
 
 **Status:** Optional plugin (disabled by default).
 
-Nostr is a decentralized protocol for social networking. This channel enables OpenClaw to receive and respond to encrypted direct messages (DMs) via NIP-04.
+Nostr is a decentralized protocol for social networking. This channel enables ClawMark to receive and respond to encrypted direct messages (DMs) via NIP-04.
 
 ## Install (on demand)
 
@@ -83,7 +83,7 @@ export NOSTR_PRIVATE_KEY="nsec1..."
 
 ## Profile metadata
 
-Profile data is published as a NIP-01 `kind:0` event. You can manage it from the Control UI (Channels -> Nostr -> Profile) or set it directly in config.
+Profile data is published as a NIP-01 `kind:0` event. You can manage it from the User Console (Channels -> Nostr -> Profile) or set it directly in config.
 
 Example:
 
@@ -94,7 +94,7 @@ Example:
       "privateKey": "${NOSTR_PRIVATE_KEY}",
       "profile": {
         "name": "openclaw",
-        "displayName": "OpenClaw",
+        "displayName": "ClawMark",
         "about": "Personal assistant DM bot",
         "picture": "https://example.com/avatar.png",
         "banner": "https://example.com/banner.png",

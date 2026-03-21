@@ -8,7 +8,7 @@ import type {
 
 function toRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : undefined;
 }
 
@@ -70,7 +70,8 @@ export function sanitizeSurfaceLocalBusinessPolicy(
     userModelWrite: false,
     surfaceRoleWrite: false,
     taskCreation: normalizeTaskCreation(record?.taskCreation) ?? defaults.taskCreation,
-    escalationTarget: normalizeEscalationTarget(record?.escalationTarget) ?? defaults.escalationTarget,
+    escalationTarget:
+      normalizeEscalationTarget(record?.escalationTarget) ?? defaults.escalationTarget,
     privacyBoundary: defaults.privacyBoundary,
     roleScope: normalizeRoleScope(record?.roleScope) ?? defaults.roleScope,
   };

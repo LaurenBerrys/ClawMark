@@ -1,8 +1,8 @@
 ---
-summary: "Use Kilo Gateway's unified API to access many models in OpenClaw"
+summary: "Use Kilo Gateway's unified API to access many models in ClawMark"
 read_when:
   - You want a single API key for many LLMs
-  - You want to run models via Kilo Gateway in OpenClaw
+  - You want to run models via Kilo Gateway in ClawMark
 ---
 
 # Kilo Gateway
@@ -51,7 +51,7 @@ the best underlying model based on the task:
 
 ## Available models
 
-OpenClaw dynamically discovers available models from the Kilo Gateway at startup. Use
+ClawMark dynamically discovers available models from the Kilo Gateway at startup. Use
 `/models kilocode` to see the full list of models available with your account.
 
 Any model available on the gateway can be used with the `kilocode/` prefix:

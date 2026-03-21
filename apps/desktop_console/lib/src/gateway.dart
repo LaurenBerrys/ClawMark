@@ -43,8 +43,14 @@ class GatewayDesktopClient {
   GatewayDesktopClient({DesktopBridge? bridge})
     : _bridge = bridge ?? const MethodChannelDesktopBridge(),
       _configuredUrl = _resolveRuntimeValue("CLAWMARK_DESKTOP_WS_URL", ""),
-      _configuredToken = _resolveRuntimeValue("CLAWMARK_DESKTOP_AUTH_TOKEN", ""),
-      _configuredPassword = _resolveRuntimeValue("CLAWMARK_DESKTOP_AUTH_PASSWORD", "");
+      _configuredToken = _resolveRuntimeValue(
+        "CLAWMARK_DESKTOP_AUTH_TOKEN",
+        "",
+      ),
+      _configuredPassword = _resolveRuntimeValue(
+        "CLAWMARK_DESKTOP_AUTH_PASSWORD",
+        "",
+      );
 
   static const String defaultWsUrl = "ws://127.0.0.1:18789";
   static const String desktopClientFallbackId = "gateway-client";
@@ -52,18 +58,24 @@ class GatewayDesktopClient {
   static const String desktopClientMode = "ui";
   static const Duration _startupRetryWindow = Duration(seconds: 8);
   static const Duration _startupRetryBackoff = Duration(milliseconds: 250);
-  static const String _compiledWsUrl = String.fromEnvironment("CLAWMARK_DESKTOP_WS_URL");
-  static const String _compiledAuthToken =
-      String.fromEnvironment("CLAWMARK_DESKTOP_AUTH_TOKEN");
-  static const String _compiledAuthPassword =
-      String.fromEnvironment("CLAWMARK_DESKTOP_AUTH_PASSWORD");
+  static const String _compiledWsUrl = String.fromEnvironment(
+    "CLAWMARK_DESKTOP_WS_URL",
+  );
+  static const String _compiledAuthToken = String.fromEnvironment(
+    "CLAWMARK_DESKTOP_AUTH_TOKEN",
+  );
+  static const String _compiledAuthPassword = String.fromEnvironment(
+    "CLAWMARK_DESKTOP_AUTH_PASSWORD",
+  );
 
   final DesktopBridge _bridge;
   final String _configuredUrl;
   final String _configuredToken;
   final String _configuredPassword;
-  final StreamController<GatewayEventFrame> _events = StreamController<GatewayEventFrame>.broadcast();
-  final Map<String, Completer<dynamic>> _pending = <String, Completer<dynamic>>{};
+  final StreamController<GatewayEventFrame> _events =
+      StreamController<GatewayEventFrame>.broadcast();
+  final Map<String, Completer<dynamic>> _pending =
+      <String, Completer<dynamic>>{};
 
   String _sessionUrl = "";
   String _sessionToken = "";
@@ -76,12 +88,13 @@ class GatewayDesktopClient {
   int _requestCounter = 0;
 
   static String _resolveRuntimeValue(String key, String fallback) {
-    final compiled = switch (key) {
-      "CLAWMARK_DESKTOP_WS_URL" => _compiledWsUrl,
-      "CLAWMARK_DESKTOP_AUTH_TOKEN" => _compiledAuthToken,
-      "CLAWMARK_DESKTOP_AUTH_PASSWORD" => _compiledAuthPassword,
-      _ => "",
-    }.trim();
+    final compiled =
+        switch (key) {
+          "CLAWMARK_DESKTOP_WS_URL" => _compiledWsUrl,
+          "CLAWMARK_DESKTOP_AUTH_TOKEN" => _compiledAuthToken,
+          "CLAWMARK_DESKTOP_AUTH_PASSWORD" => _compiledAuthPassword,
+          _ => "",
+        }.trim();
     if (compiled.isNotEmpty) {
       return compiled;
     }
@@ -118,13 +131,32 @@ class GatewayDesktopClient {
     _sessionPassword = _configuredPassword;
   }
 
+  Future<void> _refreshSessionConnectionFromBridge() async {
+    if (_configuredUrl.isNotEmpty) {
+      return;
+    }
+    try {
+      await _resolveSessionConnection();
+    } on DesktopBootstrapRequired {
+      _sessionUrl = "";
+      _sessionToken = "";
+      _sessionPassword = "";
+    }
+  }
+
   Future<WebSocket> _connectSocketWithRetry() async {
     final retryUntil = DateTime.now().add(_startupRetryWindow);
     while (true) {
       try {
         return await WebSocket.connect(url);
       } on SocketException {
-        if (!_shouldRetryInitialConnect() || DateTime.now().isAfter(retryUntil)) {
+        await _refreshSessionConnectionFromBridge();
+        if (url.isEmpty && DateTime.now().isBefore(retryUntil)) {
+          await Future<void>.delayed(_startupRetryBackoff);
+          continue;
+        }
+        if (!_shouldRetryInitialConnect() ||
+            DateTime.now().isAfter(retryUntil)) {
           rethrow;
         }
         if (_disposed) {
@@ -183,7 +215,10 @@ class GatewayDesktopClient {
     return _sendRequest(method, params);
   }
 
-  Future<Map<String, dynamic>> requestMap(String method, [Object? params]) async {
+  Future<Map<String, dynamic>> requestMap(
+    String method, [
+    Object? params,
+  ]) async {
     return _asMap(await request(method, params));
   }
 
@@ -266,7 +301,9 @@ class GatewayDesktopClient {
       const Duration(seconds: 20),
       onTimeout: () {
         _pending.remove(id);
-        throw TimeoutException("gateway request timed out while calling $method");
+        throw TimeoutException(
+          "gateway request timed out while calling $method",
+        );
       },
     );
   }
@@ -277,7 +314,8 @@ class GatewayDesktopClient {
   }
 
   void _handleMessage(dynamic rawFrame) {
-    final raw = rawFrame is String ? rawFrame : utf8.decode(rawFrame as List<int>);
+    final raw =
+        rawFrame is String ? rawFrame : utf8.decode(rawFrame as List<int>);
     final decoded = jsonDecode(raw);
     final frame = _asMap(decoded);
     final type = _asString(frame["type"]);
@@ -385,7 +423,7 @@ Map<String, Object?> buildConnectParams({
         if (trimmedPassword.isNotEmpty) "password": trimmedPassword,
       },
     "locale": locale,
-    "userAgent": "ClawMark Desktop Console",
+    "userAgent": "ClawMark",
   };
 }
 

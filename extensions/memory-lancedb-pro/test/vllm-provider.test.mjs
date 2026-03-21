@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-
 import jitiFactory from "jiti";
 
 const jiti = jitiFactory(import.meta.url, { interopDefault: true });
@@ -31,11 +30,7 @@ async function run() {
 
   for (const model of qwen3Models) {
     const dims = getVectorDimensions(model);
-    assert.strictEqual(
-      dims,
-      1024,
-      `Expected 1024 for ${model}, got ${dims}`,
-    );
+    assert.strictEqual(dims, 1024, `Expected 1024 for ${model}, got ${dims}`);
     console.log(`   ✓ ${model} → ${dims}d`);
   }
 
@@ -51,8 +46,8 @@ async function run() {
 
   // Since buildRerankRequest is not exported, we verify the behavior
   // by checking the module source contains the expected logic
-  const retrieverSource = await import("fs").then(fs => 
-    fs.promises.readFile(new URL("../src/retriever.ts", import.meta.url), "utf-8")
+  const retrieverSource = await import("fs").then((fs) =>
+    fs.promises.readFile(new URL("../src/retriever.ts", import.meta.url), "utf-8"),
   );
 
   // Verify vLLM case exists in buildRerankRequest
@@ -63,36 +58,18 @@ async function run() {
   );
 
   // Verify vLLM doesn't include Authorization header
-  const vllmSection = retrieverSource.match(
-    /case\s+["']vllm["']\s*:[\s\S]*?default\s*:/,
-  );
+  const vllmSection = retrieverSource.match(/case\s+["']vllm["']\s*:[\s\S]*?default\s*:/);
   assert.ok(vllmSection, "Should find vllm case section");
-  
+
   // vllm section should NOT have Authorization header
-  assert.doesNotMatch(
-    vllmSection[0],
-    /Authorization/,
-    "vLLM should not have Authorization header",
-  );
+  assert.doesNotMatch(vllmSection[0], /Authorization/, "vLLM should not have Authorization header");
 
   // vllm section should have Content-Type
-  assert.match(
-    vllmSection[0],
-    /Content-Type/,
-    "vLLM should have Content-Type header",
-  );
+  assert.match(vllmSection[0], /Content-Type/, "vLLM should have Content-Type header");
 
   // vllm section should use top_n (not top_k)
-  assert.match(
-    vllmSection[0],
-    /top_n/,
-    "vLLM should use top_n parameter",
-  );
-  assert.doesNotMatch(
-    vllmSection[0],
-    /top_k/,
-    "vLLM should NOT use top_k parameter",
-  );
+  assert.match(vllmSection[0], /top_n/, "vLLM should use top_n parameter");
+  assert.doesNotMatch(vllmSection[0], /top_k/, "vLLM should NOT use top_k parameter");
 
   console.log("   ✓ vLLM case exists in buildRerankRequest");
   console.log("   ✓ No Authorization header for vLLM");
@@ -116,10 +93,7 @@ async function run() {
   const parseVllmSection = retrieverSource.match(
     /case\s+["']vllm["']\s*:[\s\S]*?parseItems\(data\.results/,
   );
-  assert.ok(
-    parseVllmSection,
-    "vLLM should parse results[] with relevance_score",
-  );
+  assert.ok(parseVllmSection, "vLLM should parse results[] with relevance_score");
 
   console.log("   ✓ vLLM case exists in parseRerankResponse");
   console.log("   ✓ Parses results[].relevance_score (same as Jina)\n");

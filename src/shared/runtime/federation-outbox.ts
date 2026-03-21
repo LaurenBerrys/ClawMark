@@ -221,10 +221,7 @@ function readJournalState(
   return state;
 }
 
-function writeJournalEvent(
-  journalRoot: string,
-  event: FederationOutboxJournalEventRecord,
-): string {
+function writeJournalEvent(journalRoot: string, event: FederationOutboxJournalEventRecord): string {
   ensureDir(journalRoot);
   const targetPath = path.join(journalRoot, `${event.id}.json`);
   fs.writeFileSync(targetPath, JSON.stringify(event, null, 2), "utf8");
@@ -236,10 +233,11 @@ function readJournalEvents(journalRoot: string): FederationOutboxJournalEventRec
     return fs
       .readdirSync(journalRoot, { withFileTypes: true })
       .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
-      .map((entry) =>
-        JSON.parse(
-          fs.readFileSync(path.join(journalRoot, entry.name), "utf8"),
-        ) as FederationOutboxJournalEventRecord,
+      .map(
+        (entry) =>
+          JSON.parse(
+            fs.readFileSync(path.join(journalRoot, entry.name), "utf8"),
+          ) as FederationOutboxJournalEventRecord,
       )
       .toSorted((left, right) => left.id.localeCompare(right.id));
   } catch {
@@ -259,7 +257,7 @@ function clearJsonFiles(root: string): void {
 function writeEnvelopeCollection<T extends { id: string }>(root: string, payloads: T[]): string[] {
   clearJsonFiles(root);
   return payloads.map((payload) =>
-    writeEnvelope(root, `${sanitizeFileStem(payload.id)}.json`, payload)
+    writeEnvelope(root, `${sanitizeFileStem(payload.id)}.json`, payload),
   );
 }
 
@@ -446,10 +444,16 @@ export function syncRuntimeFederationOutbox(
         )
       : null;
   const emissions: FederationOutboxEmission[] = [
-    createEmission("runtimeManifest", "runtime-manifest", runtimeManifestEnvelope, runtimeManifestPath, {
-      envelopeId: dashboard.runtimeManifest.instanceId,
-      sourceRuntimeId: dashboard.runtimeManifest.instanceId,
-    }),
+    createEmission(
+      "runtimeManifest",
+      "runtime-manifest",
+      runtimeManifestEnvelope,
+      runtimeManifestPath,
+      {
+        envelopeId: dashboard.runtimeManifest.instanceId,
+        sourceRuntimeId: dashboard.runtimeManifest.instanceId,
+      },
+    ),
     ...shareableReviews.map((payload, index) =>
       createEmission(
         `shareableReview:${payload.taskReview.id}`,
@@ -459,7 +463,7 @@ export function syncRuntimeFederationOutbox(
         {
           envelopeId: payload.taskReview.id,
         },
-      )
+      ),
     ),
     ...shareableMemories.map((payload, index) =>
       createEmission(
@@ -470,7 +474,7 @@ export function syncRuntimeFederationOutbox(
         {
           envelopeId: payload.memory.id,
         },
-      )
+      ),
     ),
     createEmission("strategyDigest", "strategy-digest", strategyDigest, strategyDigestPath),
     createEmission("newsDigest", "news-digest", newsDigest, newsDigestPath),
@@ -502,7 +506,9 @@ export function syncRuntimeFederationOutbox(
   const activeKeys = new Set<string>();
   for (const emission of emissions) {
     activeKeys.add(emission.envelopeKey);
-    const payloadHash = hashPayload(normalizePayloadForJournalHash(emission.envelopeType, emission.payload));
+    const payloadHash = hashPayload(
+      normalizePayloadForJournalHash(emission.envelopeType, emission.payload),
+    );
     const previous = previousJournalState[emission.envelopeKey];
     if (previous?.payloadHash === payloadHash) {
       nextJournalState[emission.envelopeKey] = previous;
@@ -553,7 +559,7 @@ export function syncRuntimeFederationOutbox(
     emittedEvents.push(event);
   }
   const allJournalEvents = [...existingJournalEvents, ...emittedEvents].toSorted((left, right) =>
-    left.id.localeCompare(right.id)
+    left.id.localeCompare(right.id),
   );
   const latestOutboxEventId = allJournalEvents.at(-1)?.id ?? null;
   const acknowledgedOutboxEventId = federationStore.syncCursor?.lastOutboxEventId;

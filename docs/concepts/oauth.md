@@ -1,7 +1,7 @@
 ---
-summary: "OAuth in OpenClaw: token exchange, storage, and multi-account patterns"
+summary: "OAuth in ClawMark: token exchange, storage, and multi-account patterns"
 read_when:
-  - You want to understand OpenClaw OAuth end-to-end
+  - You want to understand ClawMark OAuth end-to-end
   - You hit token invalidation / logout issues
   - You want setup-token or OAuth auth flows
   - You want multiple accounts or profile routing
@@ -10,7 +10,7 @@ title: "OAuth"
 
 # OAuth
 
-OpenClaw supports “subscription auth” via OAuth for providers that offer it (notably **OpenAI Codex (ChatGPT OAuth)**). For Anthropic subscriptions, use the **setup-token** flow. Anthropic subscription use outside Claude Code has been restricted for some users in the past, so treat it as a user-choice risk and verify current Anthropic policy yourself. OpenAI Codex OAuth is explicitly supported for use in external tools like OpenClaw. This page explains:
+ClawMark supports “subscription auth” via OAuth for providers that offer it (notably **OpenAI Codex (ChatGPT OAuth)**). For Anthropic subscriptions, use the **setup-token** flow. Anthropic subscription use outside Claude Code has been restricted for some users in the past, so treat it as a user-choice risk and verify current Anthropic policy yourself. OpenAI Codex OAuth is explicitly supported for use in external tools like ClawMark. This page explains:
 
 For Anthropic in production, API key auth is the safer recommended path over subscription setup-token auth.
 
@@ -18,7 +18,7 @@ For Anthropic in production, API key auth is the safer recommended path over sub
 - where tokens are **stored** (and why)
 - how to handle **multiple accounts** (profiles + per-session overrides)
 
-OpenClaw also supports **provider plugins** that ship their own OAuth or API‑key
+ClawMark also supports **provider plugins** that ship their own OAuth or API‑key
 flows. Run them via:
 
 ```bash
@@ -31,9 +31,9 @@ OAuth providers commonly mint a **new refresh token** during login/refresh flows
 
 Practical symptom:
 
-- you log in via OpenClaw _and_ via Claude Code / Codex CLI → one of them randomly gets “logged out” later
+- you log in via ClawMark _and_ via Claude Code / Codex CLI → one of them randomly gets “logged out” later
 
-To reduce that, OpenClaw treats `auth-profiles.json` as a **token sink**:
+To reduce that, ClawMark treats `auth-profiles.json` as a **token sink**:
 
 - the runtime reads credentials from **one place**
 - we can keep multiple profiles and route them deterministically
@@ -62,7 +62,7 @@ Anthropic has blocked some subscription usage outside Claude Code in the past.
 Decide for yourself whether to use subscription auth, and verify Anthropic's current terms.
 </Warning>
 
-Run `claude setup-token` on any machine, then paste it into OpenClaw:
+Run `claude setup-token` on any machine, then paste it into ClawMark:
 
 ```bash
 openclaw models auth setup-token --provider anthropic
@@ -82,21 +82,21 @@ openclaw models status
 
 ## OAuth exchange (how login works)
 
-OpenClaw’s interactive login flows are implemented in `@mariozechner/pi-ai` and wired into the wizards/commands.
+ClawMark’s interactive login flows are implemented in `@mariozechner/pi-ai` and wired into the wizards/commands.
 
 ### Anthropic setup-token
 
 Flow shape:
 
 1. run `claude setup-token`
-2. paste the token into OpenClaw
+2. paste the token into ClawMark
 3. store as a token auth profile (no refresh)
 
 The wizard path is `openclaw onboard` → auth choice `setup-token` (Anthropic).
 
 ### OpenAI Codex (ChatGPT OAuth)
 
-OpenAI Codex OAuth is explicitly supported for use outside the Codex CLI, including OpenClaw workflows.
+OpenAI Codex OAuth is explicitly supported for use outside the Codex CLI, including ClawMark workflows.
 
 Flow shape (PKCE):
 

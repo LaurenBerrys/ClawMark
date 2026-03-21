@@ -1,5 +1,5 @@
 ---
-summary: "OpenClaw plugins/extensions: discovery, config, and safety"
+summary: "ClawMark plugins/extensions: discovery, config, and safety"
 read_when:
   - Adding or modifying plugins/extensions
   - Documenting plugin install or load rules
@@ -10,11 +10,11 @@ title: "Plugins"
 
 ## Quick start (new to plugins?)
 
-A plugin is just a **small code module** that extends OpenClaw with extra
+A plugin is just a **small code module** that extends ClawMark with extra
 features (commands, tools, and Gateway RPC).
 
 Most of the time, you’ll use plugins when you want a feature that’s not built
-into core OpenClaw yet (or you want to keep optional features out of your main
+into core ClawMark yet (or you want to keep optional features out of your main
 install).
 
 Fast path:
@@ -35,7 +35,7 @@ Npm specs are **registry-only** (package name + optional **exact version** or
 **dist-tag**). Git/URL/file specs and semver ranges are rejected.
 
 Bare specs and `@latest` stay on the stable track. If npm resolves either of
-those to a prerelease, OpenClaw stops and asks you to opt in explicitly with a
+those to a prerelease, ClawMark stops and asks you to opt in explicitly with a
 prerelease tag such as `@beta`/`@rc` or an exact prerelease version.
 
 3. Restart the Gateway, then configure under `plugins.entries.<id>.config`.
@@ -45,10 +45,10 @@ Looking for third-party listings? See [Community plugins](/plugins/community).
 
 ## Architecture
 
-OpenClaw's plugin system has four layers:
+ClawMark's plugin system has four layers:
 
 1. **Manifest + discovery**
-   OpenClaw finds candidate plugins from configured paths, workspace roots,
+   ClawMark finds candidate plugins from configured paths, workspace roots,
    global extension roots, and bundled extensions. Discovery reads
    `openclaw.plugin.json` plus package metadata first.
 2. **Enablement + validation**
@@ -58,7 +58,7 @@ OpenClaw's plugin system has four layers:
    Enabled plugins are loaded in-process via jiti and register capabilities into
    a central registry.
 4. **Surface consumption**
-   The rest of OpenClaw reads the registry to expose tools, channels, provider
+   The rest of ClawMark reads the registry to expose tools, channels, provider
    setup, hooks, HTTP routes, CLI commands, and services.
 
 The important design boundary:
@@ -67,7 +67,7 @@ The important design boundary:
   without executing plugin code
 - runtime behavior comes from the plugin module's `register(api)` path
 
-That split lets OpenClaw validate config, explain missing/disabled plugins, and
+That split lets ClawMark validate config, explain missing/disabled plugins, and
 build UI/schema hints before the full runtime is active.
 
 ## Execution model
@@ -80,7 +80,7 @@ Implications:
 - a plugin can register tools, network handlers, hooks, and services
 - a plugin bug can crash or destabilize the gateway
 - a malicious plugin is equivalent to arbitrary code execution inside the
-  OpenClaw process
+  ClawMark process
 
 Use allowlists and explicit install/load paths for non-bundled plugins. Treat
 workspace plugins as development-time code, not production defaults.
@@ -101,7 +101,7 @@ workspace plugins as development-time code, not production defaults.
 - Qwen OAuth (provider auth) — bundled as `qwen-portal-auth` (disabled by default)
 - Copilot Proxy (provider auth) — local VS Code Copilot Proxy bridge; distinct from built-in `github-copilot` device login (bundled, disabled by default)
 
-OpenClaw plugins are **TypeScript modules** loaded at runtime via jiti. **Config
+ClawMark plugins are **TypeScript modules** loaded at runtime via jiti. **Config
 validation does not execute plugin code**; it uses the plugin manifest and JSON
 Schema instead. See [Plugin manifest](/plugins/manifest).
 
@@ -122,7 +122,7 @@ Tool authoring guide: [Plugin agent tools](/plugins/agent-tools).
 
 ## Load pipeline
 
-At startup, OpenClaw does roughly this:
+At startup, ClawMark does roughly this:
 
 1. discover candidate plugin roots
 2. read `openclaw.plugin.json` and package metadata
@@ -140,12 +140,12 @@ ownership looks suspicious for non-bundled plugins.
 
 ### Manifest-first behavior
 
-The manifest is the control-plane source of truth. OpenClaw uses it to:
+The manifest is the control-plane source of truth. ClawMark uses it to:
 
 - identify the plugin
 - discover declared channels/skills/config schema
 - validate `plugins.entries.<id>.config`
-- augment Control UI labels/placeholders
+- augment User Console labels/placeholders
 - show install/catalog metadata
 
 The runtime module is the data-plane part. It registers actual behavior such as
@@ -153,7 +153,7 @@ hooks, tools, commands, or provider flows.
 
 ### What the loader caches
 
-OpenClaw keeps short in-process caches for:
+ClawMark keeps short in-process caches for:
 
 - discovery results
 - manifest registry data
@@ -168,7 +168,7 @@ Plugins can access selected core helpers via `api.runtime`. For telephony TTS:
 
 ```ts
 const result = await api.runtime.tts.textToSpeechTelephony({
-  text: "Hello from OpenClaw",
+  text: "Hello from ClawMark",
   cfg: api.config,
 });
 ```
@@ -311,7 +311,7 @@ Performance note:
 
 ## Discovery & precedence
 
-OpenClaw scans, in order:
+ClawMark scans, in order:
 
 1. Config paths
 
@@ -327,7 +327,7 @@ OpenClaw scans, in order:
 - `~/.openclaw/extensions/*.ts`
 - `~/.openclaw/extensions/*/index.ts`
 
-4. Bundled extensions (shipped with OpenClaw, mostly disabled by default)
+4. Bundled extensions (shipped with ClawMark, mostly disabled by default)
 
 - `<openclaw>/extensions/*`
 
@@ -349,8 +349,8 @@ become production gateway code.
 
 Hardening notes:
 
-- If `plugins.allow` is empty and non-bundled plugins are discoverable, OpenClaw logs a startup warning with plugin ids and sources.
-- Candidate paths are safety-checked before discovery admission. OpenClaw blocks candidates when:
+- If `plugins.allow` is empty and non-bundled plugins are discoverable, ClawMark logs a startup warning with plugin ids and sources.
+- Candidate paths are safety-checked before discovery admission. ClawMark blocks candidates when:
   - extension entry resolves outside plugin root (including symlink/path traversal escapes),
   - plugin root/source path is world-writable,
   - path ownership is suspicious for non-bundled plugins (POSIX owner is neither current uid nor root).
@@ -440,7 +440,7 @@ Example:
 }
 ```
 
-OpenClaw can also merge **external channel catalogs** (for example, an MPM
+ClawMark can also merge **external channel catalogs** (for example, an MPM
 registry export). Drop a JSON file at one of:
 
 - `~/.openclaw/mpm/plugins.json`
@@ -458,7 +458,7 @@ Default plugin ids:
 - Package packs: `package.json` `name`
 - Standalone file: file base name (`~/.../voice-call.ts` → `voice-call`)
 
-If a plugin exports `id`, OpenClaw uses it but warns when it doesn’t match the
+If a plugin exports `id`, ClawMark uses it but warns when it doesn’t match the
 configured id.
 
 ## Registry model
@@ -533,7 +533,7 @@ These states are intentionally different:
 - **missing**: config references a plugin id that discovery did not find
 - **invalid**: plugin exists, but its config does not match the declared schema
 
-OpenClaw preserves config for disabled plugins so toggling them back on is not
+ClawMark preserves config for disabled plugins so toggling them back on is not
 destructive.
 
 ## Plugin slots (exclusive categories)
@@ -570,11 +570,11 @@ and compaction. Register them from your plugin with
 Use this when your plugin needs to replace or extend the default context
 pipeline rather than just add memory search or hooks.
 
-## Control UI (schema + labels)
+## User Console (schema + labels)
 
-The Control UI uses `config.schema` (JSON Schema + `uiHints`) to render better forms.
+The User Console uses `config.schema` (JSON Schema + `uiHints`) to render better forms.
 
-OpenClaw augments `uiHints` at runtime based on discovered plugins:
+ClawMark augments `uiHints` at runtime based on discovered plugins:
 
 - Adds per-plugin labels for `plugins.entries.<id>` / `.enabled` / `.config`
 - Merges optional plugin-provided config field hints under:
@@ -623,7 +623,7 @@ openclaw plugins doctor
 ```
 
 `plugins update` only works for npm installs tracked under `plugins.installs`.
-If stored integrity metadata changes between updates, OpenClaw warns and asks for confirmation (use global `--yes` to bypass prompts).
+If stored integrity metadata changes between updates, ClawMark warns and asks for confirmation (use global `--yes` to bypass prompts).
 
 Plugins may also register their own top‑level commands (example: `openclaw voicecall`).
 
@@ -734,7 +734,7 @@ Important hooks for prompt construction:
 Core-enforced hook policy:
 
 - Operators can disable prompt mutation hooks per plugin via `plugins.entries.<id>.hooks.allowPromptInjection: false`.
-- When disabled, OpenClaw blocks `before_prompt_build` and ignores prompt-mutating fields returned from legacy `before_agent_start` while preserving legacy `modelOverride` and `providerOverride`.
+- When disabled, ClawMark blocks `before_prompt_build` and ignores prompt-mutating fields returned from legacy `before_agent_start` while preserving legacy `modelOverride` and `providerOverride`.
 
 `before_prompt_build` result fields:
 
@@ -763,7 +763,7 @@ Migration guidance:
 ## Provider plugins (model auth)
 
 Plugins can register **model providers** so users can run OAuth or API-key
-setup inside OpenClaw, surface provider setup in onboarding/model-pickers, and
+setup inside ClawMark, surface provider setup in onboarding/model-pickers, and
 contribute implicit provider discovery.
 
 Provider plugins are the modular extension seam for model-provider setup. They
@@ -865,9 +865,9 @@ entry in model selection:
 - `methodId`
 
 When a provider has multiple auth methods, the wizard can either point at one
-explicit method or let OpenClaw synthesize per-method choices.
+explicit method or let ClawMark synthesize per-method choices.
 
-OpenClaw validates provider wizard metadata when the plugin registers:
+ClawMark validates provider wizard metadata when the plugin registers:
 
 - duplicate or blank auth-method ids are rejected
 - wizard metadata is ignored when the provider has no auth methods
@@ -1228,7 +1228,7 @@ Command handler context:
 - `isAuthorizedSender`: Whether the sender is an authorized user
 - `args`: Arguments passed after the command (if `acceptsArgs: true`)
 - `commandBody`: The full command text
-- `config`: The current OpenClaw config
+- `config`: The current ClawMark config
 
 Command options:
 

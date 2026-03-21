@@ -94,7 +94,13 @@ function findLastIndexWithin(text: string, re: RegExp, start: number, end: numbe
   return last;
 }
 
-function findSplitEnd(text: string, start: number, maxEnd: number, minEnd: number, config: ChunkerConfig): number {
+function findSplitEnd(
+  text: string,
+  start: number,
+  maxEnd: number,
+  minEnd: number,
+  config: ChunkerConfig,
+): number {
   const safeMinEnd = clamp(minEnd, start + 1, maxEnd);
   const safeMaxEnd = clamp(maxEnd, safeMinEnd, text.length);
 
@@ -143,7 +149,11 @@ function findSplitEnd(text: string, start: number, maxEnd: number, minEnd: numbe
   return safeMaxEnd;
 }
 
-function sliceTrimWithIndices(text: string, start: number, end: number): { chunk: string; meta: ChunkMetadata } {
+function sliceTrimWithIndices(
+  text: string,
+  start: number,
+  end: number,
+): { chunk: string; meta: ChunkMetadata } {
   const raw = text.slice(start, end);
   const leading = raw.match(/^\s*/)?.[0]?.length ?? 0;
   const trailing = raw.match(/\s*$/)?.[0]?.length ?? 0;
@@ -166,7 +176,10 @@ function sliceTrimWithIndices(text: string, start: number, end: number): { chunk
 // Chunking Core
 // ============================================================================
 
-export function chunkDocument(text: string, config: ChunkerConfig = DEFAULT_CHUNKER_CONFIG): ChunkResult {
+export function chunkDocument(
+  text: string,
+  config: ChunkerConfig = DEFAULT_CHUNKER_CONFIG,
+): ChunkResult {
   if (!text || text.trim().length === 0) {
     return { chunks: [], metadatas: [], totalOriginalLength: 0, chunkCount: 0 };
   }
@@ -176,7 +189,10 @@ export function chunkDocument(text: string, config: ChunkerConfig = DEFAULT_CHUN
   const metadatas: ChunkMetadata[] = [];
 
   let pos = 0;
-  const maxGuard = Math.max(4, Math.ceil(text.length / Math.max(1, config.maxChunkSize - config.overlapSize)) + 5);
+  const maxGuard = Math.max(
+    4,
+    Math.ceil(text.length / Math.max(1, config.maxChunkSize - config.overlapSize)) + 5,
+  );
   let guard = 0;
 
   while (pos < text.length && guard < maxGuard) {

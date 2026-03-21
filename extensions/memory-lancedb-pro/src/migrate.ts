@@ -3,9 +3,9 @@
  * Migrates data from old memory-lancedb plugin to memory-lancedb-pro
  */
 
+import fs from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import fs from "node:fs/promises";
 import type { MemoryStore, MemoryEntry } from "./store.js";
 import { loadLanceDB } from "./store.js";
 
@@ -117,11 +117,13 @@ export class MemoryMigrator {
       }
 
       result.success = result.errors.length === 0;
-      result.summary = `Migration ${result.success ? 'completed' : 'completed with errors'}: ` +
+      result.summary =
+        `Migration ${result.success ? "completed" : "completed with errors"}: ` +
         `${result.migratedCount} migrated, ${result.skippedCount} skipped`;
-
     } catch (error) {
-      result.errors.push(`Migration failed: ${error instanceof Error ? error.message : String(error)}`);
+      result.errors.push(
+        `Migration failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       result.summary = "Migration failed due to unexpected error";
     }
 
@@ -144,7 +146,7 @@ export class MemoryMigrator {
         await fs.access(path);
         const files = await fs.readdir(path);
         // Check for LanceDB files
-        if (files.some(f => f.endsWith('.lance') || f === 'memories.lance')) {
+        if (files.some((f) => f.endsWith(".lance") || f === "memories.lance")) {
           return path;
         }
       } catch {
@@ -165,15 +167,17 @@ export class MemoryMigrator {
       if (limit) query = query.limit(limit);
       const entries = await query.toArray();
 
-      return entries.map((row): LegacyMemoryEntry => ({
-        id: row.id as string,
-        text: row.text as string,
-        vector: normalizeLegacyVector(row.vector),
-        importance: Number(row.importance),
-        category: (row.category as LegacyMemoryEntry["category"]) || "other",
-        createdAt: Number(row.createdAt),
-        scope: row.scope as string | undefined,
-      }));
+      return entries.map(
+        (row): LegacyMemoryEntry => ({
+          id: row.id as string,
+          text: row.text as string,
+          vector: normalizeLegacyVector(row.vector),
+          importance: Number(row.importance),
+          category: (row.category as LegacyMemoryEntry["category"]) || "other",
+          createdAt: Number(row.createdAt),
+          scope: row.scope as string | undefined,
+        }),
+      );
     } catch (error) {
       console.warn(`Failed to load legacy data: ${error}`);
       return [];
@@ -182,7 +186,7 @@ export class MemoryMigrator {
 
   private async migrateEntries(
     legacyEntries: LegacyMemoryEntry[],
-    options: MigrationOptions
+    options: MigrationOptions,
   ): Promise<{ migrated: number; skipped: number; errors: string[] }> {
     let migrated = 0;
     let skipped = 0;
@@ -199,9 +203,9 @@ export class MemoryMigrator {
             continue;
           }
 
-          const existing = await this.targetStore.vectorSearch(
-            legacy.vector, 1, 0.9, [legacy.scope || defaultScope]
-          );
+          const existing = await this.targetStore.vectorSearch(legacy.vector, 1, 0.9, [
+            legacy.scope || defaultScope,
+          ]);
           if (existing.length > 0 && existing[0].score > 0.95) {
             skipped++;
             continue;
@@ -230,7 +234,6 @@ export class MemoryMigrator {
         if (migrated % 100 === 0) {
           console.log(`Migrated ${migrated}/${legacyEntries.length} entries...`);
         }
-
       } catch (error) {
         errors.push(`Failed to migrate entry ${legacy.id}: ${error}`);
         skipped++;
@@ -307,7 +310,6 @@ export class MemoryMigrator {
         targetCount,
         issues,
       };
-
     } catch (error) {
       return {
         valid: false,
@@ -325,7 +327,7 @@ export function createMigrator(targetStore: MemoryStore): MemoryMigrator {
 
 export async function migrateFromLegacy(
   targetStore: MemoryStore,
-  options: MigrationOptions = {}
+  options: MigrationOptions = {},
 ): Promise<MigrationResult> {
   const migrator = createMigrator(targetStore);
   return migrator.migrate(options);

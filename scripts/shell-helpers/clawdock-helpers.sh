@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# ClawDock - Docker helpers for OpenClaw
+# ClawDock - Docker helpers for ClawMark
 # Inspired by Simon Willison's "Running OpenClaw in Docker"
 # https://til.simonwillison.net/llms/openclaw-docker
 #
 # Installation:
-#   mkdir -p ~/.clawdock && curl -sL https://raw.githubusercontent.com/openclaw/openclaw/main/scripts/shell-helpers/clawdock-helpers.sh -o ~/.clawdock/clawdock-helpers.sh
+#   mkdir -p ~/.clawdock && curl -sL https://raw.githubusercontent.com/LaurenBerrys/ClawMark/main/scripts/shell-helpers/clawdock-helpers.sh -o ~/.clawdock/clawdock-helpers.sh
 #   echo 'source ~/.clawdock/clawdock-helpers.sh' >> ~/.zshrc
 #
 # Usage:
@@ -38,7 +38,7 @@ _cmd() {
 # =============================================================================
 CLAWDOCK_CONFIG="${HOME}/.clawdock/config"
 
-# Common paths to check for OpenClaw
+# Common paths to check for ClawMark
 CLAWDOCK_COMMON_PATHS=(
   "${HOME}/openclaw"
   "${HOME}/workspace/openclaw"
@@ -97,7 +97,7 @@ _clawdock_ensure_dir() {
 
   if [[ -n "$found_path" ]]; then
     echo ""
-    echo "🦞 Found OpenClaw at: $found_path"
+    echo "🦞 Found ClawMark at: $found_path"
     echo -n "   Use this location? [Y/n] "
     read -r response
     if [[ "$response" =~ ^[Nn] ]]; then
@@ -109,11 +109,11 @@ _clawdock_ensure_dir() {
     CLAWDOCK_DIR="$found_path"
   else
     echo ""
-    echo "❌ OpenClaw not found in common locations."
+    echo "❌ ClawMark not found in common locations."
     echo ""
     echo "Clone it first:"
     echo ""
-    echo "  git clone https://github.com/openclaw/openclaw.git ~/openclaw"
+    echo "  git clone https://github.com/LaurenBerrys/ClawMark.git ~/openclaw"
     echo "  cd ~/openclaw && ./docker-setup.sh"
     echo ""
     echo "Or set CLAWDOCK_DIR if it's elsewhere:"

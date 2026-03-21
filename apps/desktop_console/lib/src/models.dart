@@ -69,51 +69,135 @@ bool asBool(Object? value, [bool fallback = false]) {
   return fallback;
 }
 
-enum DesktopPage { home, tasks, memory, governance, federation, settings }
+enum DesktopPage {
+  chat,
+  overview,
+  runtime,
+  channels,
+  instances,
+  sessions,
+  cronJobs,
+  agents,
+  skills,
+  nodes,
+  config,
+  debug,
+  logs,
+  execApprovals,
+  update,
+}
 
 extension DesktopPagePresentation on DesktopPage {
   String get label => switch (this) {
-    DesktopPage.home => "首页",
-    DesktopPage.tasks => "任务",
-    DesktopPage.memory => "记忆",
-    DesktopPage.governance => "治理",
-    DesktopPage.federation => "联邦",
-    DesktopPage.settings => "设置",
+    DesktopPage.chat => "聊天",
+    DesktopPage.overview => "概览",
+    DesktopPage.runtime => "Runtime",
+    DesktopPage.channels => "频道",
+    DesktopPage.instances => "实例",
+    DesktopPage.sessions => "会话",
+    DesktopPage.cronJobs => "定时任务",
+    DesktopPage.agents => "代理",
+    DesktopPage.skills => "技能",
+    DesktopPage.nodes => "节点",
+    DesktopPage.config => "配置",
+    DesktopPage.debug => "调试",
+    DesktopPage.logs => "日志",
+    DesktopPage.execApprovals => "审批",
+    DesktopPage.update => "部署",
   };
 
   String get headline => switch (this) {
-    DesktopPage.home => "运行时工作台",
-    DesktopPage.tasks => "任务控制",
-    DesktopPage.memory => "记忆与策略",
-    DesktopPage.governance => "治理队列",
-    DesktopPage.federation => "联邦平面",
-    DesktopPage.settings => "本地运行时设置",
+    DesktopPage.chat => "Chat",
+    DesktopPage.overview => "Overview",
+    DesktopPage.runtime => "Runtime",
+    DesktopPage.channels => "Channels",
+    DesktopPage.instances => "Instances",
+    DesktopPage.sessions => "Sessions",
+    DesktopPage.cronJobs => "Cron",
+    DesktopPage.agents => "Agents",
+    DesktopPage.skills => "Skills",
+    DesktopPage.nodes => "Nodes",
+    DesktopPage.config => "Config",
+    DesktopPage.debug => "Debug",
+    DesktopPage.logs => "Logs",
+    DesktopPage.execApprovals => "Approvals",
+    DesktopPage.update => "Deploy",
   };
 
   String get description => switch (this) {
-    DesktopPage.home =>
-      "在同一个操作闭环里提交工作、观察执行状态，并处理审批。",
-    DesktopPage.tasks =>
-      "查看根任务、子运行、检查点和恢复状态。",
-    DesktopPage.memory =>
-      "浏览正式记忆、关联策略和保留状态。",
-    DesktopPage.governance =>
-      "在不丢失审计线索的前提下采纳、拒绝或回退受控运行时变更。",
-    DesktopPage.federation =>
-      "查看同步状态、收件包和外发日志状态。",
-    DesktopPage.settings =>
-      "检查实例根目录、网关连线、任务循环默认值和本地桌面姿态。",
+    DesktopPage.chat => "聊天入口，保留 OpenClaw 的对话优先路径。",
+    DesktopPage.overview => "状态、入口动作和最近待处理项。",
+    DesktopPage.runtime => "记忆、策略、情报和本地运行面板。",
+    DesktopPage.channels => "频道和已绑定表面的当前状态。",
+    DesktopPage.instances => "实例、桌面宿主和连接状态。",
+    DesktopPage.sessions => "活动会话、任务运行和最近执行上下文。",
+    DesktopPage.cronJobs => "定时任务和自动运行入口。",
+    DesktopPage.agents => "代理、表面和治理相关能力。",
+    DesktopPage.skills => "技能姿态和相关扩展上下文。",
+    DesktopPage.nodes => "节点、配对对象和受控能力。",
+    DesktopPage.config => "当前配置、用户偏好和本地设置。",
+    DesktopPage.debug => "调试快照、健康信号和诊断上下文。",
+    DesktopPage.logs => "日志目录、告警和常用日志动作。",
+    DesktopPage.execApprovals => "审批和待确认动作的内部落点页。",
+    DesktopPage.update => "部署、版本和核心更新入口。",
   };
 
   IconData get icon => switch (this) {
-    DesktopPage.home => Icons.dashboard_customize_outlined,
-    DesktopPage.tasks => Icons.playlist_add_check_circle_outlined,
-    DesktopPage.memory => Icons.auto_stories_outlined,
-    DesktopPage.governance => Icons.gavel_outlined,
-    DesktopPage.federation => Icons.hub_outlined,
-    DesktopPage.settings => Icons.settings_outlined,
+    DesktopPage.chat => Icons.chat_bubble_outline_rounded,
+    DesktopPage.overview => Icons.bar_chart_rounded,
+    DesktopPage.runtime => Icons.psychology_alt_outlined,
+    DesktopPage.channels => Icons.language_rounded,
+    DesktopPage.instances => Icons.dns_outlined,
+    DesktopPage.sessions => Icons.history_rounded,
+    DesktopPage.cronJobs => Icons.schedule_rounded,
+    DesktopPage.agents => Icons.group_outlined,
+    DesktopPage.skills => Icons.extension_outlined,
+    DesktopPage.nodes => Icons.hub_outlined,
+    DesktopPage.config => Icons.settings_outlined,
+    DesktopPage.debug => Icons.bug_report_outlined,
+    DesktopPage.logs => Icons.receipt_long_outlined,
+    DesktopPage.execApprovals => Icons.fact_check_outlined,
+    DesktopPage.update => Icons.rocket_launch_outlined,
   };
 }
+
+class DesktopNavGroup {
+  const DesktopNavGroup({required this.label, required this.pages});
+
+  final String label;
+  final List<DesktopPage> pages;
+}
+
+const primaryDesktopNavGroups = <DesktopNavGroup>[
+  DesktopNavGroup(label: "Chat", pages: <DesktopPage>[DesktopPage.chat]),
+  DesktopNavGroup(
+    label: "Control",
+    pages: <DesktopPage>[
+      DesktopPage.overview,
+      DesktopPage.runtime,
+      DesktopPage.channels,
+      DesktopPage.instances,
+      DesktopPage.sessions,
+      DesktopPage.cronJobs,
+    ],
+  ),
+  DesktopNavGroup(
+    label: "Agent",
+    pages: <DesktopPage>[
+      DesktopPage.agents,
+      DesktopPage.skills,
+      DesktopPage.nodes,
+    ],
+  ),
+  DesktopNavGroup(
+    label: "Settings",
+    pages: <DesktopPage>[
+      DesktopPage.config,
+      DesktopPage.debug,
+      DesktopPage.logs,
+    ],
+  ),
+];
 
 class TaskSummary {
   const TaskSummary({
@@ -400,12 +484,10 @@ class DesktopShellState {
 
   String get runtimeVersion => asString(
     runtimeSection["runtimeVersion"],
-    asString(dashboard["runtimeVersion"], "unknown"),
+    asString(dashboard["runtimeVersion"], "未知版本"),
   );
-  String get runtimeWsUrl => asString(
-    runtimeSection["wsUrl"],
-    asString(gatewaySection["url"]),
-  );
+  String get runtimeWsUrl =>
+      asString(runtimeSection["wsUrl"], asString(gatewaySection["url"]));
   String get instanceRoot => asString(instanceSection["instanceRoot"]);
   List<String> get warnings => asStringList(bootstrap["warnings"]);
 

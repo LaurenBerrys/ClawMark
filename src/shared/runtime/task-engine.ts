@@ -1,4 +1,6 @@
+import { resolveRuntimeCapabilityPolicy } from "./capability-plane.js";
 import type {
+  ArchivedTaskStep,
   BudgetMode,
   DecisionConfig,
   DecisionRecord,
@@ -12,11 +14,11 @@ import type {
   TaskRecord,
   TaskReview,
   TaskRun,
+  TaskStep,
   TaskStatus,
   ThinkingLane,
   GoalStateCheckpoint,
 } from "./contracts.js";
-import { resolveRuntimeCapabilityPolicy } from "./capability-plane.js";
 import { buildDecisionRecord } from "./decision-core.js";
 import { syncRuntimeFederationAssignmentTaskLifecycle } from "./federation-assignment-sync.js";
 import { syncRuntimeFederationCoordinatorSuggestionTaskLifecycle } from "./federation-coordinator-sync.js";
@@ -32,13 +34,13 @@ import {
 import { syncRuntimeFederationRemote } from "./federation-sync.js";
 import { dispatchRuntimeIntelDeliveries, previewRuntimeIntelDeliveries } from "./intel-delivery.js";
 import { maybeRunScheduledIntelRefresh } from "./intel-refresh.js";
+import { resolveRuntimeMemoryLifecycleControls } from "./memory-lifecycle.js";
 import {
   applyRuntimeMemoryLifecycleReview,
   applyRuntimeMemoryLineageReinforcement,
   applyRuntimeTaskOutcomeMemoryUpdate,
   applyRuntimeUserControlMemoryUpdate,
 } from "./memory-update-engine.js";
-import { resolveRuntimeMemoryLifecycleControls } from "./memory-lifecycle.js";
 import {
   materializeAdoptedEvolutionStrategies,
   maybeAutoApplyLowRiskEvolution,
@@ -46,9 +48,11 @@ import {
   persistTaskLifecycleArtifacts,
   reviewRuntimeEvolution,
 } from "./mutations.js";
+import { buildFederationRuntimeSnapshot } from "./runtime-dashboard.js";
 import {
   appendRuntimeEvent,
   buildRuntimeRetrievalSourceSet,
+  loadRuntimeTaskStore,
   loadRuntimeStoreBundle,
   saveRuntimeStoreBundle,
   saveRuntimeTaskStore,
@@ -74,7 +78,6 @@ import {
   reviewRuntimeUserConsoleMaintenance,
   listRuntimeResolvedSurfaceProfiles,
 } from "./user-console.js";
-import { buildFederationRuntimeSnapshot } from "./runtime-dashboard.js";
 
 const TASK_RETRY_BACKOFF_MINUTES = [3, 10, 30] as const;
 const TASK_MAX_CONSECUTIVE_FAILURES = 4;
@@ -188,6 +191,7 @@ export type RuntimeTaskLoopConfigureInput = {
   defaultRetrievalMode?: RetrievalMode;
   maxInputTokensPerTurn?: number;
   maxContextChars?: number;
+  compactionWatermark?: number;
   maxRemoteCallsPerTask?: number;
   leaseDurationMs?: number;
   maxConcurrentRunsPerWorker?: number;
@@ -248,6 +252,28 @@ function truncateText(value: string, maxLength: number): string {
     return normalized;
   }
   return `${normalized.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…`;
+}
+
+function readTaskCompactionWatermark(taskStore: RuntimeTaskStore): number {
+  return typeof taskStore.defaults.compactionWatermark === "number" &&
+    Number.isFinite(taskStore.defaults.compactionWatermark) &&
+    taskStore.defaults.compactionWatermark > 0
+    ? Math.round(taskStore.defaults.compactionWatermark)
+    : 4000;
+}
+
+function readTaskStepOutput(step: { metadata?: RuntimeMetadata }): string {
+  const metadata = toRecord(step.metadata);
+  return normalizeText(metadata?.workerOutput);
+}
+
+function buildArchivedTaskStep(step: TaskStep, now: number): ArchivedTaskStep {
+  return {
+    ...step,
+    archivedAt: now,
+    archiveReason: "goal_state_compaction",
+    updatedAt: now,
+  };
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number): number {
@@ -436,13 +462,19 @@ function resolveTaskEcologyBinding(
   const hasSessionId = Object.prototype.hasOwnProperty.call(input, "sessionId");
   const hasSurfaceId = Object.prototype.hasOwnProperty.call(input, "surfaceId");
   let agentId = hasAgentId
-    ? (input.agentId === null ? undefined : normalizeText(input.agentId) || undefined)
+    ? input.agentId === null
+      ? undefined
+      : normalizeText(input.agentId) || undefined
     : normalizeText(inputTaskContext?.agentId) || existingTaskContext.agentId;
   const sessionId = hasSessionId
-    ? (input.sessionId === null ? undefined : normalizeText(input.sessionId) || undefined)
+    ? input.sessionId === null
+      ? undefined
+      : normalizeText(input.sessionId) || undefined
     : normalizeText(inputTaskContext?.sessionId) || existingTaskContext.sessionId;
   const surfaceId = hasSurfaceId
-    ? (input.surfaceId === null ? undefined : normalizeText(input.surfaceId) || undefined)
+    ? input.surfaceId === null
+      ? undefined
+      : normalizeText(input.surfaceId) || undefined
     : normalizeText(inputSurface?.surfaceId) || existingSurface.surfaceId;
   if (agentId && !stores.userConsoleStore?.agents.some((entry) => entry.id === agentId)) {
     throw new Error(`Task agent ${agentId} was not found.`);
@@ -679,7 +711,9 @@ function finalizeTaskReportSummary(
   if (params.preferences.reportVerbosity === "detailed") {
     return [
       normalizedSummary,
-      nextAction && !normalizedSummary.includes(nextAction) ? `Next action: ${nextAction}` : undefined,
+      nextAction && !normalizedSummary.includes(nextAction)
+        ? `Next action: ${nextAction}`
+        : undefined,
       reviewSummary && reviewSummary !== normalizedSummary ? `Review: ${reviewSummary}` : undefined,
       confirmationHint,
     ]
@@ -711,13 +745,17 @@ function resolveTaskReportsForTask(
 ): string[] {
   const resolvedIds: string[] = [];
   taskStore.reports = taskStore.reports.map((report) => {
-    if (report.taskId !== params.taskId || report.state === "resolved" || report.id === params.keepId) {
+    if (
+      report.taskId !== params.taskId ||
+      report.state === "resolved" ||
+      report.id === params.keepId
+    ) {
       return report;
     }
     if (params.kind && report.kind !== params.kind) {
       return report;
     }
-    if (params.requireUserAction === true && ! report.requiresUserAction) {
+    if (params.requireUserAction === true && !report.requiresUserAction) {
       return report;
     }
     resolvedIds.push(report.id);
@@ -1040,9 +1078,13 @@ function readTaskScheduleState(task: TaskRecord): RuntimeTaskScheduleState {
   const scheduleState = toRecord(runtime?.scheduleState);
   return {
     lastCompletedAt:
-      typeof scheduleState?.lastCompletedAt === "number" ? scheduleState.lastCompletedAt : undefined,
+      typeof scheduleState?.lastCompletedAt === "number"
+        ? scheduleState.lastCompletedAt
+        : undefined,
     lastScheduledAt:
-      typeof scheduleState?.lastScheduledAt === "number" ? scheduleState.lastScheduledAt : undefined,
+      typeof scheduleState?.lastScheduledAt === "number"
+        ? scheduleState.lastScheduledAt
+        : undefined,
     lastScheduleIntervalMinutes:
       typeof scheduleState?.lastScheduleIntervalMinutes === "number" &&
       scheduleState.lastScheduleIntervalMinutes > 0
@@ -1131,7 +1173,10 @@ function readEvolutionControls(metadata: RuntimeMetadata | undefined): {
   };
 }
 
-function maybeRunScheduledEvolutionReview(opts: RuntimeStoreOptions = {}, now = resolveNow(opts.now)) {
+function maybeRunScheduledEvolutionReview(
+  opts: RuntimeStoreOptions = {},
+  now = resolveNow(opts.now),
+) {
   const stores = loadRuntimeStoreBundle({
     ...opts,
     now,
@@ -1341,10 +1386,7 @@ async function maybeRunScheduledFederationRemoteSync(
   }
 }
 
-function maybeRefreshIntel(
-  opts: RuntimeStoreOptions = {},
-  now = resolveNow(opts.now),
-) {
+function maybeRefreshIntel(opts: RuntimeStoreOptions = {}, now = resolveNow(opts.now)) {
   void maybeRefreshIntelInternal({
     ...opts,
     now,
@@ -1352,9 +1394,7 @@ function maybeRefreshIntel(
   return true;
 }
 
-async function maybeRefreshIntelInternal(
-  opts: RuntimeStoreOptions = {},
-) {
+async function maybeRefreshIntelInternal(opts: RuntimeStoreOptions = {}) {
   try {
     await maybeRunScheduledIntelRefresh(opts);
   } catch {
@@ -1475,8 +1515,7 @@ function buildDeferredConcurrencyText(
   if (reason === "worker_concurrency") {
     return {
       planSummary: `Worker ${params.constrainedWorker ?? task.worker ?? "main"} is at concurrency capacity (${params.used}/${params.limit}).`,
-      nextAction:
-        "Keep the task ready and retry planning after another worker slot is released.",
+      nextAction: "Keep the task ready and retry planning after another worker slot is released.",
     };
   }
   if (reason === "capability_governance") {
@@ -1636,9 +1675,13 @@ function resolveRuntimeRetryStrategyHint(
     })
     .toSorted((left, right) => {
       const leftWorkerExact =
-        normalizeText(left.worker).toLowerCase() === normalizeText(task.worker).toLowerCase() ? 1 : 0;
+        normalizeText(left.worker).toLowerCase() === normalizeText(task.worker).toLowerCase()
+          ? 1
+          : 0;
       const rightWorkerExact =
-        normalizeText(right.worker).toLowerCase() === normalizeText(task.worker).toLowerCase() ? 1 : 0;
+        normalizeText(right.worker).toLowerCase() === normalizeText(task.worker).toLowerCase()
+          ? 1
+          : 0;
       if (leftWorkerExact !== rightWorkerExact) {
         return rightWorkerExact - leftWorkerExact;
       }
@@ -1696,8 +1739,7 @@ function buildRetryPatch(
   const worker =
     consecutiveFailures >= 3 && task.worker && task.worker !== "main" ? "main" : task.worker;
   const blockedThreshold = strategyHint?.blockedThreshold ?? TASK_MAX_CONSECUTIVE_FAILURES;
-  const status: TaskStatus =
-    consecutiveFailures >= blockedThreshold ? "blocked" : "queued";
+  const status: TaskStatus = consecutiveFailures >= blockedThreshold ? "blocked" : "queued";
   const replanCount = (runState.replanCount ?? 0) + (consecutiveFailures >= 2 ? 1 : 0);
   return {
     status,
@@ -1755,7 +1797,7 @@ function rescheduleRecurringTask(
 ): TaskRecord {
   const now = resolveNow(opts.now);
   const intervalMinutes = resolveTaskScheduleIntervalMinutes(task);
-  if ((!task.recurring && ! task.maintenance) || !intervalMinutes) {
+  if ((!task.recurring && !task.maintenance) || !intervalMinutes) {
     return task;
   }
   const stores = loadRuntimeStoreBundle({
@@ -2070,12 +2112,22 @@ export function configureRuntimeTaskLoop(
       input.maxInputTokensPerTurn,
       currentDefaults.maxInputTokensPerTurn,
     ),
-    maxContextChars: normalizePositiveInteger(input.maxContextChars, currentDefaults.maxContextChars),
+    maxContextChars: normalizePositiveInteger(
+      input.maxContextChars,
+      currentDefaults.maxContextChars,
+    ),
+    compactionWatermark: normalizePositiveInteger(
+      input.compactionWatermark,
+      currentDefaults.compactionWatermark,
+    ),
     maxRemoteCallsPerTask: normalizePositiveInteger(
       input.maxRemoteCallsPerTask,
       currentDefaults.maxRemoteCallsPerTask,
     ),
-    leaseDurationMs: normalizePositiveInteger(input.leaseDurationMs, currentDefaults.leaseDurationMs),
+    leaseDurationMs: normalizePositiveInteger(
+      input.leaseDurationMs,
+      currentDefaults.leaseDurationMs,
+    ),
     maxConcurrentRunsPerWorker: normalizePositiveInteger(
       input.maxConcurrentRunsPerWorker,
       currentDefaults.maxConcurrentRunsPerWorker,
@@ -2107,58 +2159,83 @@ function maybeCompactTaskRun(
   params: {
     task: TaskRecord;
     run: TaskRun;
-    stores: RuntimeStoreBundle;
     now: number;
   },
   opts: RuntimeStoreOptions = {},
-): void {
-  const { task, run, stores, now } = params;
+): TaskRun | null {
+  const { task, run, now } = params;
   if (!run || !run.id) {
-    return;
+    return null;
   }
 
-  // Measure cumulative character length of all TaskStep.metadata.workerOutput in the current run.
-  const steps = stores.taskStore.steps.filter((s) => s.runId === run.id);
+  const taskStore = loadRuntimeTaskStore({
+    ...opts,
+    now,
+  });
+  const persistedRun = taskStore.runs.find((entry) => entry.id === run.id);
+  if (!persistedRun) {
+    return null;
+  }
+
+  const steps = taskStore.steps.filter((step) => step.runId === run.id);
   let totalLength = 0;
   for (const step of steps) {
-    const output = normalizeText(toRecord(step.metadata)?.workerOutput);
-    totalLength += output.length;
+    totalLength += readTaskStepOutput(step).length;
   }
 
-  const watermark = 4000; // Configurable budget default
+  const watermark = readTaskCompactionWatermark(taskStore);
   if (totalLength <= watermark) {
-    return;
+    return null;
   }
 
-  // Trigger compaction.
-  // In a real system, we would call an LLM to produce the GoalStateCheckpoint.
-  // For the pragmatic track, we produce a structured summary based on task state.
   const eliminatedPaths = steps
-    .filter((s) => s.status === "cancelled" || (s.status === "completed" && s.error))
-    .map((s) => `failed approach: ${s.kind} ${s.worker || ""}`);
-  
+    .filter(
+      (step) => step.status === "failed" || step.status === "cancelled" || Boolean(step.error),
+    )
+    .map((step) =>
+      truncateText(
+        uniqueStrings([
+          `failed approach: ${step.kind}`,
+          step.worker ? `worker ${step.worker}` : undefined,
+          step.error,
+          readTaskStepOutput(step),
+        ]).join(" · "),
+        180,
+      ),
+    );
+  const previousCheckpoint = persistedRun.checkpoint;
+
   const checkpoint: GoalStateCheckpoint = {
-    currentGoal: normalizeText(task.goal) || task.title,
-    eliminatedPaths: uniqueStrings(eliminatedPaths).slice(0, 10),
-    nextPlan: task.nextAction || task.planSummary || "continue",
+    currentGoal:
+      normalizeText(previousCheckpoint?.currentGoal) || normalizeText(task.goal) || task.title,
+    eliminatedPaths: uniqueStrings([
+      ...(previousCheckpoint?.eliminatedPaths ?? []),
+      ...eliminatedPaths,
+    ]).slice(0, 10),
+    nextPlan: task.nextAction || task.planSummary || previousCheckpoint?.nextPlan || "continue",
     compactedAt: now,
-    archivedStepIds: steps.map((s) => s.id),
+    archivedStepIds: uniqueStrings([
+      ...(previousCheckpoint?.archivedStepIds ?? []),
+      ...steps.map((step) => step.id),
+    ]),
   };
 
-  // Update TaskRun with checkpoint and physically remove steps from the active store.
   const nextRun: TaskRun = {
-    ...run,
+    ...persistedRun,
     checkpoint,
     updatedAt: now,
   };
+  taskStore.runs = taskStore.runs.map((entry) => (entry.id === run.id ? nextRun : entry));
+  taskStore.steps = taskStore.steps.filter((step) => step.runId !== run.id);
+  taskStore.archivedSteps = [
+    ...steps.map((step) => buildArchivedTaskStep(step, now)),
+    ...taskStore.archivedSteps,
+  ];
 
-  const nextSteps = stores.taskStore.steps.filter((s) => s.runId !== run.id);
-
-  // Persist the changes.
-  stores.taskStore.runs = stores.taskStore.runs.map((r) => (r.id === run.id ? nextRun : r));
-  stores.taskStore.steps = nextSteps;
-
-  saveRuntimeTaskStore(stores.taskStore, opts);
+  saveRuntimeTaskStore(taskStore, {
+    ...opts,
+    now,
+  });
 
   appendRuntimeEvent(
     "runtime_task_history_compacted",
@@ -2166,6 +2243,7 @@ function maybeCompactTaskRun(
       taskId: task.id,
       runId: run.id,
       compactedLength: totalLength,
+      watermark,
       archivedStepCount: steps.length,
     },
     {
@@ -2173,6 +2251,7 @@ function maybeCompactTaskRun(
       now,
     },
   );
+  return nextRun;
 }
 export function planRuntimeTask(
   taskId: string,
@@ -2220,7 +2299,7 @@ export function planRuntimeTask(
     normalizeText(task.planSummary).includes("memory invalidated") ||
     normalizeText(task.nextAction).includes("记忆已失效") ||
     normalizeText(task.planSummary).includes("记忆已失效") ||
-      optimizationState.needsReplan === true;
+    optimizationState.needsReplan === true;
   const mergedSkills = uniqueStrings([
     ...(task.skillIds ?? []),
     ...decision.recommendedSkills,
@@ -2261,7 +2340,8 @@ export function planRuntimeTask(
         runState,
         optimizationState,
         reason: "capability_governance",
-        constrainedWorker: workerFallbacks[0] ?? decision.recommendedWorker ?? task.worker ?? "main",
+        constrainedWorker:
+          workerFallbacks[0] ?? decision.recommendedWorker ?? task.worker ?? "main",
         used: 0,
         limit: 0,
         now,
@@ -2358,22 +2438,19 @@ export function planRuntimeTask(
           decisionUserPreferenceView?.reportVerbosity === "brief" ||
           decisionUserPreferenceView?.reportVerbosity === "balanced" ||
           decisionUserPreferenceView?.reportVerbosity === "detailed"
-            ? (decisionUserPreferenceView
-                ?.reportVerbosity as RuntimeTaskRunState["lastReportVerbosity"])
+            ? (decisionUserPreferenceView?.reportVerbosity as RuntimeTaskRunState["lastReportVerbosity"])
             : runState.lastReportVerbosity,
         lastInterruptionThreshold:
           decisionUserPreferenceView?.interruptionThreshold === "low" ||
           decisionUserPreferenceView?.interruptionThreshold === "medium" ||
           decisionUserPreferenceView?.interruptionThreshold === "high"
-            ? (decisionUserPreferenceView
-                ?.interruptionThreshold as RuntimeTaskRunState["lastInterruptionThreshold"])
+            ? (decisionUserPreferenceView?.interruptionThreshold as RuntimeTaskRunState["lastInterruptionThreshold"])
             : runState.lastInterruptionThreshold,
         lastConfirmationBoundary:
           decisionUserPreferenceView?.confirmationBoundary === "strict" ||
           decisionUserPreferenceView?.confirmationBoundary === "balanced" ||
           decisionUserPreferenceView?.confirmationBoundary === "light"
-            ? (decisionUserPreferenceView
-                ?.confirmationBoundary as RuntimeTaskRunState["lastConfirmationBoundary"])
+            ? (decisionUserPreferenceView?.confirmationBoundary as RuntimeTaskRunState["lastConfirmationBoundary"])
             : runState.lastConfirmationBoundary,
         replanCount: (runState.replanCount ?? 0) + (replanMarker ? 1 : 0),
         lastDecisionAt: decision.builtAt,
@@ -2390,9 +2467,7 @@ export function planRuntimeTask(
         lastStrategyCandidateIds: collectContextCandidateIds(
           decision.contextPack.strategyCandidates,
         ),
-        lastArchiveCandidateIds: collectContextCandidateIds(
-          decision.contextPack.archiveCandidates,
-        ),
+        lastArchiveCandidateIds: collectContextCandidateIds(decision.contextPack.archiveCandidates),
         lastFallbackOrder: decision.fallbackOrder,
         remoteCallCount: (runState.remoteCallCount ?? 0) + 1,
       },
@@ -2441,15 +2516,15 @@ export function planRuntimeTask(
     },
   );
 
-  maybeCompactTaskRun(
-    {
-      task: persisted.task,
-      run: persisted.run,
-      stores,
-      now,
-    },
-    opts,
-  );
+  const finalRun =
+    maybeCompactTaskRun(
+      {
+        task: persisted.task,
+        run: persisted.run,
+        now,
+      },
+      opts,
+    ) ?? persisted.run;
 
   appendRuntimeEvent(
     "runtime_task_planned",
@@ -2472,7 +2547,7 @@ export function planRuntimeTask(
   return {
     kind: "planned",
     task: persisted.task,
-    run: persisted.run,
+    run: finalRun,
     decision,
   };
 }
@@ -2663,6 +2738,15 @@ export function applyRuntimeTaskResult(
       now,
     },
   );
+  const finalRun =
+    maybeCompactTaskRun(
+      {
+        task: persisted.task,
+        run: persisted.run,
+        now,
+      },
+      opts,
+    ) ?? persisted.run;
 
   let distilledMemoryIds: string[] = [];
   let strategyIds: string[] = [];
@@ -2732,7 +2816,7 @@ export function applyRuntimeTaskResult(
         {
           task: evolutionInputTask,
           review: persisted.review,
-          run: persisted.run,
+          run: finalRun,
           thinkingLane:
             activeRun?.thinkingLane ||
             decision?.thinkingLane ||
@@ -2762,7 +2846,7 @@ export function applyRuntimeTaskResult(
     {
       task: finalTask,
       reportedStatus: persisted.task.status,
-      run: persisted.run,
+      run: finalRun,
       review: finalReview,
       baseSummary,
       preferences: resolveEffectiveTaskReportPreferences(finalTask, opts, now),
@@ -2811,7 +2895,7 @@ export function applyRuntimeTaskResult(
 
   return {
     task: finalTask,
-    run: persisted.run,
+    run: finalRun,
     review: finalReview,
     report: finalReport,
     distilledMemoryIds,

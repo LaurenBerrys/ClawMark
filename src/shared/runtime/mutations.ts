@@ -25,6 +25,14 @@ import type {
   EvolutionOptimizationMetric,
 } from "./contracts.js";
 import {
+  buildRuntimeEvolutionAutoApplyStatus,
+  buildRuntimeEvolutionRiskReview,
+  buildRuntimeEvolutionVerificationReview,
+  readRuntimeEvolutionObservationMetrics,
+  readRuntimeEvolutionVerificationMetrics,
+} from "./evolution-risk.js";
+import { resolveRuntimeMemoryLifecycleControls } from "./memory-lifecycle.js";
+import {
   appendRuntimeEvent,
   loadRuntimeStoreBundle,
   readRuntimeEventById,
@@ -34,14 +42,6 @@ import {
 } from "./store.js";
 import { buildTaskLifecycleArtifacts, type TaskLifecycleArtifactsInput } from "./task-artifacts.js";
 import { isTerminalTaskStatus } from "./task-loop.js";
-import {
-  buildRuntimeEvolutionAutoApplyStatus,
-  buildRuntimeEvolutionRiskReview,
-  buildRuntimeEvolutionVerificationReview,
-  readRuntimeEvolutionObservationMetrics,
-  readRuntimeEvolutionVerificationMetrics,
-} from "./evolution-risk.js";
-import { resolveRuntimeMemoryLifecycleControls } from "./memory-lifecycle.js";
 
 const INTEL_USEFULNESS_RETENTION_DAYS = 90;
 const INTEL_USEFULNESS_RETENTION_ITEMS = 800;
@@ -123,6 +123,7 @@ function writeLifecycleMetadata(
 function readEvolutionLinkedMemoryIds(entry: EvolutionMemoryRecord): string[] {
   const metadata = toRecord(entry.metadata);
   return uniqueStrings([
+    ...(entry.derivedFromMemoryIds ?? []),
     ...readStringArray(metadata?.derivedFromMemoryIds),
   ]);
 }
@@ -342,7 +343,8 @@ function mergeEvolutionObservationMetrics(
     blockedCount,
     failedCount,
     averageCompletionScore: roundMetric(
-      sum(previous?.averageCompletionScore, previousCount, sample.completionScore) / observationCount,
+      sum(previous?.averageCompletionScore, previousCount, sample.completionScore) /
+        observationCount,
     ),
     averageLatencyMs: roundMetric(
       sum(previous?.averageLatencyMs, previousCount, sample.latencyMs) / observationCount,
@@ -357,7 +359,8 @@ function mergeEvolutionObservationMetrics(
         observationCount,
     ),
     averageRemoteCallCount: roundMetric(
-      sum(previous?.averageRemoteCallCount, previousCount, sample.remoteCallCount) / observationCount,
+      sum(previous?.averageRemoteCallCount, previousCount, sample.remoteCallCount) /
+        observationCount,
     ),
     successRate: roundMetric(successCount / observationCount),
     regressionRiskScore: roundMetric(
@@ -581,9 +584,7 @@ function upsertById<T extends { id: string }>(entries: T[], next: T): T {
   return next;
 }
 
-function resolveRuntimeEvolutionControls(
-  governanceStore: RuntimeGovernanceStore,
-): {
+function resolveRuntimeEvolutionControls(governanceStore: RuntimeGovernanceStore): {
   enabled: boolean;
   autoApplyLowRisk: boolean;
   autoCanaryEvolution: boolean;
@@ -888,8 +889,7 @@ function attachEvolutionVerificationReview(params: {
     verificationSignals: verificationReview ? [...verificationReview.signals] : undefined,
     lastVerifiedAt:
       verificationReview && verificationReview.state !== "pending" ? params.now : undefined,
-    revertRecommendedAt:
-      verificationReview?.revertRecommended === true ? params.now : undefined,
+    revertRecommendedAt: verificationReview?.revertRecommended === true ? params.now : undefined,
     revertRecommendedReason:
       verificationReview?.revertRecommended === true
         ? verificationReview.signals[0] || verificationReview.summary
@@ -921,17 +921,11 @@ function upsertShadowEvaluation(
   return upsertById(store.shadowEvaluations, merged);
 }
 
-function findMemory(
-  store: RuntimeMemoryStore,
-  memoryId: string,
-): MemoryRecord | undefined {
+function findMemory(store: RuntimeMemoryStore, memoryId: string): MemoryRecord | undefined {
   return store.memories.find((entry) => entry.id === memoryId);
 }
 
-function findStrategy(
-  store: RuntimeMemoryStore,
-  strategyId: string,
-): StrategyRecord | undefined {
+function findStrategy(store: RuntimeMemoryStore, strategyId: string): StrategyRecord | undefined {
   return store.strategies.find((entry) => entry.id === strategyId);
 }
 
@@ -941,7 +935,6 @@ function findMetaLearning(
 ): MetaLearningRecord | undefined {
   return store.metaLearning.find((entry) => entry.id === learningId);
 }
-
 
 function restoreMemorySnapshot(
   store: RuntimeMemoryStore,
@@ -1054,12 +1047,7 @@ function appendIntelUsefulnessRecords(
   const created: IntelUsefulnessRecord[] = [];
   for (const sourceId of sourceIds) {
     const record: IntelUsefulnessRecord = {
-      id: buildStableId("intel_usefulness", [
-        input.intelId,
-        sourceId,
-        input.reason,
-        input.now,
-      ]),
+      id: buildStableId("intel_usefulness", [input.intelId, sourceId, input.reason, input.now]),
       intelId: input.intelId,
       sourceId,
       domain: input.domain,
@@ -1320,17 +1308,13 @@ export function distillTaskOutcomeToMemory(
         route: task.route,
         scope: "task-review",
         summary: `任务 ${task.title} 已完成，验收摘要：${summary}`,
-        detail: truncateText(
-          [
-            task.successCriteria,
-            task.planSummary,
-            task.nextAction,
-            review?.summary,
-          ]
-            .filter(Boolean)
-            .join(" | "),
-          400,
-        ) || undefined,
+        detail:
+          truncateText(
+            [task.successCriteria, task.planSummary, task.nextAction, review?.summary]
+              .filter(Boolean)
+              .join(" | "),
+            400,
+          ) || undefined,
         appliesWhen: truncateText(task.goal || task.title, 180) || undefined,
         tags,
         confidence: 88,
@@ -1349,11 +1333,7 @@ export function distillTaskOutcomeToMemory(
       })
     : null;
 
-  const resourceRefs = uniqueStrings([
-    task.worker,
-    ...task.skillIds,
-    ...(task.artifactRefs ?? []),
-  ]);
+  const resourceRefs = uniqueStrings([task.worker, ...task.skillIds, ...(task.artifactRefs ?? [])]);
   const resourceMemory =
     resourceRefs.length > 0
       ? upsertMemory(stores.memoryStore, {
@@ -1372,7 +1352,9 @@ export function distillTaskOutcomeToMemory(
               [
                 task.worker ? `worker=${task.worker}` : undefined,
                 task.skillIds.length > 0 ? `skills=${task.skillIds.join(", ")}` : undefined,
-                task.artifactRefs.length > 0 ? `artifacts=${task.artifactRefs.join(", ")}` : undefined,
+                task.artifactRefs.length > 0
+                  ? `artifacts=${task.artifactRefs.join(", ")}`
+                  : undefined,
               ]
                 .filter(Boolean)
                 .join(" · "),
@@ -1584,9 +1566,7 @@ export function invalidateMemoryLineage(
   }
 
   for (const strategy of stores.memoryStore.strategies) {
-    const linkedMemoryIds = uniqueStrings([
-      ...(strategy.derivedFromMemoryIds ?? []),
-    ]);
+    const linkedMemoryIds = uniqueStrings([...(strategy.derivedFromMemoryIds ?? [])]);
     if (!linkedMemoryIds.some((memoryId) => invalidatedMemoryIds.has(memoryId))) {
       continue;
     }
@@ -1687,7 +1667,10 @@ export function invalidateMemoryLineage(
     task.updatedAt = now;
     task.metadata = writeTaskOptimizationState(task, {
       needsReplan: true,
-      invalidatedBy: uniqueStrings([...(optimizationState.invalidatedBy ?? []), input.reasonEventId]),
+      invalidatedBy: uniqueStrings([
+        ...(optimizationState.invalidatedBy ?? []),
+        input.reasonEventId,
+      ]),
       invalidatedMemoryIds: uniqueStrings([
         ...(optimizationState.invalidatedMemoryIds ?? []),
         ...matchedMemoryIds,
@@ -1815,8 +1798,7 @@ export function promotePinnedIntelToKnowledgeMemory(
   if (!intel) {
     throw new Error(`Unknown intel item: ${intelId}`);
   }
-  const label =
-    intel.kind === "candidate" ? intel.candidate.title : intel.digest.title;
+  const label = intel.kind === "candidate" ? intel.candidate.title : intel.digest.title;
   const sourceIds =
     intel.kind === "candidate" ? [intel.candidate.sourceId] : uniqueStrings(intel.digest.sourceIds);
   const domain = intel.kind === "candidate" ? intel.candidate.domain : intel.digest.domain;
@@ -1868,7 +1850,9 @@ export function promotePinnedIntelToKnowledgeMemory(
       undefined,
     appliesWhen: intel.kind === "digest" ? intel.digest.recommendedAction : undefined,
     avoidWhen:
-      intel.kind === "digest" ? normalizeText(intel.digest.recommendedIgnoreReason) || undefined : undefined,
+      intel.kind === "digest"
+        ? normalizeText(intel.digest.recommendedIgnoreReason) || undefined
+        : undefined,
     tags: uniqueStrings([
       domain,
       "knowledge",
@@ -1879,7 +1863,9 @@ export function promotePinnedIntelToKnowledgeMemory(
         intel.kind === "candidate" ? intel.candidate.metadata?.tags : intel.digest.metadata?.tags,
       )
         ? (
-            ((intel.kind === "candidate" ? intel.candidate.metadata?.tags : intel.digest.metadata?.tags) ?? []) as unknown[]
+            ((intel.kind === "candidate"
+              ? intel.candidate.metadata?.tags
+              : intel.digest.metadata?.tags) ?? []) as unknown[]
           ).filter((value): value is string => typeof value === "string")
         : []),
     ]),
@@ -2005,7 +1991,10 @@ export function recordRuntimeUserPreferenceMemories(
   );
 
   const userMemoryId = buildStableId("runtime_user_memory", [input.next.id, "core"]);
-  const communicationMemoryId = buildStableId("runtime_user_memory", [input.next.id, "communication"]);
+  const communicationMemoryId = buildStableId("runtime_user_memory", [
+    input.next.id,
+    "communication",
+  ]);
   const userExisting = findMemory(stores.memoryStore, userMemoryId);
   const communicationExisting = findMemory(stores.memoryStore, communicationMemoryId);
 
@@ -2013,7 +2002,9 @@ export function recordRuntimeUserPreferenceMemories(
     truncateText(
       [
         input.next.displayName ? `称呼=${input.next.displayName}` : undefined,
-        input.next.interruptionThreshold ? `打扰阈值=${input.next.interruptionThreshold}` : undefined,
+        input.next.interruptionThreshold
+          ? `打扰阈值=${input.next.interruptionThreshold}`
+          : undefined,
         input.next.confirmationBoundary ? `确认边界=${input.next.confirmationBoundary}` : undefined,
         input.next.reportVerbosity ? `汇报粒度=${input.next.reportVerbosity}` : undefined,
       ]
@@ -2441,7 +2432,8 @@ export function observeTaskOutcomeForEvolution(
         summary: `${input.task.route} 路由可优先交给 ${worker} worker 执行，再按 ${lane} 通道完成收敛。`,
         baselineRef: `${input.task.route}:worker-main`,
         candidateRef: `${input.task.route}:${worker}:${lane}`,
-        expectedEffect: "Prefer a stable specialized worker when it repeatedly finishes the route cleanly.",
+        expectedEffect:
+          "Prefer a stable specialized worker when it repeatedly finishes the route cleanly.",
         optimizedMetrics: ["success", "completion", "latency"],
         metadata: {
           route: input.task.route,
@@ -2780,7 +2772,8 @@ export function materializeAdoptedEvolutionStrategies(
         ? Math.max(0, Math.round(metadata.totalFailures))
         : 0;
     const consecutiveFailures =
-      typeof metadata.consecutiveFailures === "number" && Number.isFinite(metadata.consecutiveFailures)
+      typeof metadata.consecutiveFailures === "number" &&
+      Number.isFinite(metadata.consecutiveFailures)
         ? Math.max(0, Math.round(metadata.consecutiveFailures))
         : 0;
     const skillIds = Array.isArray(metadata.skillIds)
@@ -2874,7 +2867,8 @@ export function materializeAdoptedEvolutionStrategies(
     });
     if (
       existingStrategy?.invalidatedBy.length &&
-      normalizeText(toRecord(existingStrategy.metadata)?.materializedFromEvolutionId) === evolution.id
+      normalizeText(toRecord(existingStrategy.metadata)?.materializedFromEvolutionId) ===
+        evolution.id
     ) {
       strategy.invalidatedBy = [];
       strategy.version = nextVersion(strategy);
@@ -3031,11 +3025,7 @@ export function setRuntimeEvolutionCandidateState(
             metrics: verificationMetrics,
           });
     evaluation.state =
-      targetState === "candidate"
-        ? "promoted"
-        : targetState === "adopted"
-          ? "adopted"
-          : "reverted";
+      targetState === "candidate" ? "promoted" : targetState === "adopted" ? "adopted" : "reverted";
     evaluation.updatedAt = now;
     evaluation.metadata = {
       ...toRecord(evaluation.metadata),
@@ -3050,9 +3040,13 @@ export function setRuntimeEvolutionCandidateState(
 
   const invalidatedStrategyIds: string[] = [];
   if (targetState === "reverted") {
-    const materializedStrategyId = normalizeText(toRecord(evolution.metadata)?.materializedStrategyId);
+    const materializedStrategyId = normalizeText(
+      toRecord(evolution.metadata)?.materializedStrategyId,
+    );
     if (materializedStrategyId) {
-      const strategy = stores.memoryStore.strategies.find((entry) => entry.id === materializedStrategyId);
+      const strategy = stores.memoryStore.strategies.find(
+        (entry) => entry.id === materializedStrategyId,
+      );
       if (strategy && !strategy.invalidatedBy.includes(revertReasonId)) {
         strategy.invalidatedBy = uniqueStrings([...(strategy.invalidatedBy ?? []), revertReasonId]);
         strategy.updatedAt = now;
@@ -3104,15 +3098,13 @@ export function setRuntimeEvolutionCandidateState(
     now,
   });
   const refreshedCandidate =
-    refreshedStores.memoryStore.evolutionMemory.find((entry) => entry.id === evolution.id) ?? evolution;
+    refreshedStores.memoryStore.evolutionMemory.find((entry) => entry.id === evolution.id) ??
+    evolution;
 
   return {
     candidate: refreshedCandidate,
     shadowEvaluationIds: relatedEvaluations.map((entry) => entry.id),
-    state:
-      targetState === "reverted"
-        ? "reverted"
-        : refreshedCandidate.adoptionState,
+    state: targetState === "reverted" ? "reverted" : refreshedCandidate.adoptionState,
     strategyIds: materialized.strategyIds,
     invalidatedStrategyIds,
     updatedAt: now,
@@ -3202,7 +3194,8 @@ export function acknowledgeRuntimeEvolutionVerification(
     now,
   });
   const refreshedCandidate =
-    refreshedStores.memoryStore.evolutionMemory.find((entry) => entry.id === evolution.id) ?? evolution;
+    refreshedStores.memoryStore.evolutionMemory.find((entry) => entry.id === evolution.id) ??
+    evolution;
 
   return {
     candidate: refreshedCandidate,
@@ -3224,6 +3217,7 @@ export type RuntimeEvolutionReviewResult = {
 export type ConfigureRuntimeEvolutionInput = {
   enabled?: boolean;
   autoApplyLowRisk?: boolean;
+  autoCanaryEvolution?: boolean;
   reviewIntervalHours?: number;
 };
 
@@ -3231,6 +3225,7 @@ export type ConfigureRuntimeEvolutionResult = {
   configuredAt: number;
   enabled: boolean;
   autoApplyLowRisk: boolean;
+  autoCanaryEvolution: boolean;
   reviewIntervalHours: number;
 };
 
@@ -3255,6 +3250,10 @@ export function configureRuntimeEvolution(
       typeof input.autoApplyLowRisk === "boolean"
         ? input.autoApplyLowRisk
         : current.autoApplyLowRisk,
+    autoCanaryEvolution:
+      typeof input.autoCanaryEvolution === "boolean"
+        ? input.autoCanaryEvolution
+        : current.autoCanaryEvolution,
     reviewIntervalHours: nextReviewIntervalHours,
     updatedAt: now,
   };
@@ -3267,6 +3266,7 @@ export function configureRuntimeEvolution(
     {
       enabled: stores.governanceStore.metadata?.enabled,
       autoApplyLowRisk: stores.governanceStore.metadata?.autoApplyLowRisk,
+      autoCanaryEvolution: stores.governanceStore.metadata?.autoCanaryEvolution,
       reviewIntervalHours: nextReviewIntervalHours,
     },
     {
@@ -3278,6 +3278,7 @@ export function configureRuntimeEvolution(
     configuredAt: now,
     enabled: stores.governanceStore.metadata?.enabled !== false,
     autoApplyLowRisk: stores.governanceStore.metadata?.autoApplyLowRisk === true,
+    autoCanaryEvolution: stores.governanceStore.metadata?.autoCanaryEvolution === true,
     reviewIntervalHours: nextReviewIntervalHours,
   };
 }
@@ -3408,9 +3409,7 @@ export function reinforceMemoryLineage(
   }
 
   for (const strategy of stores.memoryStore.strategies) {
-    const linkedMemoryIds = uniqueStrings([
-      ...(strategy.derivedFromMemoryIds ?? []),
-    ]);
+    const linkedMemoryIds = uniqueStrings([...(strategy.derivedFromMemoryIds ?? [])]);
     if (
       strategy.invalidatedBy.length > 0 ||
       !linkedMemoryIds.some((memoryId) => targetIds.has(memoryId))
@@ -3701,16 +3700,17 @@ export function reviewRuntimeMemoryLifecycle(
 
   const agedSet = new Set(agedMemoryIds);
   for (const strategy of stores.memoryStore.strategies) {
-    const linkedMemoryIds = uniqueStrings([
-      ...(strategy.derivedFromMemoryIds ?? []),
-    ]);
+    const linkedMemoryIds = uniqueStrings([...(strategy.derivedFromMemoryIds ?? [])]);
     if (
       strategy.invalidatedBy.length > 0 ||
       !linkedMemoryIds.some((memoryId) => agedSet.has(memoryId))
     ) {
       continue;
     }
-    strategy.confidence = Math.max(18, strategy.confidence - controls.linkedStrategyConfidencePenalty);
+    strategy.confidence = Math.max(
+      18,
+      strategy.confidence - controls.linkedStrategyConfidencePenalty,
+    );
     strategy.version = nextVersion(strategy);
     strategy.updatedAt = now;
     strategy.metadata = {
@@ -3745,7 +3745,9 @@ export function reviewRuntimeMemoryLifecycle(
     const linkedMemoryIds = readEvolutionLinkedMemoryIds(evolution);
     const linkedStrategyIds = readEvolutionLinkedStrategyIds(evolution);
     const staleLinkedMemoryIds = linkedMemoryIds.filter((memoryId) => agedSet.has(memoryId));
-    const staleLinkedStrategyIds = linkedStrategyIds.filter((strategyId) => weakenedSet.has(strategyId));
+    const staleLinkedStrategyIds = linkedStrategyIds.filter((strategyId) =>
+      weakenedSet.has(strategyId),
+    );
     if (staleLinkedMemoryIds.length === 0 && staleLinkedStrategyIds.length === 0) {
       continue;
     }
@@ -3845,57 +3847,60 @@ export function rollbackMemoryInvalidation(
   });
   const reason = normalizeText(input.reason) || "memory invalidation rollback";
 
-  const restoredMemoryIds = memorySnapshots.map((snapshot) =>
-    restoreMemorySnapshot(stores.memoryStore, snapshot, now, reason).id,
+  const restoredMemoryIds = memorySnapshots.map(
+    (snapshot) => restoreMemorySnapshot(stores.memoryStore, snapshot, now, reason).id,
   );
-  const restoredStrategyIds = strategySnapshots.map((snapshot) =>
-    restoreStrategySnapshot(stores.memoryStore, snapshot, now, reason).id,
+  const restoredStrategyIds = strategySnapshots.map(
+    (snapshot) => restoreStrategySnapshot(stores.memoryStore, snapshot, now, reason).id,
   );
-  const restoredMetaLearningIds = metaLearningSnapshots.map((snapshot) =>
-    restoreMetaLearningSnapshot(stores.memoryStore, snapshot, now, reason).id,
+  const restoredMetaLearningIds = metaLearningSnapshots.map(
+    (snapshot) => restoreMetaLearningSnapshot(stores.memoryStore, snapshot, now, reason).id,
   );
-  const restoredEvolutionIds = evolutionSnapshots.map((snapshot) =>
-    upsertEvolutionMemory(stores.memoryStore, {
-      ...cloneValue(snapshot),
-      updatedAt: now,
-      metadata: {
-        ...toRecord(snapshot.metadata),
-        rollback: {
-          reason,
-          restoredAt: now,
+  const restoredEvolutionIds = evolutionSnapshots.map(
+    (snapshot) =>
+      upsertEvolutionMemory(stores.memoryStore, {
+        ...cloneValue(snapshot),
+        updatedAt: now,
+        metadata: {
+          ...toRecord(snapshot.metadata),
+          rollback: {
+            reason,
+            restoredAt: now,
+          },
         },
-      },
-    }).id,
+      }).id,
   );
-  const restoredShadowIds = shadowSnapshots.map((snapshot) =>
-    upsertShadowEvaluation(stores.governanceStore, {
-      ...cloneValue(snapshot),
-      updatedAt: now,
-      metadata: {
-        ...toRecord(snapshot.metadata),
-        rollback: {
-          reason,
-          restoredAt: now,
+  const restoredShadowIds = shadowSnapshots.map(
+    (snapshot) =>
+      upsertShadowEvaluation(stores.governanceStore, {
+        ...cloneValue(snapshot),
+        updatedAt: now,
+        metadata: {
+          ...toRecord(snapshot.metadata),
+          rollback: {
+            reason,
+            restoredAt: now,
+          },
         },
-      },
-    }).id,
+      }).id,
   );
-  const restoredTaskIds = taskSnapshots.map((snapshot) =>
-    upsertById(stores.taskStore.tasks, {
-      ...cloneValue(snapshot),
-      status: snapshot.status,
-      nextRunAt: snapshot.nextRunAt,
-      blockedReason: snapshot.blockedReason,
-      nextAction: snapshot.nextAction,
-      updatedAt: now,
-      metadata: {
-        ...toRecord(snapshot.metadata),
-        rollback: {
-          reason,
-          restoredAt: now,
+  const restoredTaskIds = taskSnapshots.map(
+    (snapshot) =>
+      upsertById(stores.taskStore.tasks, {
+        ...cloneValue(snapshot),
+        status: snapshot.status,
+        nextRunAt: snapshot.nextRunAt,
+        blockedReason: snapshot.blockedReason,
+        nextAction: snapshot.nextAction,
+        updatedAt: now,
+        metadata: {
+          ...toRecord(snapshot.metadata),
+          rollback: {
+            reason,
+            restoredAt: now,
+          },
         },
-      },
-    }).id,
+      }).id,
   );
 
   persistStores(stores, {

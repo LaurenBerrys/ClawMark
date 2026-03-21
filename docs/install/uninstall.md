@@ -1,7 +1,7 @@
 ---
-summary: "Uninstall OpenClaw completely (CLI, service, state, workspace)"
+summary: "Uninstall ClawMark completely (CLI, service, state, workspace)"
 read_when:
-  - You want to remove OpenClaw from a machine
+  - You want to remove ClawMark from a machine
   - The gateway service is still running after uninstall
 title: "Uninstall"
 ---
@@ -64,7 +64,7 @@ pnpm remove -g openclaw
 bun remove -g openclaw
 ```
 
-6. If you installed the macOS app:
+6. If you installed the macOS app (current bundle name: `OpenClaw.app`):
 
 ```bash
 rm -rf /Applications/OpenClaw.app

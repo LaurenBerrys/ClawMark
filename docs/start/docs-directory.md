@@ -1,5 +1,5 @@
 ---
-summary: "Curated links to the most used OpenClaw docs."
+summary: "Curated links to the most used ClawMark docs."
 read_when:
   - You want quick access to key docs pages
 title: "Docs directory"
@@ -21,21 +21,21 @@ For a complete map of the docs, see [Docs hubs](/start/hubs).
 - [Updating and rollback](/install/updating)
 - [Pairing (DM and nodes)](/channels/pairing)
 - [Nix mode](/install/nix)
-- [OpenClaw assistant setup](/start/openclaw)
+- [Personal assistant setup](/start/openclaw)
 - [Skills](/tools/skills)
 - [Skills config](/tools/skills-config)
 - [Workspace templates](/reference/templates/AGENTS)
 - [RPC adapters](/reference/rpc)
 - [Gateway runbook](/gateway)
 - [Nodes (iOS and Android)](/nodes)
-- [Web surfaces (Control UI)](/web)
+- [Web surfaces (User Console)](/web)
 - [Discovery and transports](/gateway/discovery)
 - [Remote access](/gateway/remote)
 
 ## Providers and UX
 
 - [WebChat](/web/webchat)
-- [Control UI (browser)](/web/control-ui)
+- [User Console (browser)](/web/control-ui)
 - [Telegram](/channels/telegram)
 - [Discord](/channels/discord)
 - [Mattermost (plugin)](/channels/mattermost)

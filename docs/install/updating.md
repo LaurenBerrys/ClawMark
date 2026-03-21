@@ -1,14 +1,14 @@
 ---
-summary: "Updating OpenClaw safely (global install or source), plus rollback strategy"
+summary: "Updating ClawMark safely (global install or source), plus rollback strategy"
 read_when:
-  - Updating OpenClaw
+  - Updating ClawMark
   - Something breaks after an update
 title: "Updating"
 ---
 
 # Updating
 
-OpenClaw is moving fast (pre “1.0”). Treat updates like shipping infra: update → run checks → restart (or use `openclaw update`, which restarts) → verify.
+ClawMark is moving fast (pre “1.0”). Treat updates like shipping infra: update → run checks → restart (or use `openclaw update`, which restarts) → verify.
 
 ## Recommended: re-run the website installer (upgrade in place)
 
@@ -91,7 +91,7 @@ Auto-updater is **off by default** and is a core Gateway feature (not a plugin).
 
 Behavior:
 
-- `stable`: when a new version is seen, OpenClaw waits `stableDelayHours` and then applies a deterministic per-install jitter in `stableJitterHours` (spread rollout).
+- `stable`: when a new version is seen, ClawMark waits `stableDelayHours` and then applies a deterministic per-install jitter in `stableJitterHours` (spread rollout).
 - `beta`: checks on `betaCheckIntervalHours` cadence (default: hourly) and applies when an update is available.
 - `dev`: no automatic apply; use manual `openclaw update`.
 
@@ -123,14 +123,14 @@ It runs a safe-ish update flow:
 - Requires a clean worktree.
 - Switches to the selected channel (tag or branch).
 - Fetches + rebases against the configured upstream (dev channel).
-- Installs deps, builds, builds the Control UI, and runs `openclaw doctor`.
+- Installs deps, builds, builds the User Console, and runs `openclaw doctor`.
 - Restarts the gateway by default (use `--no-restart` to skip).
 
 If you installed via **npm/pnpm** (no git metadata), `openclaw update` will try to update via your package manager. If it can’t detect the install, use “Update (global install)” instead.
 
-## Update (Control UI / RPC)
+## Update (User Console / RPC)
 
-The Control UI has **Update & Restart** (RPC: `update.run`). It:
+The User Console has **Update & Restart** (RPC: `update.run`). It:
 
 1. Runs the same source-update flow as `openclaw update` (git checkout only).
 2. Writes a restart sentinel with a structured report (stdout/stderr tail).
@@ -177,7 +177,7 @@ Typical things it does:
 - Migrate deprecated config keys / legacy config file locations.
 - Audit DM policies and warn on risky “open” settings.
 - Check Gateway health and can offer to restart.
-- Detect and migrate older gateway services (launchd/systemd; legacy schtasks) to current OpenClaw services.
+- Detect and migrate older gateway services (launchd/systemd; legacy schtasks) to current ClawMark services.
 - On Linux, ensure systemd user lingering (so the Gateway survives logout).
 
 Details: [Doctor](/gateway/doctor)

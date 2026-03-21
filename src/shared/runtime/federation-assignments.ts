@@ -159,7 +159,9 @@ function normalizeBoolean(value: unknown): boolean {
   return value === true;
 }
 
-function normalizeMetadata(parts: Array<Record<string, unknown> | null>): RuntimeMetadata | undefined {
+function normalizeMetadata(
+  parts: Array<Record<string, unknown> | null>,
+): RuntimeMetadata | undefined {
   const merged: RuntimeMetadata = {};
   for (const part of parts) {
     if (!part) {
@@ -177,13 +179,12 @@ export function normalizeRuntimeFederationAssignment(
   params: { filePath?: string; now?: number } = {},
 ): ListedFederationAssignment {
   const fileName = params.filePath ? path.basename(params.filePath) : "assignment.json";
-  const fileTimestamp = params.filePath ? readFileTimestamp(params.filePath) : resolveNow(params.now);
+  const fileTimestamp = params.filePath
+    ? readFileTimestamp(params.filePath)
+    : resolveNow(params.now);
   const record = toRecord(raw);
   const payload = toRecord(record?.payload);
-  const metadata = normalizeMetadata([
-    toRecord(payload?.metadata),
-    toRecord(record?.metadata),
-  ]);
+  const metadata = normalizeMetadata([toRecord(payload?.metadata), toRecord(record?.metadata)]);
   const id =
     normalizeOptionalText(record?.id) ??
     normalizeOptionalText(payload?.id) ??
@@ -364,9 +365,7 @@ export function findRuntimeFederationAssignment(
   if (!normalizedId) {
     return null;
   }
-  return (
-    listRuntimeFederationAssignments(opts).find((entry) => entry.id === normalizedId) ?? null
-  );
+  return listRuntimeFederationAssignments(opts).find((entry) => entry.id === normalizedId) ?? null;
 }
 
 export function persistRuntimeFederationAssignments(
@@ -451,7 +450,7 @@ export function transitionRuntimeFederationAssignment(
     state: input.state,
     blockedReason:
       input.state === "blocked"
-        ? normalizeOptionalText(input.reason) ?? assignment.blockedReason ?? "Blocked locally"
+        ? (normalizeOptionalText(input.reason) ?? assignment.blockedReason ?? "Blocked locally")
         : undefined,
     appliedAt: input.state === "applied" ? now : undefined,
     updatedAt: now,

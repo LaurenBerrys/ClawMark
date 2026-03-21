@@ -1,5 +1,5 @@
 ---
-summary: "VPS hosting hub for OpenClaw (Oracle/Fly/Hetzner/GCP/exe.dev)"
+summary: "VPS hosting hub for ClawMark (Oracle/Fly/Hetzner/GCP/exe.dev)"
 read_when:
   - You want to run the Gateway in the cloud
   - You need a quick map of VPS/hosting guides
@@ -26,7 +26,7 @@ deployments work at a high level.
 ## How cloud setups work
 
 - The **Gateway runs on the VPS** and owns state + workspace.
-- You connect from your laptop/phone via the **Control UI** or **Tailscale/SSH**.
+- You connect from your laptop/phone via the **User Console** or **Tailscale/SSH**.
 - Treat the VPS as the source of truth and **back up** the state + workspace.
 - Secure default: keep the Gateway on loopback and access it via SSH tunnel or Tailscale Serve.
   If you bind to `lan`/`tailnet`, require `gateway.auth.token` or `gateway.auth.password`.

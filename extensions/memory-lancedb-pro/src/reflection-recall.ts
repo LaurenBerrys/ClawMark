@@ -1,12 +1,21 @@
-import type { MemoryEntry } from "./store.js";
-import { parseReflectionMetadata } from "./reflection-metadata.js";
-import { sanitizeReflectionSliceLines } from "./reflection-slices.js";
-import { computeReflectionScore, normalizeReflectionLineForAggregation } from "./reflection-ranking.js";
-import { getReflectionItemDecayDefaults, type ReflectionItemKind } from "./reflection-item-store.js";
 import { filterByMaxAge, keepMostRecentPerNormalizedKey } from "./recall-engine.js";
-import { normalizeReflectionSoftKey, normalizeReflectionStrictKey } from "./reflection-normalize.js";
 import { aggregateReflectionGroups, type ReflectionScoredItem } from "./reflection-aggregation.js";
+import {
+  getReflectionItemDecayDefaults,
+  type ReflectionItemKind,
+} from "./reflection-item-store.js";
+import { parseReflectionMetadata } from "./reflection-metadata.js";
+import {
+  normalizeReflectionSoftKey,
+  normalizeReflectionStrictKey,
+} from "./reflection-normalize.js";
+import {
+  computeReflectionScore,
+  normalizeReflectionLineForAggregation,
+} from "./reflection-ranking.js";
 import { selectFinalReflectionRecallGroups } from "./reflection-recall-final-selection.js";
+import { sanitizeReflectionSliceLines } from "./reflection-slices.js";
+import type { MemoryEntry } from "./store.js";
 
 export interface ReflectionRecallOptions {
   agentId: string;
@@ -50,7 +59,10 @@ export function rankDynamicReflectionRecallFromEntries(
   const includeKinds = options.includeKinds.length > 0 ? options.includeKinds : ["invariant"];
   const weighted = entries
     .map((entry) => ({ entry, metadata: parseReflectionMetadata(entry.metadata) }))
-    .filter(({ metadata }) => metadata.type === "memory-reflection-item" && isOwnedByAgent(metadata, options.agentId))
+    .filter(
+      ({ metadata }) =>
+        metadata.type === "memory-reflection-item" && isOwnedByAgent(metadata, options.agentId),
+    )
     .flatMap(({ entry, metadata }) => {
       const kind = parseItemKind(metadata.itemKind);
       if (!kind || !includeKinds.includes(kind)) return [];
@@ -137,7 +149,9 @@ export function rankDynamicReflectionRecallFromEntries(
     })
     .filter((row) => row.score >= minScore);
 
-  const topK = Number.isFinite(options.topK) ? Math.max(1, Math.floor(Number(options.topK))) : rows.length;
+  const topK = Number.isFinite(options.topK)
+    ? Math.max(1, Math.floor(Number(options.topK)))
+    : rows.length;
   return rows.slice(0, topK);
 }
 

@@ -1,4 +1,4 @@
-name: OpenClaw NPM Release
+name: ClawMark NPM Release
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - "v*"
 
 concurrency:
-  group: openclaw-npm-release-${{ github.ref }}
+  group: clawmark-npm-release-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -14,7 +14,7 @@ env:
   PNPM_VERSION: "10.23.0"
 
 jobs:
-  publish_openclaw_npm:
+  publish_clawmark_npm:
     # npm trusted publishing + provenance requires a GitHub-hosted runner.
     runs-on: ubuntu-latest
     permissions:
@@ -44,19 +44,19 @@ jobs:
           # Fetch the full main ref so merge-base ancestry checks keep working
           # for older tagged commits that are still contained in main.
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
-          pnpm release:openclaw:npm:check
+          pnpm release:clawmark:npm:check
 
       - name: Ensure version is not already published
         run: |
           set -euo pipefail
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
 
-          if npm view "openclaw@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
-            echo "openclaw@${PACKAGE_VERSION} is already published on npm."
+          if npm view "clawmark@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
+            echo "clawmark@${PACKAGE_VERSION} is already published on npm."
             exit 1
           fi
 
-          echo "Publishing openclaw@${PACKAGE_VERSION}"
+          echo "Publishing clawmark@${PACKAGE_VERSION}"
 
       - name: Check
         run: pnpm check

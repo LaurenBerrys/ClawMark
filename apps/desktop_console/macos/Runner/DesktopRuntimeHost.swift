@@ -137,6 +137,7 @@ final class DesktopRuntimeHost {
         withIntermediateDirectories: true,
         attributes: nil
       )
+      self.removeDescriptor()
 
       let handle = try self.prepareLogHandle()
       let process = Process()
@@ -337,8 +338,12 @@ final class DesktopRuntimeHost {
     let bundledRoot = self.resolveBundledRuntimeRoot()
     let descriptor = self.readDescriptor()
     let runtimeRunning = self.process?.isRunning == true
+    let hasActiveDescriptor =
+      descriptor != nil &&
+      descriptor?.runtimePid == self.process?.processIdentifier &&
+      descriptor?.hostPid == ProcessInfo.processInfo.processIdentifier
     let state: String
-    if descriptor != nil && runtimeRunning {
+    if hasActiveDescriptor && runtimeRunning {
       state = "ready"
     } else if runtimeRunning {
       state = "starting_runtime"
@@ -391,7 +396,7 @@ final class DesktopRuntimeHost {
         "instanceRoot": self.instanceRootURL().path,
         "logRoot": self.logsRootURL().path,
       ],
-      "connection": self.descriptorDictionary(from: descriptor) ?? NSNull(),
+      "connection": self.descriptorDictionary(from: hasActiveDescriptor ? descriptor : nil) ?? NSNull(),
       "warnings": self.lastStartError == nil ? [] : [self.lastStartError!],
     ]
   }

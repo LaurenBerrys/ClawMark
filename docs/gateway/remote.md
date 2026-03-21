@@ -26,7 +26,7 @@ Your laptop/desktop (and nodes) connect to that host.
 
 Run the Gateway on a persistent host and reach it via **Tailscale** or SSH.
 
-- **Best UX:** keep `gateway.bind: "loopback"` and use **Tailscale Serve** for the Control UI.
+- **Best UX:** keep `gateway.bind: "loopback"` and use **Tailscale Serve** for the User Console.
 - **Fallback:** keep loopback + SSH tunnel from any machine that needs access.
 - **Examples:** [exe.dev](/install/exe-dev) (easy VM) or [Hetzner](/install/hetzner) (production VPS).
 
@@ -46,7 +46,7 @@ Runbook: [macOS remote access](/platforms/mac/remote).
 Keep the Gateway local but expose it safely:
 
 - SSH tunnel to the laptop from other machines, or
-- Tailscale Serve the Control UI and keep the Gateway loopback-only.
+- Tailscale Serve the User Console and keep the Gateway loopback-only.
 
 Guide: [Tailscale](/gateway/tailscale) and [Web overview](/web).
 
@@ -144,7 +144,7 @@ Short version: **keep the Gateway loopback-only** unless you’re sure you need 
 - Local call paths can use `gateway.remote.*` as fallback only when `gateway.auth.*` is unset.
 - If `gateway.auth.token` / `gateway.auth.password` is explicitly configured via SecretRef and unresolved, resolution fails closed (no remote fallback masking).
 - `gateway.remote.tlsFingerprint` pins the remote TLS cert when using `wss://`.
-- **Tailscale Serve** can authenticate Control UI/WebSocket traffic via identity
+- **Tailscale Serve** can authenticate User Console/WebSocket traffic via identity
   headers when `gateway.auth.allowTailscale: true`; HTTP API endpoints still
   require token/password auth. This tokenless flow assumes the gateway host is
   trusted. Set it to `false` if you want tokens/passwords everywhere.

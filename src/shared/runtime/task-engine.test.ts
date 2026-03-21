@@ -6,15 +6,15 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { upsertRuntimeCapabilityRegistryEntry } from "./capability-plane.js";
 import {
-  configureRuntimeFederationInboxMaintenance,
-  materializeRuntimeCoordinatorSuggestionTask,
-} from "./federation-inbox.js";
-import { configureRuntimeFederationRemoteSyncMaintenance } from "./federation-remote-maintenance.js";
-import {
   listRuntimeFederationAssignments,
   materializeRuntimeFederationAssignmentTask,
   persistRuntimeFederationAssignments,
 } from "./federation-assignments.js";
+import {
+  configureRuntimeFederationInboxMaintenance,
+  materializeRuntimeCoordinatorSuggestionTask,
+} from "./federation-inbox.js";
+import { configureRuntimeFederationRemoteSyncMaintenance } from "./federation-remote-maintenance.js";
 import { previewRuntimeIntelDeliveries } from "./intel-delivery.js";
 import { configureRuntimeIntelPanel } from "./intel-refresh.js";
 import { applyRuntimeTaskOutcomeMemoryUpdate } from "./memory-update-engine.js";
@@ -23,22 +23,6 @@ import {
   invalidateMemoryLineage,
   observeTaskOutcomeForEvolution,
 } from "./mutations.js";
-import { buildTaskRecordSnapshot } from "./task-artifacts.js";
-import {
-  configureRuntimeUserConsoleMaintenance,
-  upsertRuntimeAgent,
-  upsertRuntimeSessionWorkingPreference,
-  upsertRuntimeSurface,
-  upsertRuntimeSurfaceRoleOverlay,
-} from "./user-console.js";
-import {
-  applyRuntimeTaskResult,
-  configureRuntimeTaskLoop,
-  planRuntimeTask,
-  respondRuntimeWaitingUserTask,
-  tickRuntimeTaskLoop,
-  upsertRuntimeTask,
-} from "./task-engine.js";
 import {
   loadRuntimeFederationStore,
   loadRuntimeGovernanceStore,
@@ -52,6 +36,23 @@ import {
   saveRuntimeMemoryStore,
   saveRuntimeTaskStore,
 } from "./store.js";
+import { buildTaskRecordSnapshot } from "./task-artifacts.js";
+import {
+  applyRuntimeTaskResult,
+  configureRuntimeTaskLoop,
+  planRuntimeTask,
+  respondRuntimeWaitingUserTask,
+  tickRuntimeTaskLoop,
+  upsertRuntimeTask,
+} from "./task-engine.js";
+import {
+  configureRuntimeUserConsoleMaintenance,
+  updateRuntimeUserModel,
+  upsertRuntimeAgent,
+  upsertRuntimeSessionWorkingPreference,
+  upsertRuntimeSurface,
+  upsertRuntimeSurfaceRoleOverlay,
+} from "./user-console.js";
 
 async function withTempRoot(
   prefix: string,
@@ -83,7 +84,11 @@ async function readRequestBody(req: http.IncomingMessage): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-function seedTaskStore(env: NodeJS.ProcessEnv, now: number, overrides: Record<string, unknown> = {}) {
+function seedTaskStore(
+  env: NodeJS.ProcessEnv,
+  now: number,
+  overrides: Record<string, unknown> = {},
+) {
   const task = buildTaskRecordSnapshot(
     {
       id: "task-runtime",
@@ -112,6 +117,7 @@ function seedTaskStore(env: NodeJS.ProcessEnv, now: number, overrides: Record<st
         defaultRetrievalMode: "light",
         maxInputTokensPerTurn: 6000,
         maxContextChars: 9000,
+        compactionWatermark: 4000,
         maxRemoteCallsPerTask: 6,
         leaseDurationMs: 10 * 60 * 1000,
         maxConcurrentRunsPerWorker: 2,
@@ -120,6 +126,7 @@ function seedTaskStore(env: NodeJS.ProcessEnv, now: number, overrides: Record<st
       tasks: [task],
       runs: [],
       steps: [],
+      archivedSteps: [],
       reviews: [],
       reports: [],
     },
@@ -354,8 +361,9 @@ describe("runtime task engine", () => {
       const result = planRuntimeTask(task.id, { env, now: now + 40 });
       const taskStore = loadRuntimeTaskStore({ env, now: now + 50 });
       const plannedTask = taskStore.tasks.find((entry) => entry.id === task.id);
-      const runtimeTask = ((plannedTask?.metadata ?? {}) as { runtimeTask?: { runState?: Record<string, unknown> } })
-        .runtimeTask;
+      const runtimeTask = (
+        (plannedTask?.metadata ?? {}) as { runtimeTask?: { runState?: Record<string, unknown> } }
+      ).runtimeTask;
       const runState = runtimeTask?.runState ?? {};
 
       expect(result.kind).toBe("planned");
@@ -482,12 +490,14 @@ describe("runtime task engine", () => {
       );
 
       const taskStore = loadRuntimeTaskStore({ env, now: now + 10 });
-      const runtimeMetadata = (taskStore.tasks[0]?.metadata as {
-        runtimeTask?: {
-          optimizationState?: { needsReplan?: boolean };
-          runState?: { backgroundSessionId?: string };
-        };
-      })?.runtimeTask;
+      const runtimeMetadata = (
+        taskStore.tasks[0]?.metadata as {
+          runtimeTask?: {
+            optimizationState?: { needsReplan?: boolean };
+            runState?: { backgroundSessionId?: string };
+          };
+        }
+      )?.runtimeTask;
 
       expect(runtimeMetadata?.optimizationState?.needsReplan).toBe(true);
       expect(runtimeMetadata?.runState?.backgroundSessionId).toContain("autopilot-task");
@@ -514,28 +524,27 @@ describe("runtime task engine", () => {
       expect(plannedTask?.activeRunId).toBeTruthy();
       expect(taskStore.runs).toHaveLength(1);
       expect(taskStore.steps).toHaveLength(1);
-      const runState = ((plannedTask?.metadata as {
-        runtimeTask?: {
-          runState?: {
-            lastThinkingLane?: string;
-            lastRetrievalQueryId?: string;
-            lastContextSummary?: string;
-            lastContextSynthesis?: string[];
-            lastStrategyCandidateIds?: string[];
-            lastArchiveCandidateIds?: string[];
+      const runState = ((
+        plannedTask?.metadata as {
+          runtimeTask?: {
+            runState?: {
+              lastThinkingLane?: string;
+              lastRetrievalQueryId?: string;
+              lastContextSummary?: string;
+              lastContextSynthesis?: string[];
+              lastStrategyCandidateIds?: string[];
+              lastArchiveCandidateIds?: string[];
+            };
           };
-        };
-      })?.runtimeTask?.runState ??
-        null) as
-        | {
-            lastThinkingLane?: string;
-            lastRetrievalQueryId?: string;
-            lastContextSummary?: string;
-            lastContextSynthesis?: string[];
-            lastStrategyCandidateIds?: string[];
-            lastArchiveCandidateIds?: string[];
-          }
-        | null;
+        }
+      )?.runtimeTask?.runState ?? null) as {
+        lastThinkingLane?: string;
+        lastRetrievalQueryId?: string;
+        lastContextSummary?: string;
+        lastContextSynthesis?: string[];
+        lastStrategyCandidateIds?: string[];
+        lastArchiveCandidateIds?: string[];
+      } | null;
 
       expect(runState?.lastThinkingLane ?? null).toMatch(/system[12]/);
       expect(runState?.lastRetrievalQueryId).toMatch(/^decision:/);
@@ -659,6 +668,7 @@ describe("runtime task engine", () => {
             defaultRetrievalMode: "light",
             maxInputTokensPerTurn: 6000,
             maxContextChars: 9000,
+            compactionWatermark: 4000,
             maxRemoteCallsPerTask: 6,
             leaseDurationMs: 60_000,
             maxConcurrentRunsPerWorker: 1,
@@ -701,6 +711,7 @@ describe("runtime task engine", () => {
           ],
           runs: [],
           steps: [],
+          archivedSteps: [],
           reviews: [],
           reports: [],
         },
@@ -759,6 +770,7 @@ describe("runtime task engine", () => {
             defaultRetrievalMode: "light",
             maxInputTokensPerTurn: 6000,
             maxContextChars: 9000,
+            compactionWatermark: 4000,
             maxRemoteCallsPerTask: 6,
             leaseDurationMs: 60_000,
             maxConcurrentRunsPerWorker: 1,
@@ -801,6 +813,7 @@ describe("runtime task engine", () => {
           ],
           runs: [],
           steps: [],
+          archivedSteps: [],
           reviews: [],
           reports: [],
         },
@@ -835,6 +848,7 @@ describe("runtime task engine", () => {
             defaultRetrievalMode: "light",
             maxInputTokensPerTurn: 6000,
             maxContextChars: 9000,
+            compactionWatermark: 4000,
             maxRemoteCallsPerTask: 6,
             leaseDurationMs: 60_000,
             maxConcurrentRunsPerWorker: 2,
@@ -877,6 +891,7 @@ describe("runtime task engine", () => {
           ],
           runs: [],
           steps: [],
+          archivedSteps: [],
           reviews: [],
           reports: [],
         },
@@ -911,6 +926,7 @@ describe("runtime task engine", () => {
             defaultRetrievalMode: "light",
             maxInputTokensPerTurn: 6000,
             maxContextChars: 9000,
+            compactionWatermark: 4000,
             maxRemoteCallsPerTask: 6,
             leaseDurationMs: 60_000,
             maxConcurrentRunsPerWorker: 1,
@@ -953,6 +969,7 @@ describe("runtime task engine", () => {
           ],
           runs: [],
           steps: [],
+          archivedSteps: [],
           reviews: [],
           reports: [],
         },
@@ -1007,12 +1024,10 @@ describe("runtime task engine", () => {
       expect(plannedTask?.skillIds).toContain("browser");
       expect(plannedTask?.skillIds).not.toContain("patch-edit");
       expect(
-        ((plannedRun?.metadata as { blockedSkills?: string[] } | undefined)?.blockedSkills ??
-          []),
+        (plannedRun?.metadata as { blockedSkills?: string[] } | undefined)?.blockedSkills ?? [],
       ).toContain("patch-edit");
       expect(
-        ((plannedStep?.metadata as { blockedSkills?: string[] } | undefined)?.blockedSkills ??
-          []),
+        (plannedStep?.metadata as { blockedSkills?: string[] } | undefined)?.blockedSkills ?? [],
       ).toContain("patch-edit");
     });
   });
@@ -1028,6 +1043,7 @@ describe("runtime task engine", () => {
           defaultRetrievalMode: "deep",
           maxInputTokensPerTurn: 8000,
           maxContextChars: 12000,
+          compactionWatermark: 2500,
           maxRemoteCallsPerTask: 9,
           leaseDurationMs: 120_000,
           maxConcurrentRunsPerWorker: 4,
@@ -1043,6 +1059,7 @@ describe("runtime task engine", () => {
       expect(defaults.defaultRetrievalMode).toBe("deep");
       expect(defaults.maxInputTokensPerTurn).toBe(8000);
       expect(defaults.maxContextChars).toBe(12000);
+      expect(defaults.compactionWatermark).toBe(2500);
       expect(defaults.maxRemoteCallsPerTask).toBe(9);
       expect(defaults.leaseDurationMs).toBe(120_000);
       expect(defaults.maxConcurrentRunsPerWorker).toBe(4);
@@ -1050,6 +1067,91 @@ describe("runtime task engine", () => {
       expect(taskStore.defaults).toMatchObject(defaults);
       expect(planned.kind).toBe("planned");
       expect(task?.leaseExpiresAt).toBe(now + 120_020);
+    });
+  });
+
+  it("archives verbose run history into a checkpoint without disturbing user preferences", async () => {
+    await withTempRoot("openclaw-runtime-engine-goal-compaction-", async (_root, env) => {
+      const now = 1_700_306_050_000;
+      seedTaskStore(env, now);
+      configureRuntimeTaskLoop(
+        {
+          compactionWatermark: 80,
+        },
+        { env, now: now + 1 },
+      );
+      updateRuntimeUserModel(
+        {
+          displayName: "Runtime operator",
+          communicationStyle: "concise",
+          reportVerbosity: "detailed",
+          confirmationBoundary: "strict",
+        },
+        { env, now: now + 2 },
+      );
+      upsertRuntimeSessionWorkingPreference(
+        {
+          sessionId: "session-compaction",
+          label: "Compaction-sensitive session",
+          communicationStyle: "keep the current goal visible",
+          reportVerbosity: "brief",
+          confirmationBoundary: "balanced",
+        },
+        { env, now: now + 3 },
+      );
+
+      const planned = planRuntimeTask("task-runtime", { env, now: now + 10 });
+      const result = applyRuntimeTaskResult(
+        {
+          taskId: "task-runtime",
+          status: "waiting_external",
+          summary: "Need to wait for the next execution window before continuing.",
+          workerOutput:
+            "Attempted repo read, patch shaping, and rollback review. " +
+            "The first path failed because the generated patch conflicted with the local runtime contract. ".repeat(
+              4,
+            ),
+          nextAction: "Retry with the checkpointed plan after the blocking dependency clears.",
+          now: now + 20,
+        },
+        { env, now: now + 20 },
+      );
+
+      expect(planned.kind).toBe("planned");
+      const taskStore = loadRuntimeTaskStore({ env, now: now + 20 });
+      const compactedRun = taskStore.runs.find((entry) => entry.id === result.run.id);
+      const archivedSteps = taskStore.archivedSteps.filter(
+        (entry) => entry.runId === result.run.id,
+      );
+      const activeSteps = taskStore.steps.filter((entry) => entry.runId === result.run.id);
+      const consoleStore = loadRuntimeUserConsoleStore({ env, now: now + 20 });
+      const sessionPreference = consoleStore.sessionWorkingPreferences.find(
+        (entry) => entry.sessionId === "session-compaction",
+      );
+
+      expect(compactedRun?.checkpoint).toMatchObject({
+        currentGoal: "Plan and execute on the authoritative runtime path",
+        nextPlan: "Retry with the checkpointed plan after the blocking dependency clears.",
+      });
+      expect(compactedRun?.checkpoint?.archivedStepIds.length).toBe(archivedSteps.length);
+      expect(compactedRun?.checkpoint?.archivedStepIds.length).toBeGreaterThan(0);
+      expect(archivedSteps.every((entry) => entry.archiveReason === "goal_state_compaction")).toBe(
+        true,
+      );
+      expect(
+        compactedRun?.checkpoint?.archivedStepIds.every(
+          (stepId) => !activeSteps.some((entry) => entry.id === stepId),
+        ),
+      ).toBe(true);
+      expect(result.run.checkpoint?.archivedStepIds.length).toBe(archivedSteps.length);
+      expect(consoleStore.userModel.displayName).toBe("Runtime operator");
+      expect(consoleStore.userModel.reportVerbosity).toBe("detailed");
+      expect(consoleStore.userModel.confirmationBoundary).toBe("strict");
+      expect(sessionPreference).toMatchObject({
+        communicationStyle: "keep the current goal visible",
+        reportVerbosity: "brief",
+        confirmationBoundary: "balanced",
+      });
     });
   });
 
@@ -1192,56 +1294,59 @@ describe("runtime task engine", () => {
   });
 
   it("auto-applies materialized federation assignments when the local task completes", async () => {
-    await withTempRoot("openclaw-runtime-engine-federation-assignment-auto-apply-", async (_root, env) => {
-      const now = 1_700_306_400_000;
+    await withTempRoot(
+      "openclaw-runtime-engine-federation-assignment-auto-apply-",
+      async (_root, env) => {
+        const now = 1_700_306_400_000;
 
-      persistRuntimeFederationAssignments(
-        [
-          {
-            id: "assignment-auto-apply",
-            title: "Complete the local follow-up",
-            summary: "The assignment should be applied once the local task completes.",
-            sourceRuntimeId: "brain-runtime-auto-apply",
-            route: "ops",
-            worker: "main",
-          },
-        ],
-        { env, now },
-      );
+        persistRuntimeFederationAssignments(
+          [
+            {
+              id: "assignment-auto-apply",
+              title: "Complete the local follow-up",
+              summary: "The assignment should be applied once the local task completes.",
+              sourceRuntimeId: "brain-runtime-auto-apply",
+              route: "ops",
+              worker: "main",
+            },
+          ],
+          { env, now },
+        );
 
-      const materialized = materializeRuntimeFederationAssignmentTask("assignment-auto-apply", {
-        env,
-        now: now + 20,
-      });
-
-      const completed = applyRuntimeTaskResult(
-        {
-          taskId: materialized.task.id,
-          status: "completed",
-          summary: "Local follow-up finished cleanly.",
-        },
-        {
+        const materialized = materializeRuntimeFederationAssignmentTask("assignment-auto-apply", {
           env,
-          now: now + 60,
-        },
-      );
-      const assignment = listRuntimeFederationAssignments({
-        env,
-        now: now + 80,
-      }).find((entry) => entry.id === "assignment-auto-apply");
+          now: now + 20,
+        });
 
-      expect(completed.task.status).toBe("completed");
-      expect(assignment).toMatchObject({
-        id: "assignment-auto-apply",
-        state: "applied",
-        localTaskId: materialized.task.id,
-        appliedAt: now + 60,
-        metadata: expect.objectContaining({
-          localTaskStatus: "completed",
-          lifecycleSyncedAt: now + 60,
-        }),
-      });
-    });
+        const completed = applyRuntimeTaskResult(
+          {
+            taskId: materialized.task.id,
+            status: "completed",
+            summary: "Local follow-up finished cleanly.",
+          },
+          {
+            env,
+            now: now + 60,
+          },
+        );
+        const assignment = listRuntimeFederationAssignments({
+          env,
+          now: now + 80,
+        }).find((entry) => entry.id === "assignment-auto-apply");
+
+        expect(completed.task.status).toBe("completed");
+        expect(assignment).toMatchObject({
+          id: "assignment-auto-apply",
+          state: "applied",
+          localTaskId: materialized.task.id,
+          appliedAt: now + 60,
+          metadata: expect.objectContaining({
+            localTaskStatus: "completed",
+            lifecycleSyncedAt: now + 60,
+          }),
+        });
+      },
+    );
   });
 
   it("requeues materialized coordinator suggestions when the linked local task is cancelled", async () => {
@@ -1256,7 +1361,8 @@ describe("runtime task engine", () => {
             {
               id: "coord-cancel-requeue",
               title: "Retry cancelled customer follow-up",
-              summary: "If the local task is cancelled, the suggestion should return to the user queue.",
+              summary:
+                "If the local task is cancelled, the suggestion should return to the user queue.",
               taskId: "remote-task-requeue",
               sourceRuntimeId: "brain-runtime-requeue",
               sourcePackageId: "pkg-coord-requeue",
@@ -1540,7 +1646,8 @@ describe("runtime task engine", () => {
           taskId: "task-runtime",
           status: "waiting_user",
           summary: "Need approval before sending the final pricing reply.",
-          needsUser: "Approve whether the final pricing reply should be sent from the bound surface.",
+          needsUser:
+            "Approve whether the final pricing reply should be sent from the bound surface.",
           nextAction: "Approve or revise the final pricing reply.",
           now: now + 30,
         },
@@ -1625,20 +1732,22 @@ describe("runtime task engine", () => {
           typeof (entry.metadata as { respondedBy?: string } | undefined)?.respondedBy === "string",
       );
       const resolvedReport = taskStore.reports.find((entry) => entry.id === pendingReport?.id);
-      const runtimeTask = (task?.metadata as {
-        runtimeTask?: {
-          runState?: {
-            lastUserResponseAt?: number;
-            lastUserResponseSummary?: string;
-            lastUserResponseBy?: string;
-            lastUserResponseMemoryIds?: string[];
-            userResponseCount?: number;
+      const runtimeTask = (
+        task?.metadata as {
+          runtimeTask?: {
+            runState?: {
+              lastUserResponseAt?: number;
+              lastUserResponseSummary?: string;
+              lastUserResponseBy?: string;
+              lastUserResponseMemoryIds?: string[];
+              userResponseCount?: number;
+            };
+            optimizationState?: {
+              needsReplan?: boolean;
+            };
           };
-          optimizationState?: {
-            needsReplan?: boolean;
-          };
-        };
-      })?.runtimeTask;
+        }
+      )?.runtimeTask;
 
       expect(responded.task.status).toBe("queued");
       expect(waitingResult.report).toMatchObject({
@@ -1844,18 +1953,22 @@ describe("runtime task engine", () => {
       expect(nextGovernanceStore.metadata?.lastReviewAt).toBe(now + 30);
       expect(laneCandidate?.adoptionState).toBe("candidate");
       expect(
-        (laneCandidate?.metadata as {
-          riskReview?: { riskLevel?: string; autoApplyEligible?: boolean };
-        })?.riskReview,
+        (
+          laneCandidate?.metadata as {
+            riskReview?: { riskLevel?: string; autoApplyEligible?: boolean };
+          }
+        )?.riskReview,
       ).toMatchObject({
         riskLevel: "low",
         autoApplyEligible: true,
       });
       expect(skillCandidate?.adoptionState).toBe("shadow");
       expect(
-        (skillCandidate?.metadata as {
-          riskReview?: { riskLevel?: string; autoApplyEligible?: boolean };
-        })?.riskReview,
+        (
+          skillCandidate?.metadata as {
+            riskReview?: { riskLevel?: string; autoApplyEligible?: boolean };
+          }
+        )?.riskReview,
       ).toMatchObject({
         riskLevel: "medium",
         autoApplyEligible: false,
@@ -1901,7 +2014,9 @@ describe("runtime task engine", () => {
       );
 
       const memoryStore = loadRuntimeMemoryStore({ env, now: now + 10 });
-      const targetMemory = memoryStore.memories.find((entry) => entry.id === outcome.memories[0]?.id);
+      const targetMemory = memoryStore.memories.find(
+        (entry) => entry.id === outcome.memories[0]?.id,
+      );
       saveRuntimeMemoryStore(
         {
           ...memoryStore,
@@ -2084,87 +2199,90 @@ describe("runtime task engine", () => {
   });
 
   it("runs scheduled remote federation sync on idle ticks when due", async () => {
-    await withTempRoot("openclaw-runtime-engine-federation-remote-maintenance-", async (_root, env) => {
-      const now = 1_700_318_720_000;
-      const requests = {
-        outbox: 0,
-        inbox: 0,
-      };
-      const server = http.createServer(async (req, res) => {
-        if (req.method !== "POST") {
-          res.writeHead(405).end();
-          return;
-        }
-        if (req.url === "/runtime/outbox") {
-          requests.outbox += 1;
-          await readRequestBody(req);
-          res.writeHead(200, { "content-type": "application/json" });
-          res.end(JSON.stringify({ ok: true }));
-          return;
-        }
-        if (req.url === "/runtime/inbox") {
-          requests.inbox += 1;
-          await readRequestBody(req);
-          res.writeHead(200, { "content-type": "application/json" });
-          res.end(JSON.stringify({ schemaVersion: "v1", packages: [], assignments: [] }));
-          return;
-        }
-        res.writeHead(404).end();
-      });
+    await withTempRoot(
+      "openclaw-runtime-engine-federation-remote-maintenance-",
+      async (_root, env) => {
+        const now = 1_700_318_720_000;
+        const requests = {
+          outbox: 0,
+          inbox: 0,
+        };
+        const server = http.createServer(async (req, res) => {
+          if (req.method !== "POST") {
+            res.writeHead(405).end();
+            return;
+          }
+          if (req.url === "/runtime/outbox") {
+            requests.outbox += 1;
+            await readRequestBody(req);
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+          if (req.url === "/runtime/inbox") {
+            requests.inbox += 1;
+            await readRequestBody(req);
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify({ schemaVersion: "v1", packages: [], assignments: [] }));
+            return;
+          }
+          res.writeHead(404).end();
+        });
 
-      server.listen(0, "127.0.0.1");
-      await once(server, "listening");
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        throw new Error("failed to resolve test server address");
-      }
-      const baseUrl = `http://127.0.0.1:${address.port}/runtime`;
+        server.listen(0, "127.0.0.1");
+        await once(server, "listening");
+        const address = server.address();
+        if (!address || typeof address === "string") {
+          throw new Error("failed to resolve test server address");
+        }
+        const baseUrl = `http://127.0.0.1:${address.port}/runtime`;
 
-      try {
-        configureRuntimeFederationRemoteSyncMaintenance(
-          {
+        try {
+          configureRuntimeFederationRemoteSyncMaintenance(
+            {
+              enabled: true,
+              syncIntervalMinutes: 90,
+              retryAfterFailureMinutes: 20,
+            },
+            { env, now: now + 1 },
+          );
+
+          const tick = await tickRuntimeTaskLoop({
+            env,
+            now: now + 10,
+            config: {
+              federation: {
+                remote: {
+                  enabled: true,
+                  url: baseUrl,
+                  token: "brain-token",
+                  allowPrivateNetwork: true,
+                },
+              },
+            },
+          });
+          const federationStore = loadRuntimeFederationStore({ env, now: now + 10 });
+
+          expect(tick.kind).toBe("idle");
+          expect(requests).toEqual({ outbox: 1, inbox: 1 });
+          expect(federationStore.metadata?.remoteSyncMaintenance).toMatchObject({
             enabled: true,
             syncIntervalMinutes: 90,
             retryAfterFailureMinutes: 20,
-          },
-          { env, now: now + 1 },
-        );
-
-        const tick = await tickRuntimeTaskLoop({
-          env,
-          now: now + 10,
-          config: {
-            federation: {
-              remote: {
-                enabled: true,
-                url: baseUrl,
-                token: "brain-token",
-                allowPrivateNetwork: true,
-              },
-            },
-          },
-        });
-        const federationStore = loadRuntimeFederationStore({ env, now: now + 10 });
-
-        expect(tick.kind).toBe("idle");
-        expect(requests).toEqual({ outbox: 1, inbox: 1 });
-        expect(federationStore.metadata?.remoteSyncMaintenance).toMatchObject({
-          enabled: true,
-          syncIntervalMinutes: 90,
-          retryAfterFailureMinutes: 20,
-          lastAutoSyncAttemptAt: now + 10,
-          lastAutoSyncStatus: "success",
-          lastAutoSyncSucceededAt: now + 10,
-        });
-        expect(federationStore.syncCursor).toMatchObject({
-          lastPushedAt: now + 10,
-          lastPulledAt: now + 10,
-        });
-      } finally {
-        server.close();
-        await once(server, "close");
-      }
-    });
+            lastAutoSyncAttemptAt: now + 10,
+            lastAutoSyncStatus: "success",
+            lastAutoSyncSucceededAt: now + 10,
+          });
+          expect(federationStore.syncCursor).toMatchObject({
+            lastPushedAt: now + 10,
+            lastPulledAt: now + 10,
+          });
+        } finally {
+          server.close();
+          await once(server, "close");
+        }
+      },
+    );
   });
 
   it("respects configured remote federation sync cadence on idle ticks", async () => {
@@ -2414,15 +2532,17 @@ describe("runtime task engine", () => {
       );
 
       let taskStore = loadRuntimeTaskStore({ env, now: now + 20 });
-      let runtimeTaskMetadata = (taskStore.tasks[0]?.metadata as {
-        runtimeTask?: {
-          runState?: {
-            lastRetryStrategyId?: string;
-            lastRetryDelayMinutes?: number;
-            lastRetryBlockedThreshold?: number;
+      let runtimeTaskMetadata = (
+        taskStore.tasks[0]?.metadata as {
+          runtimeTask?: {
+            runState?: {
+              lastRetryStrategyId?: string;
+              lastRetryDelayMinutes?: number;
+              lastRetryBlockedThreshold?: number;
+            };
           };
-        };
-      })?.runtimeTask;
+        }
+      )?.runtimeTask;
 
       expect(taskStore.tasks[0]?.status).toBe("queued");
       expect(taskStore.tasks[0]?.nextRunAt).toBe(now + 20 + 45 * 60 * 1000);
@@ -2443,15 +2563,17 @@ describe("runtime task engine", () => {
       );
 
       taskStore = loadRuntimeTaskStore({ env, now: now + 30 });
-      runtimeTaskMetadata = (taskStore.tasks[0]?.metadata as {
-        runtimeTask?: {
-          runState?: {
-            lastRetryStrategyId?: string;
-            lastRetryDelayMinutes?: number;
-            lastRetryBlockedThreshold?: number;
+      runtimeTaskMetadata = (
+        taskStore.tasks[0]?.metadata as {
+          runtimeTask?: {
+            runState?: {
+              lastRetryStrategyId?: string;
+              lastRetryDelayMinutes?: number;
+              lastRetryBlockedThreshold?: number;
+            };
           };
-        };
-      })?.runtimeTask;
+        }
+      )?.runtimeTask;
 
       expect(second.task.status).toBe("blocked");
       expect(taskStore.tasks[0]).toMatchObject({

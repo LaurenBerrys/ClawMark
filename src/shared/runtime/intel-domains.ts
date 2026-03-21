@@ -9,9 +9,7 @@ function normalizeText(value: unknown): string {
 }
 
 export function isRuntimeInfoDomain(value: unknown): value is RuntimeInfoDomain {
-  return (
-    value === "military" || value === "tech" || value === "ai" || value === "business"
-  );
+  return value === "military" || value === "tech" || value === "ai" || value === "business";
 }
 
 export function normalizeRuntimeInfoDomain(

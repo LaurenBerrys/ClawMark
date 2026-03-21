@@ -1,19 +1,19 @@
 ---
-summary: "OpenClaw on Oracle Cloud (Always Free ARM)"
+summary: "ClawMark on Oracle Cloud (Always Free ARM)"
 read_when:
-  - Setting up OpenClaw on Oracle Cloud
-  - Looking for low-cost VPS hosting for OpenClaw
-  - Want 24/7 OpenClaw on a small server
+  - Setting up ClawMark on Oracle Cloud
+  - Looking for low-cost VPS hosting for ClawMark
+  - Want 24/7 ClawMark on a small server
 title: "Oracle Cloud"
 ---
 
-# OpenClaw on Oracle Cloud (OCI)
+# ClawMark on Oracle Cloud (OCI)
 
 ## Goal
 
-Run a persistent OpenClaw Gateway on Oracle Cloud's **Always Free** ARM tier.
+Run a persistent ClawMark Gateway on Oracle Cloud's **Always Free** ARM tier.
 
-Oracle’s free tier can be a great fit for OpenClaw (especially if you already have an OCI account), but it comes with tradeoffs:
+Oracle’s free tier can be a great fit for ClawMark (especially if you already have an OCI account), but it comes with tradeoffs:
 
 - ARM architecture (most things work, but some binaries may be x86-only)
 - Capacity and signup can be finicky
@@ -96,7 +96,7 @@ tailscale status
 
 **From now on, connect via Tailscale:** `ssh ubuntu@openclaw` (or use the Tailscale IP).
 
-## 5) Install OpenClaw
+## 5) Install ClawMark
 
 ```bash
 curl -fsSL https://openclaw.ai/install.sh | bash
@@ -109,13 +109,13 @@ When prompted "How do you want to hatch your bot?", select **"Do this later"**.
 
 ## 6) Configure Gateway (loopback + token auth) and enable Tailscale Serve
 
-Use token auth as the default. It’s predictable and avoids needing any “insecure auth” Control UI flags.
+Use token auth as the default. It’s predictable and avoids needing any “insecure auth” User Console flags.
 
 ```bash
 # Keep the Gateway private on the VM
 openclaw config set gateway.bind loopback
 
-# Require auth for the Gateway + Control UI
+# Require auth for the Gateway + User Console
 openclaw config set gateway.auth.mode token
 openclaw doctor --generate-gateway-token
 
@@ -156,7 +156,7 @@ This blocks SSH on port 22, HTTP, HTTPS, and everything else at the network edge
 
 ---
 
-## Access the Control UI
+## Access the User Console
 
 From any device on your Tailscale network:
 
@@ -254,7 +254,7 @@ openclaw doctor --non-interactive
 journalctl --user -u openclaw-gateway -n 50
 ```
 
-### Can't reach Control UI
+### Can't reach User Console
 
 ```bash
 # Verify Tailscale Serve is running

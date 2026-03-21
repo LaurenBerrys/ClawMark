@@ -1,7 +1,7 @@
 ---
-summary: "Complete reference for CLI onboarding flow, auth/model setup, outputs, and internals"
+summary: "Complete reference for the ClawMark onboarding CLI, auth/model setup, outputs, and internals"
 read_when:
-  - You need detailed behavior for openclaw onboard
+  - You need detailed behavior for the onboarding CLI (`openclaw onboard`)
   - You are debugging onboarding results or integrating onboarding clients
 title: "CLI Onboarding Reference"
 sidebarTitle: "CLI reference"
@@ -9,7 +9,7 @@ sidebarTitle: "CLI reference"
 
 # CLI Onboarding Reference
 
-This page is the full reference for `openclaw onboard`.
+This page is the full reference for the ClawMark onboarding CLI. The command remains `openclaw onboard` for compatibility.
 For the short guide, see [Onboarding Wizard (CLI)](/start/wizard).
 
 ## What the wizard does
@@ -96,8 +96,8 @@ It does not install or modify anything on the remote host.
 </Steps>
 
 <Note>
-If no GUI is detected, the wizard prints SSH port-forward instructions for the Control UI instead of opening a browser.
-If Control UI assets are missing, the wizard attempts to build them; fallback is `pnpm ui:build` (auto-installs UI deps).
+If no GUI is detected, the wizard prints SSH port-forward instructions for the User Console instead of opening a browser.
+If User Console assets are missing, the wizard attempts to build them; fallback is `pnpm ui:build` (auto-installs UI deps).
 </Note>
 
 ## Remote mode details
@@ -281,7 +281,7 @@ Gateway wizard RPC:
 - `wizard.cancel`
 - `wizard.status`
 
-Clients (macOS app and Control UI) can render steps without re-implementing onboarding logic.
+Clients (macOS app and User Console) can render steps without re-implementing onboarding logic.
 
 Signal setup behavior:
 

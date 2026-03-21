@@ -3,14 +3,10 @@
  * Combines vector search + BM25 full-text search with RRF fusion
  */
 
-import type { MemoryStore, MemorySearchResult } from "./store.js";
+import { AccessTracker, parseAccessMetadata, computeEffectiveHalfLife } from "./access-tracker.js";
 import type { Embedder } from "./embedder.js";
 import { filterNoise } from "./noise-filter.js";
-import {
-  AccessTracker,
-  parseAccessMetadata,
-  computeEffectiveHalfLife,
-} from "./access-tracker.js";
+import type { MemoryStore, MemorySearchResult } from "./store.js";
 
 // ============================================================================
 // Types & Configuration
@@ -221,8 +217,7 @@ function parseRerankResponse(
     if (!Array.isArray(items)) return null;
     const parsed: RerankItem[] = [];
     for (const raw of items as Array<Record<string, unknown>>) {
-      const index =
-        typeof raw?.index === "number" ? raw.index : Number(raw?.index);
+      const index = typeof raw?.index === "number" ? raw.index : Number(raw?.index);
       if (!Number.isFinite(index)) continue;
       let score: number | null = null;
       for (const key of scoreKeys) {
@@ -318,19 +313,9 @@ export class MemoryRetriever {
     // store initializes / creates the FTS index, which would incorrectly skip
     // BM25 + reranking.
     if (this.config.mode === "vector") {
-      results = await this.vectorOnlyRetrieval(
-        query,
-        safeLimit,
-        scopeFilter,
-        category,
-      );
+      results = await this.vectorOnlyRetrieval(query, safeLimit, scopeFilter, category);
     } else {
-      results = await this.hybridRetrieval(
-        query,
-        safeLimit,
-        scopeFilter,
-        category,
-      );
+      results = await this.hybridRetrieval(query, safeLimit, scopeFilter, category);
     }
 
     // Record access for reinforcement (manual recall only)
@@ -356,9 +341,7 @@ export class MemoryRetriever {
     );
 
     // Filter by category if specified
-    const filtered = category
-      ? results.filter((r) => r.entry.category === category)
-      : results;
+    const filtered = category ? results.filter((r) => r.entry.category === category) : results;
 
     const mapped = filtered.map(
       (result, index) =>
@@ -374,9 +357,7 @@ export class MemoryRetriever {
     const weighted = this.applyImportanceWeight(boosted);
     const lengthNormalized = this.applyLengthNormalization(weighted);
     const timeDecayed = this.applyTimeDecay(lengthNormalized);
-    const hardFiltered = timeDecayed.filter(
-      (r) => r.score >= this.config.hardMinScore,
-    );
+    const hardFiltered = timeDecayed.filter((r) => r.score >= this.config.hardMinScore);
     const denoised = this.config.filterNoise
       ? filterNoise(hardFiltered, (r) => r.entry.text)
       : hardFiltered;
@@ -393,22 +374,14 @@ export class MemoryRetriever {
     scopeFilter?: string[],
     category?: string,
   ): Promise<RetrievalResult[]> {
-    const candidatePoolSize = Math.max(
-      this.config.candidatePoolSize,
-      limit * 2,
-    );
+    const candidatePoolSize = Math.max(this.config.candidatePoolSize, limit * 2);
 
     // Compute query embedding once, reuse for vector search + reranking
     const queryVector = await this.embedder.embedQuery(query);
 
     // Run vector and BM25 searches in parallel
     const [vectorResults, bm25Results] = await Promise.all([
-      this.runVectorSearch(
-        queryVector,
-        candidatePoolSize,
-        scopeFilter,
-        category,
-      ),
+      this.runVectorSearch(queryVector, candidatePoolSize, scopeFilter, category),
       this.runBM25Search(query, candidatePoolSize, scopeFilter, category),
     ]);
 
@@ -416,18 +389,12 @@ export class MemoryRetriever {
     const fusedResults = await this.fuseResults(vectorResults, bm25Results);
 
     // Apply minimum score threshold
-    const filtered = fusedResults.filter(
-      (r) => r.score >= this.config.minScore,
-    );
+    const filtered = fusedResults.filter((r) => r.score >= this.config.minScore);
 
     // Rerank if enabled
     const reranked =
       this.config.rerank !== "none"
-        ? await this.rerankResults(
-            query,
-            queryVector,
-            filtered.slice(0, limit * 2),
-          )
+        ? await this.rerankResults(query, queryVector, filtered.slice(0, limit * 2))
         : filtered;
 
     // Apply temporal re-ranking (recency boost)
@@ -443,9 +410,7 @@ export class MemoryRetriever {
     const timeDecayed = this.applyTimeDecay(lengthNormalized);
 
     // Hard minimum score cutoff (post all scoring stages)
-    const hardFiltered = timeDecayed.filter(
-      (r) => r.score >= this.config.hardMinScore,
-    );
+    const hardFiltered = timeDecayed.filter((r) => r.score >= this.config.hardMinScore);
 
     // Filter noise
     const denoised = this.config.filterNoise
@@ -464,17 +429,10 @@ export class MemoryRetriever {
     scopeFilter?: string[],
     category?: string,
   ): Promise<Array<MemorySearchResult & { rank: number }>> {
-    const results = await this.store.vectorSearch(
-      queryVector,
-      limit,
-      0.1,
-      scopeFilter,
-    );
+    const results = await this.store.vectorSearch(queryVector, limit, 0.1, scopeFilter);
 
     // Filter by category if specified
-    const filtered = category
-      ? results.filter((r) => r.entry.category === category)
-      : results;
+    const filtered = category ? results.filter((r) => r.entry.category === category) : results;
 
     return filtered.map((result, index) => ({
       ...result,
@@ -491,9 +449,7 @@ export class MemoryRetriever {
     const results = await this.store.bm25Search(query, limit, scopeFilter);
 
     // Filter by category if specified
-    const filtered = category
-      ? results.filter((r) => r.entry.category === category)
-      : results;
+    const filtered = category ? results.filter((r) => r.entry.category === category) : results;
 
     return filtered.map((result, index) => ({
       ...result,
@@ -559,12 +515,8 @@ export class MemoryRetriever {
         entry: baseResult.entry,
         score: fusedScore,
         sources: {
-          vector: vectorResult
-            ? { score: vectorResult.score, rank: vectorResult.rank }
-            : undefined,
-          bm25: bm25Result
-            ? { score: bm25Result.score, rank: bm25Result.rank }
-            : undefined,
+          vector: vectorResult ? { score: vectorResult.score, rank: vectorResult.rank } : undefined,
+          bm25: bm25Result ? { score: bm25Result.score, rank: bm25Result.rank } : undefined,
           fused: { score: fusedScore },
         },
       });
@@ -596,15 +548,14 @@ export class MemoryRetriever {
     if (this.config.rerank === "cross-encoder" && (!needsApiKey || hasApiKey)) {
       try {
         const model = this.config.rerankModel || "jina-reranker-v3";
-        const endpoint =
-          this.config.rerankEndpoint || "https://api.jina.ai/v1/rerank";
+        const endpoint = this.config.rerankEndpoint || "https://api.jina.ai/v1/rerank";
         const documents = results.map((r) => r.entry.text);
 
         // vLLM requires a custom endpoint - fail fast if using default Jina endpoint
         if (provider === "vllm" && !this.config.rerankEndpoint) {
           throw new Error(
             "vLLM rerank provider requires rerankEndpoint to be configured. " +
-              "Example: http://host.docker.internal:12434/engines/vllm/rerank"
+              "Example: http://host.docker.internal:12434/engines/vllm/rerank",
           );
         }
 
@@ -638,9 +589,7 @@ export class MemoryRetriever {
           const parsed = parseRerankResponse(provider, data);
 
           if (!parsed) {
-            console.warn(
-              "Rerank API: invalid response shape, falling back to cosine",
-            );
+            console.warn("Rerank API: invalid response shape, falling back to cosine");
           } else {
             // Build a Set of returned indices to identify unreturned candidates
             const returnedIndices = new Set(parsed.map((r) => r.index));
@@ -669,9 +618,7 @@ export class MemoryRetriever {
               .filter((_, idx) => !returnedIndices.has(idx))
               .map((r) => ({ ...r, score: r.score * 0.8 }));
 
-            return [...reranked, ...unreturned].sort(
-              (a, b) => b.score - a.score,
-            );
+            return [...reranked, ...unreturned].sort((a, b) => b.score - a.score);
           }
         } else {
           const errText = await response.text().catch(() => "");
@@ -725,8 +672,7 @@ export class MemoryRetriever {
 
     const now = Date.now();
     const boosted = results.map((r) => {
-      const ts =
-        r.entry.timestamp && r.entry.timestamp > 0 ? r.entry.timestamp : now;
+      const ts = r.entry.timestamp && r.entry.timestamp > 0 ? r.entry.timestamp : now;
       const ageDays = (now - ts) / 86_400_000;
       const boost = Math.exp(-ageDays / recencyHalfLifeDays) * recencyWeight;
       return {
@@ -765,9 +711,7 @@ export class MemoryRetriever {
    * Long, sprawling entries (> anchor) get penalized.
    * Formula: score *= 1 / (1 + log2(charLen / anchor))
    */
-  private applyLengthNormalization(
-    results: RetrievalResult[],
-  ): RetrievalResult[] {
+  private applyLengthNormalization(results: RetrievalResult[]): RetrievalResult[] {
     const anchor = this.config.lengthNormAnchor;
     if (!anchor || anchor <= 0) return results;
 
@@ -806,14 +750,11 @@ export class MemoryRetriever {
 
     const now = Date.now();
     const decayed = results.map((r) => {
-      const ts =
-        r.entry.timestamp && r.entry.timestamp > 0 ? r.entry.timestamp : now;
+      const ts = r.entry.timestamp && r.entry.timestamp > 0 ? r.entry.timestamp : now;
       const ageDays = (now - ts) / 86_400_000;
 
       // Access reinforcement: frequently recalled memories decay slower
-      const { accessCount, lastAccessedAt } = parseAccessMetadata(
-        r.entry.metadata,
-      );
+      const { accessCount, lastAccessedAt } = parseAccessMetadata(r.entry.metadata);
       const effectiveHL = computeEffectiveHalfLife(
         halfLife,
         accessCount,

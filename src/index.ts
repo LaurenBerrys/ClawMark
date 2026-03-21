@@ -53,6 +53,12 @@ import {
   dispatchRuntimeIntelDeliveries,
   previewRuntimeIntelDeliveries,
 } from "./shared/runtime/intel-delivery.js";
+import { runRuntimeIntelPipeline } from "./shared/runtime/intel-pipeline.js";
+import { refreshRuntimeIntelPipeline } from "./shared/runtime/intel-refresh.js";
+import {
+  buildRuntimeMemoryMarkdownMirrorStatus,
+  syncRuntimeMemoryMarkdownMirror,
+} from "./shared/runtime/memory-markdown-mirror.js";
 import {
   applyRuntimeMemoryInvalidationRollback,
   applyRuntimeMemoryLifecycleReview,
@@ -63,12 +69,6 @@ import {
   applyRuntimeUserControlMemoryUpdate,
 } from "./shared/runtime/memory-update-engine.js";
 import {
-  buildRuntimeMemoryMarkdownMirrorStatus,
-  syncRuntimeMemoryMarkdownMirror,
-} from "./shared/runtime/memory-markdown-mirror.js";
-import { runRuntimeIntelPipeline } from "./shared/runtime/intel-pipeline.js";
-import { refreshRuntimeIntelPipeline } from "./shared/runtime/intel-refresh.js";
-import {
   distillTaskOutcomeToMemory,
   invalidateMemoryLineage,
   materializeAdoptedEvolutionStrategies,
@@ -78,12 +78,6 @@ import {
   reviewRuntimeEvolution,
   setRuntimeEvolutionCandidateState,
 } from "./shared/runtime/mutations.js";
-import {
-  buildRuntimeUserModelMirrorStatus,
-  markRuntimeUserModelMirrorImported,
-  readRuntimeUserModelMirrorImport,
-  syncRuntimeUserModelMirror,
-} from "./shared/runtime/user-model-mirror.js";
 import { buildContextPack, buildRouteDomains } from "./shared/runtime/retrieval-orchestrator.js";
 import {
   applyLegacyRuntimeImport,
@@ -148,6 +142,12 @@ import {
   normalizeTaskStatus,
   shouldTaskRun,
 } from "./shared/runtime/task-loop.js";
+import {
+  buildRuntimeUserModelMirrorStatus,
+  markRuntimeUserModelMirrorImported,
+  readRuntimeUserModelMirrorImport,
+  syncRuntimeUserModelMirror,
+} from "./shared/runtime/user-model-mirror.js";
 import { assertWebChannel, normalizeE164, toWhatsappJid } from "./utils.js";
 
 loadDotEnv({ quiet: true });

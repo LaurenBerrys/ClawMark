@@ -2,13 +2,13 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { upsertRuntimeCapabilityRegistryEntry } from "./capability-plane.js";
 import {
   loadRuntimeGovernanceStore,
   loadRuntimeMemoryStore,
   loadRuntimeUserConsoleStore,
 } from "./store.js";
 import { applyRuntimeTaskResult, planRuntimeTask, upsertRuntimeTask } from "./task-engine.js";
-import { upsertRuntimeCapabilityRegistryEntry } from "./capability-plane.js";
 import {
   adoptRuntimeUserModelOptimizationCandidate,
   adoptRuntimeRoleOptimizationCandidate,
@@ -454,12 +454,8 @@ describe("runtime user console memory hooks", () => {
       );
       reviewRuntimeRoleOptimizations({ env, now: now + 10 });
       const candidates = listRuntimeRoleOptimizationCandidates({ env, now: now + 10 });
-      const adoptCandidate = candidates.find(
-        (entry) => entry.surfaceId === adoptSurface.id,
-      );
-      const rejectCandidate = candidates.find(
-        (entry) => entry.surfaceId === rejectSurface.id,
-      );
+      const adoptCandidate = candidates.find((entry) => entry.surfaceId === adoptSurface.id);
+      const rejectCandidate = candidates.find((entry) => entry.surfaceId === rejectSurface.id);
       if (!adoptCandidate || !rejectCandidate) {
         throw new Error("expected role optimization candidates");
       }
@@ -590,7 +586,8 @@ describe("runtime user console memory hooks", () => {
         {
           taskId: waitingTaskC.id,
           status: "waiting_user",
-          summary: "Need one more local decision before the owning agent can close the objection cleanly.",
+          summary:
+            "Need one more local decision before the owning agent can close the objection cleanly.",
           now: now + 110,
         },
         { env, now: now + 110 },
@@ -610,7 +607,9 @@ describe("runtime user console memory hooks", () => {
         escalationTarget: "surface-owner",
         taskCreation: "recommend_only",
       });
-      expect(candidate?.reasoning.join(" ")).toContain("first-pass reports should route to the owning agent");
+      expect(candidate?.reasoning.join(" ")).toContain(
+        "first-pass reports should route to the owning agent",
+      );
       expect(candidate?.metadata).toMatchObject({
         signalSource: "surface-operations",
         waitingUserCount: 3,

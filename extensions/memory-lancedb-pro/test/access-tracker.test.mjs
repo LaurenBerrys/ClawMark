@@ -1,15 +1,12 @@
-import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import jitiFactory from "jiti";
 
 const jiti = jitiFactory(import.meta.url, { interopDefault: true });
 
-const {
-  parseAccessMetadata,
-  buildUpdatedMetadata,
-  computeEffectiveHalfLife,
-  AccessTracker,
-} = jiti("../src/access-tracker.ts");
+const { parseAccessMetadata, buildUpdatedMetadata, computeEffectiveHalfLife, AccessTracker } = jiti(
+  "../src/access-tracker.ts",
+);
 
 // ============================================================================
 // Test helpers
@@ -296,17 +293,10 @@ describe("computeEffectiveHalfLife", () => {
 
   it("decays access freshness for old accesses", () => {
     const now = Date.now();
-    const recentResult = computeEffectiveHalfLife(
-      30, 10, now, 0.5, 10,
-    );
+    const recentResult = computeEffectiveHalfLife(30, 10, now, 0.5, 10);
     // 60 days ago
-    const oldResult = computeEffectiveHalfLife(
-      30, 10, now - 60 * 24 * 60 * 60 * 1000, 0.5, 10,
-    );
-    assert.ok(
-      recentResult > oldResult,
-      `Recent (${recentResult}) should be > old (${oldResult})`,
-    );
+    const oldResult = computeEffectiveHalfLife(30, 10, now - 60 * 24 * 60 * 60 * 1000, 0.5, 10);
+    assert.ok(recentResult > oldResult, `Recent (${recentResult}) should be > old (${oldResult})`);
   });
 
   it("access 30 days ago has roughly half the effect", () => {
@@ -514,11 +504,7 @@ describe("AccessTracker", () => {
       // Wait for full debounce from last recordAccess
       await new Promise((resolve) => setTimeout(resolve, 80));
 
-      assert.equal(
-        fastTracker.getPendingUpdates().size,
-        0,
-        "Should be flushed after debounce",
-      );
+      assert.equal(fastTracker.getPendingUpdates().size, 0, "Should be flushed after debounce");
     } finally {
       fastTracker.destroy();
     }
@@ -545,7 +531,7 @@ describe("AccessTracker flush integration", () => {
     const tracker = new AccessTracker({ store, logger, debounceMs: 60_000 });
     try {
       tracker.recordAccess([id1, id1, id1]); // delta=3 for id1
-      tracker.recordAccess([id2]);             // delta=1 for id2
+      tracker.recordAccess([id2]); // delta=1 for id2
 
       await tracker.flush();
 
@@ -653,7 +639,9 @@ describe("AccessTracker flush integration", () => {
         getByIdCallCount++;
         if (getByIdCallCount === 1) {
           // First getById blocks until we resolve
-          await new Promise((resolve) => { resolveFirst = resolve; });
+          await new Promise((resolve) => {
+            resolveFirst = resolve;
+          });
         }
         return { id, metadata: JSON.stringify({ accessCount: 0 }) };
       },

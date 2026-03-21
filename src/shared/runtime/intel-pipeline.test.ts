@@ -77,12 +77,12 @@ describe("runtime intel pipeline", () => {
       expect(exploreItems).toHaveLength(2);
       expect(intelStore.sourceProfiles).toHaveLength(10);
       expect(intelStore.rankRecords).toHaveLength(20);
-      expect(intelStore.rankRecords.filter((entry) => entry.selectedMode === "exploit")).toHaveLength(
-        8,
-      );
-      expect(intelStore.rankRecords.filter((entry) => entry.selectedMode === "explore")).toHaveLength(
-        2,
-      );
+      expect(
+        intelStore.rankRecords.filter((entry) => entry.selectedMode === "exploit"),
+      ).toHaveLength(8);
+      expect(
+        intelStore.rankRecords.filter((entry) => entry.selectedMode === "explore"),
+      ).toHaveLength(2);
       expect(memoryStore.memories).toHaveLength(0);
       expect(
         aiCandidates.filter(
@@ -121,7 +121,7 @@ describe("runtime intel pipeline", () => {
       expect(result.candidates).toHaveLength(12);
       expect(result.digestItems).toHaveLength(0);
       expect(nextIntelStore.candidates).toHaveLength(12);
-      expect(nextIntelStore.candidates.every((entry) => ! entry.selected)).toBe(true);
+      expect(nextIntelStore.candidates.every((entry) => !entry.selected)).toBe(true);
       expect(nextIntelStore.digestItems).toHaveLength(0);
       expect(nextIntelStore.rankRecords).toHaveLength(12);
       expect(nextIntelStore.rankRecords.every((entry) => entry.selectedMode === "none")).toBe(true);
@@ -174,9 +174,15 @@ describe("runtime intel pipeline", () => {
       );
 
       const nextIntelStore = loadRuntimeIntelStore({ env, now: now + 5_000 });
-      const runtimeCandidate = nextIntelStore.candidates.find((entry) => entry.id === "intel-runtime");
-      const genericCandidate = nextIntelStore.candidates.find((entry) => entry.id === "intel-generic");
-      const runtimeRankRecord = nextIntelStore.rankRecords.find((entry) => entry.intelId === "intel-runtime");
+      const runtimeCandidate = nextIntelStore.candidates.find(
+        (entry) => entry.id === "intel-runtime",
+      );
+      const genericCandidate = nextIntelStore.candidates.find(
+        (entry) => entry.id === "intel-generic",
+      );
+      const runtimeRankRecord = nextIntelStore.rankRecords.find(
+        (entry) => entry.intelId === "intel-runtime",
+      );
 
       expect(runtimeCandidate?.selected).toBe(true);
       expect(genericCandidate?.selected).toBe(false);

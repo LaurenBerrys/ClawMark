@@ -8,12 +8,12 @@ type RetryClassifierInput = {
 type RetryClassifierResult = {
   retryable: boolean;
   reason:
-  | "not_reflection_scope"
-  | "retry_already_used"
-  | "useful_output_present"
-  | "non_retry_error"
-  | "non_transient_error"
-  | "transient_upstream_failure";
+    | "not_reflection_scope"
+    | "retry_already_used"
+    | "useful_output_present"
+    | "non_retry_error"
+    | "non_transient_error"
+    | "transient_upstream_failure";
   normalizedError: string;
 };
 
@@ -142,7 +142,7 @@ export function computeReflectionRetryDelayMs(random: () => number = Math.random
 }
 
 export async function runWithReflectionTransientRetryOnce<T>(
-  params: RetryRunnerParams<T>
+  params: RetryRunnerParams<T>,
 ): Promise<T> {
   try {
     return await params.execute();
@@ -160,7 +160,7 @@ export async function runWithReflectionTransientRetryOnce<T>(
     params.onLog?.(
       "warn",
       `memory-${params.scope}: transient upstream failure detected (${params.runner}); ` +
-      `retrying once in ${delayMs}ms (${decision.reason}). error=${decision.normalizedError}`
+        `retrying once in ${delayMs}ms (${decision.reason}). error=${decision.normalizedError}`,
     );
     await (params.sleep ?? DEFAULT_SLEEP)(delayMs);
 
@@ -172,7 +172,7 @@ export async function runWithReflectionTransientRetryOnce<T>(
       params.onLog?.(
         "warn",
         `memory-${params.scope}: retry exhausted (${params.runner}). ` +
-        `error=${clipSingleLine(toErrorMessage(retryError), 260)}`
+          `error=${clipSingleLine(toErrorMessage(retryError), 260)}`,
       );
       throw retryError;
     }

@@ -84,12 +84,9 @@ function uniqueStrings(values: Array<string | undefined | null>): string[] {
 
 function parseScopeList(value: unknown): FederationPushScope[] {
   if (typeof value === "string") {
-    return uniqueStrings(
-      value
-        .split(/[,\s]+/)
-        .map((entry) => entry.trim()),
-    ).filter((entry): entry is FederationPushScope =>
-      (KNOWN_FEDERATION_PUSH_SCOPES as readonly string[]).includes(entry),
+    return uniqueStrings(value.split(/[,\s]+/).map((entry) => entry.trim())).filter(
+      (entry): entry is FederationPushScope =>
+        (KNOWN_FEDERATION_PUSH_SCOPES as readonly string[]).includes(entry),
     );
   }
   if (!Array.isArray(value)) {

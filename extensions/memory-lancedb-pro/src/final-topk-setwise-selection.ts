@@ -73,13 +73,13 @@ const DEFAULT_PENALTIES: FinalSelectPenalties = {
 
 export function buildFinalSelectionShortlist<TRaw = unknown>(
   candidates: FinalSelectCandidate<TRaw>[],
-  config: FinalSelectConfig = {}
+  config: FinalSelectConfig = {},
 ): FinalSelectCandidate<TRaw>[] {
   if (!Array.isArray(candidates) || candidates.length === 0) return [];
   const finalLimit = normalizeLimit(config.finalLimit, candidates.length);
   const shortlistLimit = Math.min(
     candidates.length,
-    normalizeLimit(config.shortlistLimit, Math.max(finalLimit, finalLimit * 4))
+    normalizeLimit(config.shortlistLimit, Math.max(finalLimit, finalLimit * 4)),
   );
   return candidates
     .map((candidate, index) => ({ candidate, index }))
@@ -90,11 +90,14 @@ export function buildFinalSelectionShortlist<TRaw = unknown>(
 
 export function selectFinalTopKSetwise<TRaw = unknown>(
   candidates: FinalSelectCandidate<TRaw>[],
-  config: FinalSelectConfig = {}
+  config: FinalSelectConfig = {},
 ): FinalSelectCandidate<TRaw>[] {
   if (!Array.isArray(candidates) || candidates.length === 0) return [];
 
-  const finalLimit = Math.min(candidates.length, normalizeLimit(config.finalLimit, candidates.length));
+  const finalLimit = Math.min(
+    candidates.length,
+    normalizeLimit(config.finalLimit, candidates.length),
+  );
   if (finalLimit <= 0) return [];
 
   const weights: FinalSelectWeights = {
@@ -190,15 +193,23 @@ function computeAdjustedScore<TRaw>(
     selectedScopes: Set<string>;
     selectedTokenSets: Set<string>[];
     selectedEmbeddings: number[][];
-  }
+  },
 ): number {
-  const baseScore = Number.isFinite(candidate.candidate.baseScore) ? candidate.candidate.baseScore : 0;
-  const freshnessScore = computeFreshnessScore(candidate.ts, context.now, context.freshnessHalfLifeMs);
+  const baseScore = Number.isFinite(candidate.candidate.baseScore)
+    ? candidate.candidate.baseScore
+    : 0;
+  const freshnessScore = computeFreshnessScore(
+    candidate.ts,
+    context.now,
+    context.freshnessHalfLifeMs,
+  );
 
-  let utility = (context.weights.relevance * baseScore)
-    + (context.weights.freshness * freshnessScore);
+  let utility = context.weights.relevance * baseScore + context.weights.freshness * freshnessScore;
 
-  if (candidate.candidate.category && !context.selectedCategories.has(candidate.candidate.category)) {
+  if (
+    candidate.candidate.category &&
+    !context.selectedCategories.has(candidate.candidate.category)
+  ) {
     utility += context.weights.categoryCoverage;
   }
   if (candidate.candidate.scope && !context.selectedScopes.has(candidate.candidate.scope)) {
@@ -251,7 +262,7 @@ function compareForPresort<TRaw>(
   a: FinalSelectCandidate<TRaw>,
   b: FinalSelectCandidate<TRaw>,
   aIndex: number,
-  bIndex: number
+  bIndex: number,
 ): number {
   const aScore = Number.isFinite(a.baseScore) ? a.baseScore : 0;
   const bScore = Number.isFinite(b.baseScore) ? b.baseScore : 0;
@@ -327,7 +338,8 @@ function clampMultiplier(value: number): number {
 }
 
 function normalizeThresholds(thresholds: unknown): FinalSelectOverlapThreshold[] {
-  if (!Array.isArray(thresholds) || thresholds.length === 0) return DEFAULT_PENALTIES.overlapThresholds;
+  if (!Array.isArray(thresholds) || thresholds.length === 0)
+    return DEFAULT_PENALTIES.overlapThresholds;
   return thresholds
     .map((row) => {
       const minOverlap = Number((row as FinalSelectOverlapThreshold).minOverlap);
@@ -341,7 +353,8 @@ function normalizeThresholds(thresholds: unknown): FinalSelectOverlapThreshold[]
 }
 
 function normalizeSemanticThresholds(thresholds: unknown): FinalSelectSemanticThreshold[] {
-  if (!Array.isArray(thresholds) || thresholds.length === 0) return DEFAULT_PENALTIES.semanticThresholds;
+  if (!Array.isArray(thresholds) || thresholds.length === 0)
+    return DEFAULT_PENALTIES.semanticThresholds;
   return thresholds
     .map((row) => {
       const minSimilarity = Number((row as FinalSelectSemanticThreshold).minSimilarity);

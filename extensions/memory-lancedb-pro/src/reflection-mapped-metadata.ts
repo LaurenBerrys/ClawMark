@@ -34,14 +34,19 @@ export interface ReflectionMappedDecayDefaults {
   quality: number;
 }
 
-const REFLECTION_MAPPED_DECAY_DEFAULTS: Record<ReflectionMappedKind, ReflectionMappedDecayDefaults> = {
+const REFLECTION_MAPPED_DECAY_DEFAULTS: Record<
+  ReflectionMappedKind,
+  ReflectionMappedDecayDefaults
+> = {
   decision: { midpointDays: 45, k: 0.25, baseWeight: 1.1, quality: 1 },
   "user-model": { midpointDays: 21, k: 0.3, baseWeight: 1, quality: 0.95 },
   "agent-model": { midpointDays: 10, k: 0.35, baseWeight: 0.95, quality: 0.93 },
   lesson: { midpointDays: 7, k: 0.45, baseWeight: 0.9, quality: 0.9 },
 };
 
-export function getReflectionMappedDecayDefaults(kind: ReflectionMappedKind): ReflectionMappedDecayDefaults {
+export function getReflectionMappedDecayDefaults(
+  kind: ReflectionMappedKind,
+): ReflectionMappedDecayDefaults {
   return REFLECTION_MAPPED_DECAY_DEFAULTS[kind];
 }
 

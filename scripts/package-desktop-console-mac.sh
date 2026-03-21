@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SOURCE_APP="$ROOT_DIR/apps/desktop_console/build/macos/Build/Products/Release/desktop_console.app"
+SOURCE_APP="$ROOT_DIR/apps/desktop_console/build/macos/Build/Products/Release/ClawMark.app"
 DIST_ROOT="$ROOT_DIR/dist"
-APP_LABEL="${APP_LABEL:-ClawMarkDesktopConsole}"
+APP_LABEL="${APP_LABEL:-ClawMark}"
 APP_BUNDLE="$DIST_ROOT/${APP_LABEL}.app"
 SKIP_JS_BUILD="${SKIP_JS_BUILD:-0}"
 SKIP_FLUTTER_BUILD="${SKIP_FLUTTER_BUILD:-0}"
@@ -17,7 +17,7 @@ if [[ -n "${SIGN_IDENTITY:-}" || "${ALLOW_ADHOC_SIGNING:-0}" == "1" ]]; then
   SHOULD_SIGN=1
 fi
 
-echo "📦 Packaging Desktop Console for macOS"
+echo "📦 Packaging ClawMark for macOS"
 mkdir -p "$DIST_ROOT"
 
 if [[ "$SKIP_JS_BUILD" != "1" ]]; then
@@ -94,7 +94,7 @@ else
 fi
 
 echo
-echo "Desktop Console packaging complete:"
+echo "ClawMark packaging complete:"
 echo "  App: $APP_BUNDLE"
 echo "  Zip: $ZIP_PATH"
 if [[ "$SKIP_DMG" != "1" ]]; then

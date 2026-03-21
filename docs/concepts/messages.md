@@ -9,7 +9,7 @@ title: "Messages"
 
 # Messages
 
-This page ties together how OpenClaw handles inbound messages, sessions, queueing,
+This page ties together how ClawMark handles inbound messages, sessions, queueing,
 streaming, and reasoning visibility.
 
 ## Message flow (high level)
@@ -32,7 +32,7 @@ See [Configuration](/gateway/configuration) for full schema.
 
 ## Inbound dedupe
 
-Channels can redeliver the same message after reconnects. OpenClaw keeps a
+Channels can redeliver the same message after reconnects. ClawMark keeps a
 short-lived cache keyed by channel/account/peer/session/message id so duplicate
 deliveries do not trigger another agent run.
 
@@ -74,14 +74,14 @@ Sessions are owned by the gateway, not by clients.
 
 Multiple devices/channels can map to the same session, but history is not fully
 synced back to every client. Recommendation: use one primary device for long
-conversations to avoid divergent context. The Control UI and TUI always show the
+conversations to avoid divergent context. The User Console and TUI always show the
 gateway-backed session transcript, so they are the source of truth.
 
 Details: [Session management](/concepts/session).
 
 ## Inbound bodies and history context
 
-OpenClaw separates the **prompt body** from the **command body**:
+ClawMark separates the **prompt body** from the **command body**:
 
 - `Body`: prompt text sent to the agent. This may include channel envelopes and
   optional history wrappers.
@@ -136,7 +136,7 @@ Details: [Streaming + chunking](/concepts/streaming).
 
 ## Reasoning visibility and tokens
 
-OpenClaw can expose or hide model reasoning:
+ClawMark can expose or hide model reasoning:
 
 - `/reasoning on|off|stream` controls visibility.
 - Reasoning content still counts toward token usage when produced by the model.

@@ -1,7 +1,7 @@
 ---
-summary: "Use Qwen OAuth (free tier) in OpenClaw"
+summary: "Use Qwen OAuth (free tier) in ClawMark"
 read_when:
-  - You want to use Qwen with OpenClaw
+  - You want to use Qwen with ClawMark
   - You want free-tier OAuth access to Qwen Coder
 title: "Qwen"
 ---
@@ -41,7 +41,7 @@ openclaw models set qwen-portal/coder-model
 
 ## Reuse Qwen Code CLI login
 
-If you already logged in with the Qwen Code CLI, OpenClaw will sync credentials
+If you already logged in with the Qwen Code CLI, ClawMark will sync credentials
 from `~/.qwen/oauth_creds.json` when it loads the auth store. You still need a
 `models.providers.qwen-portal` entry (use the login command above to create one).
 

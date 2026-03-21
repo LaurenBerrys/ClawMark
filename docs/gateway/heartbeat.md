@@ -70,7 +70,7 @@ stats” or “verify gateway health”), set `agents.defaults.heartbeat.prompt`
 ## Response contract
 
 - If nothing needs attention, reply with **`HEARTBEAT_OK`**.
-- During heartbeat runs, OpenClaw treats `HEARTBEAT_OK` as an ack when it appears
+- During heartbeat runs, ClawMark treats `HEARTBEAT_OK` as an ack when it appears
   at the **start or end** of the reply. The token is stripped and the reply is
   dropped if the remaining content is **≤ `ackMaxChars`** (default: 300).
 - If `HEARTBEAT_OK` appears in the **middle** of a reply, it is not treated
@@ -280,7 +280,7 @@ Precedence: per-account → per-channel → channel defaults → built-in defaul
 - `showAlerts`: sends the alert content when the model returns a non-OK reply.
 - `useIndicator`: emits indicator events for UI status surfaces.
 
-If **all three** are false, OpenClaw skips the heartbeat run entirely (no model call).
+If **all three** are false, ClawMark skips the heartbeat run entirely (no model call).
 
 ### Per-channel vs per-account examples
 
@@ -319,7 +319,7 @@ agent to read it. Think of it as your “heartbeat checklist”: small, stable, 
 safe to include every 30 minutes.
 
 If `HEARTBEAT.md` exists but is effectively empty (only blank lines and markdown
-headers like `# Heading`), OpenClaw skips the heartbeat run to save API calls.
+headers like `# Heading`), ClawMark skips the heartbeat run to save API calls.
 If the file is missing, the heartbeat still runs and the model decides what to do.
 
 Keep it tiny (short checklist or reminders) to avoid prompt bloat.

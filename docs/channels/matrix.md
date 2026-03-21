@@ -7,7 +7,7 @@ title: "Matrix"
 
 # Matrix (plugin)
 
-Matrix is an open, decentralized messaging protocol. OpenClaw connects as a Matrix **user**
+Matrix is an open, decentralized messaging protocol. ClawMark connects as a Matrix **user**
 on any homeserver, so you need a Matrix account for the bot. Once it is logged in, you can DM
 the bot directly or invite it to rooms (Matrix "groups"). Beeper is a valid client option too,
 but it requires E2EE to be enabled.
@@ -32,7 +32,7 @@ openclaw plugins install ./extensions/matrix
 ```
 
 If you choose Matrix during configure/onboarding and a git checkout is detected,
-OpenClaw will offer the local install path automatically.
+ClawMark will offer the local install path automatically.
 
 Details: [Plugins](/tools/plugin)
 
@@ -62,7 +62,7 @@ Details: [Plugins](/tools/plugin)
    ```
 
    - Replace `matrix.example.org` with your homeserver URL.
-   - Or set `channels.matrix.userId` + `channels.matrix.password`: OpenClaw calls the same
+   - Or set `channels.matrix.userId` + `channels.matrix.password`: ClawMark calls the same
      login endpoint, stores the access token in `~/.openclaw/credentials/matrix/credentials.json`,
      and reuses it on next start.
 
@@ -116,10 +116,10 @@ Enable with `channels.matrix.encryption: true`:
 
 - If the crypto module loads, encrypted rooms are decrypted automatically.
 - Outbound media is encrypted when sending to encrypted rooms.
-- On first connection, OpenClaw requests device verification from your other sessions.
+- On first connection, ClawMark requests device verification from your other sessions.
 - Verify the device in another Matrix client (Element, etc.) to enable key sharing.
 - If the crypto module cannot be loaded, E2EE is disabled and encrypted rooms will not decrypt;
-  OpenClaw logs a warning.
+  ClawMark logs a warning.
 - If you see missing crypto module errors (for example, `@matrix-org/matrix-sdk-crypto-nodejs-*`),
   allow build scripts for `@matrix-org/matrix-sdk-crypto-nodejs` and run
   `pnpm rebuild @matrix-org/matrix-sdk-crypto-nodejs` or fetch the binary with
@@ -218,7 +218,7 @@ Notes:
 - `groupAllowFrom` restricts which senders can trigger the bot in rooms (full Matrix user IDs).
 - Per-room `users` allowlists can further restrict senders inside a specific room (use full Matrix user IDs).
 - The configure wizard prompts for room allowlists (room IDs, aliases, or names) and resolves names only on an exact, unique match.
-- On startup, OpenClaw resolves room/user names in allowlists to IDs and logs the mapping; unresolved entries are ignored for allowlist matching.
+- On startup, ClawMark resolves room/user names in allowlists to IDs and logs the mapping; unresolved entries are ignored for allowlist matching.
 - Invites are auto-joined by default; control with `channels.matrix.autoJoin` and `channels.matrix.autoJoinAllowlist`.
 - To allow **no rooms**, set `channels.matrix.groupPolicy: "disabled"` (or keep an empty allowlist).
 - Legacy key: `channels.matrix.rooms` (same shape as `groups`).

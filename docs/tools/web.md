@@ -9,7 +9,7 @@ title: "Web Tools"
 
 # Web tools
 
-OpenClaw ships two lightweight web tools:
+ClawMark ships two lightweight web tools:
 
 - `web_search` — Search the web using Brave Search API, Gemini with Google Search grounding, Grok, Kimi, or Perplexity Search API.
 - `web_fetch` — HTTP fetch + readable extraction (HTML → markdown/text).
@@ -52,7 +52,7 @@ If no keys are found, it falls back to Brave (you'll get a missing-key error pro
 Runtime SecretRef behavior:
 
 - Web tool SecretRefs are resolved atomically at gateway startup/reload.
-- In auto-detect mode, OpenClaw resolves only the selected provider key. Non-selected provider SecretRefs stay inactive until selected.
+- In auto-detect mode, ClawMark resolves only the selected provider key. Non-selected provider SecretRefs stay inactive until selected.
 - If the selected provider SecretRef is unresolved and no provider env fallback exists, startup/reload fails fast.
 
 ## Setting up web search

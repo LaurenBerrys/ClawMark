@@ -1,9 +1,16 @@
-import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
@@ -57,7 +64,7 @@ describe("jsonl_distill slash-command filtering", () => {
         makeMessage("user", "Please keep my preferred test style as concise.", 3),
         makeMessage("assistant", "Understood. I will keep tests focused and concise.", 4),
       ].join("\n") + "\n",
-      "utf-8"
+      "utf-8",
     );
 
     const run = runScript(["--state-dir", stateDir, "--agents-dir", agentsDir, "run"]);
@@ -78,4 +85,3 @@ describe("jsonl_distill slash-command filtering", () => {
     ]);
   });
 });
-

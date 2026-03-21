@@ -1,18 +1,18 @@
 ---
-summary: "Deploy OpenClaw Gateway to a Kubernetes cluster with Kustomize"
+summary: "Deploy ClawMark Gateway to a Kubernetes cluster with Kustomize"
 read_when:
-  - You want to run OpenClaw on a Kubernetes cluster
-  - You want to test OpenClaw in a Kubernetes environment
+  - You want to run ClawMark on a Kubernetes cluster
+  - You want to test ClawMark in a Kubernetes environment
 title: "Kubernetes"
 ---
 
-# OpenClaw on Kubernetes
+# ClawMark on Kubernetes
 
-A minimal starting point for running OpenClaw on Kubernetes — not a production-ready deployment. It covers the core resources and is meant to be adapted to your environment.
+A minimal starting point for running ClawMark on Kubernetes — not a production-ready deployment. It covers the core resources and is meant to be adapted to your environment.
 
 ## Why not Helm?
 
-OpenClaw is a single container with some config files. The interesting customization is in agent content (markdown files, skills, config overrides), not infrastructure templating. Kustomize handles overlays without the overhead of a Helm chart. If your deployment grows more complex, a Helm chart can be layered on top of these manifests.
+ClawMark is a single container with some config files. The interesting customization is in agent content (markdown files, skills, config overrides), not infrastructure templating. Kustomize handles overlays without the overhead of a Helm chart. If your deployment grows more complex, a Helm chart can be layered on top of these manifests.
 
 ## What you need
 
@@ -31,7 +31,7 @@ kubectl port-forward svc/openclaw 18789:18789 -n openclaw
 open http://localhost:18789
 ```
 
-Retrieve the gateway token and paste it into the Control UI:
+Retrieve the gateway token and paste it into the User Console:
 
 ```bash
 kubectl get secret openclaw-secrets -n openclaw -o jsonpath='{.data.OPENCLAW_GATEWAY_TOKEN}' | base64 -d
@@ -149,7 +149,7 @@ If you want to expose the gateway through an Ingress or load balancer:
 
 - Change the gateway bind in `scripts/k8s/manifests/configmap.yaml` from `loopback` to a non-loopback bind that matches your deployment model
 - Keep gateway auth enabled and use a proper TLS-terminated entrypoint
-- Configure the Control UI for remote access using the supported web security model (for example HTTPS/Tailscale Serve and explicit allowed origins when needed)
+- Configure the User Console for remote access using the supported web security model (for example HTTPS/Tailscale Serve and explicit allowed origins when needed)
 
 ## Re-deploy
 
@@ -172,8 +172,8 @@ This deletes the namespace and all resources in it, including the PVC.
 - The gateway binds to loopback inside the pod by default, so the included setup is for `kubectl port-forward`
 - No cluster-scoped resources — everything lives in a single namespace
 - Security: `readOnlyRootFilesystem`, `drop: ALL` capabilities, non-root user (UID 1000)
-- The default config keeps the Control UI on the safer local-access path: loopback bind plus `kubectl port-forward` to `http://127.0.0.1:18789`
-- If you move beyond localhost access, use the supported remote model: HTTPS/Tailscale plus the appropriate gateway bind and Control UI origin settings
+- The default config keeps the User Console on the safer local-access path: loopback bind plus `kubectl port-forward` to `http://127.0.0.1:18789`
+- If you move beyond localhost access, use the supported remote model: HTTPS/Tailscale plus the appropriate gateway bind and User Console origin settings
 - Secrets are generated in a temp directory and applied directly to the cluster — no secret material is written to the repo checkout
 
 ## File structure

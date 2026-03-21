@@ -2,7 +2,7 @@
 title: "Vercel AI Gateway"
 summary: "Vercel AI Gateway setup (auth + model selection)"
 read_when:
-  - You want to use Vercel AI Gateway with OpenClaw
+  - You want to use Vercel AI Gateway with ClawMark
   - You need the API key env var or CLI auth choice
 ---
 
@@ -13,7 +13,7 @@ The [Vercel AI Gateway](https://vercel.com/ai-gateway) provides a unified API to
 - Provider: `vercel-ai-gateway`
 - Auth: `AI_GATEWAY_API_KEY`
 - API: Anthropic Messages compatible
-- OpenClaw auto-discovers the Gateway `/v1/models` catalog, so `/models vercel-ai-gateway`
+- ClawMark auto-discovers the Gateway `/v1/models` catalog, so `/models vercel-ai-gateway`
   includes current model refs such as `vercel-ai-gateway/openai/gpt-5.4`.
 
 ## Quick start
@@ -53,7 +53,7 @@ is available to that process (for example, in `~/.openclaw/.env` or via
 
 ## Model ID shorthand
 
-OpenClaw accepts Vercel Claude shorthand model refs and normalizes them at
+ClawMark accepts Vercel Claude shorthand model refs and normalizes them at
 runtime:
 
 - `vercel-ai-gateway/claude-opus-4.6` -> `vercel-ai-gateway/anthropic/claude-opus-4.6`

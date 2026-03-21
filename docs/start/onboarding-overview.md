@@ -1,5 +1,5 @@
 ---
-summary: "Overview of OpenClaw onboarding options and flows"
+summary: "Overview of ClawMark onboarding options and flows"
 read_when:
   - Choosing an onboarding path
   - Setting up a new environment
@@ -9,7 +9,7 @@ sidebarTitle: "Onboarding Overview"
 
 # Onboarding Overview
 
-OpenClaw supports multiple onboarding paths depending on where the Gateway runs
+ClawMark supports multiple onboarding paths depending on where the Gateway runs
 and how you prefer to configure providers.
 
 ## Choose your onboarding path
@@ -33,7 +33,7 @@ channels, and skills. Docs:
 
 ## macOS app onboarding
 
-Use the OpenClaw app when you want a fully guided setup on macOS. Docs:
+Use the macOS app when you want a fully guided setup on macOS. Docs:
 
 - [Onboarding (macOS App)](/start/onboarding)
 

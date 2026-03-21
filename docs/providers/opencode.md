@@ -1,5 +1,5 @@
 ---
-summary: "Use OpenCode Zen and Go catalogs with OpenClaw"
+summary: "Use OpenCode Zen and Go catalogs with ClawMark"
 read_when:
   - You want OpenCode-hosted model access
   - You want to pick between the Zen and Go catalogs
@@ -8,12 +8,12 @@ title: "OpenCode"
 
 # OpenCode
 
-OpenCode exposes two hosted catalogs in OpenClaw:
+OpenCode exposes two hosted catalogs in ClawMark:
 
 - `opencode/...` for the **Zen** catalog
 - `opencode-go/...` for the **Go** catalog
 
-Both catalogs use the same OpenCode API key. OpenClaw keeps the runtime provider ids
+Both catalogs use the same OpenCode API key. ClawMark keeps the runtime provider ids
 split so upstream per-model routing stays correct, but onboarding and docs treat them
 as one OpenCode setup.
 

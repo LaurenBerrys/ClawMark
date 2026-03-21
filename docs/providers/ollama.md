@@ -1,17 +1,17 @@
 ---
-summary: "Run OpenClaw with Ollama (cloud and local models)"
+summary: "Run ClawMark with Ollama (cloud and local models)"
 read_when:
-  - You want to run OpenClaw with cloud or local models via Ollama
+  - You want to run ClawMark with cloud or local models via Ollama
   - You need Ollama setup and configuration guidance
 title: "Ollama"
 ---
 
 # Ollama
 
-Ollama is a local LLM runtime that makes it easy to run open-source models on your machine. OpenClaw integrates with Ollama's native API (`/api/chat`), supports streaming and tool calling, and can auto-discover local Ollama models when you opt in with `OLLAMA_API_KEY` (or an auth profile) and do not define an explicit `models.providers.ollama` entry.
+Ollama is a local LLM runtime that makes it easy to run open-source models on your machine. ClawMark integrates with Ollama's native API (`/api/chat`), supports streaming and tool calling, and can auto-discover local Ollama models when you opt in with `OLLAMA_API_KEY` (or an auth profile) and do not define an explicit `models.providers.ollama` entry.
 
 <Warning>
-**Remote Ollama users**: Do not use the `/v1` OpenAI-compatible URL (`http://host:11434/v1`) with OpenClaw. This breaks tool calling and models may output raw tool JSON as plain text. Use the native Ollama API URL instead: `baseUrl: "http://host:11434"` (no `/v1`).
+**Remote Ollama users**: Do not use the `/v1` OpenAI-compatible URL (`http://host:11434/v1`) with ClawMark. This breaks tool calling and models may output raw tool JSON as plain text. Use the native Ollama API URL instead: `baseUrl: "http://host:11434"` (no `/v1`).
 </Warning>
 
 ## Quick start
@@ -80,12 +80,12 @@ openclaw onboard
 - `Cloud + Local`: local models plus cloud models
 - Cloud models such as `kimi-k2.5:cloud`, `minimax-m2.5:cloud`, and `glm-5:cloud` do **not** require a local `ollama pull`
 
-OpenClaw currently suggests:
+ClawMark currently suggests:
 
 - local default: `glm-4.7-flash`
 - cloud defaults: `kimi-k2.5:cloud`, `minimax-m2.5:cloud`, `glm-5:cloud`
 
-5. If you prefer manual setup, enable Ollama for OpenClaw directly (any value works; Ollama doesn't require a real key):
+5. If you prefer manual setup, enable Ollama for ClawMark directly (any value works; Ollama doesn't require a real key):
 
 ```bash
 # Set environment variable
@@ -116,12 +116,12 @@ openclaw models set ollama/glm-4.7-flash
 
 ## Model discovery (implicit provider)
 
-When you set `OLLAMA_API_KEY` (or an auth profile) and **do not** define `models.providers.ollama`, OpenClaw discovers models from the local Ollama instance at `http://127.0.0.1:11434`:
+When you set `OLLAMA_API_KEY` (or an auth profile) and **do not** define `models.providers.ollama`, ClawMark discovers models from the local Ollama instance at `http://127.0.0.1:11434`:
 
 - Queries `/api/tags`
 - Uses best-effort `/api/show` lookups to read `contextWindow` when available
 - Marks `reasoning` with a model-name heuristic (`r1`, `reasoning`, `think`)
-- Sets `maxTokens` to the default Ollama max-token cap used by OpenClaw
+- Sets `maxTokens` to the default Ollama max-token cap used by ClawMark
 - Sets all costs to `0`
 
 This avoids manual model entries while keeping the catalog aligned with the local Ollama instance.
@@ -186,7 +186,7 @@ Use explicit config when:
 }
 ```
 
-If `OLLAMA_API_KEY` is set, you can omit `apiKey` in the provider entry and OpenClaw will fill it for availability checks.
+If `OLLAMA_API_KEY` is set, you can omit `apiKey` in the provider entry and ClawMark will fill it for availability checks.
 
 ### Custom base URL (explicit config)
 
@@ -239,7 +239,7 @@ You can also sign in directly at [ollama.com/signin](https://ollama.com/signin).
 
 ### Reasoning models
 
-OpenClaw treats models with names such as `deepseek-r1`, `reasoning`, or `think` as reasoning-capable by default:
+ClawMark treats models with names such as `deepseek-r1`, `reasoning`, or `think` as reasoning-capable by default:
 
 ```bash
 ollama pull deepseek-r1:32b
@@ -251,7 +251,7 @@ Ollama is free and runs locally, so all model costs are set to $0.
 
 ### Streaming Configuration
 
-OpenClaw's Ollama integration uses the **native Ollama API** (`/api/chat`) by default, which fully supports streaming and tool calling simultaneously. No special configuration is needed.
+ClawMark's Ollama integration uses the **native Ollama API** (`/api/chat`) by default, which fully supports streaming and tool calling simultaneously. No special configuration is needed.
 
 #### Legacy OpenAI-Compatible Mode
 
@@ -279,7 +279,7 @@ If you need to use the OpenAI-compatible endpoint instead (e.g., behind a proxy 
 
 This mode may not support streaming + tool calling simultaneously. You may need to disable streaming with `params: { streaming: false }` in model config.
 
-When `api: "openai-completions"` is used with Ollama, OpenClaw injects `options.num_ctx` by default so Ollama does not silently fall back to a 4096 context window. If your proxy/upstream rejects unknown `options` fields, disable this behavior:
+When `api: "openai-completions"` is used with Ollama, ClawMark injects `options.num_ctx` by default so Ollama does not silently fall back to a 4096 context window. If your proxy/upstream rejects unknown `options` fields, disable this behavior:
 
 ```json5
 {
@@ -299,7 +299,7 @@ When `api: "openai-completions"` is used with Ollama, OpenClaw injects `options.
 
 ### Context windows
 
-For auto-discovered models, OpenClaw uses the context window reported by Ollama when available, otherwise it falls back to the default Ollama context window used by OpenClaw. You can override `contextWindow` and `maxTokens` in explicit provider config.
+For auto-discovered models, ClawMark uses the context window reported by Ollama when available, otherwise it falls back to the default Ollama context window used by ClawMark. You can override `contextWindow` and `maxTokens` in explicit provider config.
 
 ## Troubleshooting
 

@@ -58,7 +58,8 @@ function readMarkdownMirrorMetadata(
   const lastSyncedAt = Number((record as Record<string, unknown>).lastSyncedAt);
   const fileCount = Number((record as Record<string, unknown>).fileCount);
   return {
-    lastSyncedAt: Number.isFinite(lastSyncedAt) && lastSyncedAt > 0 ? Math.trunc(lastSyncedAt) : undefined,
+    lastSyncedAt:
+      Number.isFinite(lastSyncedAt) && lastSyncedAt > 0 ? Math.trunc(lastSyncedAt) : undefined,
     fileCount: Number.isFinite(fileCount) && fileCount >= 0 ? Math.trunc(fileCount) : undefined,
   };
 }
@@ -100,7 +101,9 @@ function formatList(values: string[]): string {
   return values.map((value) => `\`${value}\``).join(", ");
 }
 
-function sortByUpdatedAt<T extends { id: string; updatedAt: number; createdAt?: number }>(records: T[]): T[] {
+function sortByUpdatedAt<T extends { id: string; updatedAt: number; createdAt?: number }>(
+  records: T[],
+): T[] {
   return [...records].toSorted((left, right) => {
     if (right.updatedAt !== left.updatedAt) {
       return right.updatedAt - left.updatedAt;
@@ -182,7 +185,14 @@ function renderStrategyRecord(record: StrategyRecord): string {
     "",
   ];
   if (record.measuredEffect && Object.keys(record.measuredEffect).length > 0) {
-    lines.push("### Measured Effect", "", "```json", JSON.stringify(record.measuredEffect, null, 2), "```", "");
+    lines.push(
+      "### Measured Effect",
+      "",
+      "```json",
+      JSON.stringify(record.measuredEffect, null, 2),
+      "```",
+      "",
+    );
   }
   lines.push(...renderMetadataBlock(record.metadata));
   return lines.join("\n");

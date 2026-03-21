@@ -70,11 +70,15 @@ export function resolveReflectionSessionSearchDirs(params: {
   };
   const addAgentId = (agentIds: string[], value: string | undefined) => {
     const agentId = asNonEmptyString(value);
-    if (!agentId || agentId.includes("/") || agentId.includes("\\") || agentIds.includes(agentId)) return;
+    if (!agentId || agentId.includes("/") || agentId.includes("\\") || agentIds.includes(agentId))
+      return;
     agentIds.push(agentId);
   };
 
-  const previousSessionEntry = (params.context.previousSessionEntry || {}) as Record<string, unknown>;
+  const previousSessionEntry = (params.context.previousSessionEntry || {}) as Record<
+    string,
+    unknown
+  >;
   const sessionEntry = (params.context.sessionEntry || {}) as Record<string, unknown>;
   const sessionEntries = [previousSessionEntry, sessionEntry];
 
@@ -102,7 +106,8 @@ export function resolveReflectionSessionSearchDirs(params: {
     const agents = root.agents as Record<string, unknown> | undefined;
     const defaults = agents?.defaults as Record<string, unknown> | undefined;
     const defaultWorkspace = asNonEmptyString(defaults?.workspace);
-    if (defaultWorkspace) addHome(openclawHomes, deriveOpenClawHomeFromWorkspacePath(defaultWorkspace));
+    if (defaultWorkspace)
+      addHome(openclawHomes, deriveOpenClawHomeFromWorkspacePath(defaultWorkspace));
 
     const list = agents?.list as unknown;
     if (Array.isArray(list)) {

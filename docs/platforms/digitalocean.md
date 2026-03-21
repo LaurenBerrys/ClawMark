@@ -1,16 +1,16 @@
 ---
-summary: "OpenClaw on DigitalOcean (simple paid VPS option)"
+summary: "ClawMark on DigitalOcean (simple paid VPS option)"
 read_when:
-  - Setting up OpenClaw on DigitalOcean
-  - Looking for cheap VPS hosting for OpenClaw
+  - Setting up ClawMark on DigitalOcean
+  - Looking for cheap VPS hosting for ClawMark
 title: "DigitalOcean"
 ---
 
-# OpenClaw on DigitalOcean
+# ClawMark on DigitalOcean
 
 ## Goal
 
-Run a persistent OpenClaw Gateway on DigitalOcean for **$6/month** (or $4/mo with reserved pricing).
+Run a persistent ClawMark Gateway on DigitalOcean for **$6/month** (or $4/mo with reserved pricing).
 
 If you want a $0/month option and don’t mind ARM + provider-specific setup, see the [Oracle Cloud guide](/platforms/oracle).
 
@@ -60,7 +60,7 @@ Use a clean base image (Ubuntu 24.04 LTS). Avoid third-party Marketplace 1-click
 ssh root@YOUR_DROPLET_IP
 ```
 
-## 3) Install OpenClaw
+## 3) Install ClawMark
 
 ```bash
 # Update system
@@ -70,7 +70,7 @@ apt update && apt upgrade -y
 curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
 apt install -y nodejs
 
-# Install OpenClaw
+# Install ClawMark
 curl -fsSL https://openclaw.ai/install.sh | bash
 
 # Verify
@@ -105,7 +105,7 @@ journalctl --user -u openclaw-gateway.service -f
 
 ## 6) Access the Dashboard
 
-The gateway binds to loopback by default. To access the Control UI:
+The gateway binds to loopback by default. To access the User Console:
 
 **Option A: SSH Tunnel (recommended)**
 
@@ -132,7 +132,7 @@ Open: `https://<magicdns>/`
 
 Notes:
 
-- Serve keeps the Gateway loopback-only and authenticates Control UI/WebSocket traffic via Tailscale identity headers (tokenless auth assumes trusted gateway host; HTTP APIs still require token/password).
+- Serve keeps the Gateway loopback-only and authenticates User Console/WebSocket traffic via Tailscale identity headers (tokenless auth assumes trusted gateway host; HTTP APIs still require token/password).
 - To require token/password instead, set `gateway.auth.allowTailscale: false` or use `gateway.auth.mode: "password"`.
 
 **Option C: Tailnet bind (no Serve)**

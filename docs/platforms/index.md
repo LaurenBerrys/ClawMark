@@ -8,7 +8,7 @@ title: "Platforms"
 
 # Platforms
 
-OpenClaw core is written in TypeScript. **Node is the recommended runtime**.
+ClawMark core is written in TypeScript. **Node is the recommended runtime**.
 Bun is not recommended for the Gateway (WhatsApp/Telegram bugs).
 
 Companion apps exist for macOS (menu bar app) and mobile nodes (iOS/Android). Windows and

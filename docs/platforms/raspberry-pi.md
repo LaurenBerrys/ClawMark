@@ -1,17 +1,17 @@
 ---
-summary: "OpenClaw on Raspberry Pi (budget self-hosted setup)"
+summary: "ClawMark on Raspberry Pi (budget self-hosted setup)"
 read_when:
-  - Setting up OpenClaw on a Raspberry Pi
-  - Running OpenClaw on ARM devices
+  - Setting up ClawMark on a Raspberry Pi
+  - Running ClawMark on ARM devices
   - Building a cheap always-on personal AI
 title: "Raspberry Pi"
 ---
 
-# OpenClaw on Raspberry Pi
+# ClawMark on Raspberry Pi
 
 ## Goal
 
-Run a persistent, always-on OpenClaw Gateway on a Raspberry Pi for **~$35-80** one-time cost (no monthly fees).
+Run a persistent, always-on ClawMark Gateway on a Raspberry Pi for **~$35-80** one-time cost (no monthly fees).
 
 Perfect for:
 
@@ -107,7 +107,7 @@ echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
 sudo sysctl -p
 ```
 
-## 6) Install OpenClaw
+## 6) Install ClawMark
 
 ### Option A: Standard Install (Recommended)
 
@@ -153,7 +153,7 @@ sudo systemctl status openclaw
 journalctl -u openclaw -f
 ```
 
-## 9) Access the OpenClaw Dashboard
+## 9) Access the ClawMark Dashboard
 
 Replace `user@gateway-host` with your Pi username and hostname or IP address.
 
@@ -176,7 +176,7 @@ ssh -N -L 18789:127.0.0.1:18789 user@gateway-host
 Then open the printed Dashboard URL in your local browser.
 
 If the UI asks for auth, paste the token from `gateway.auth.token`
-(or `OPENCLAW_GATEWAY_TOKEN`) into Control UI settings.
+(or `OPENCLAW_GATEWAY_TOKEN`) into User Console settings.
 
 For always-on remote access, see [Tailscale](/gateway/tailscale).
 
@@ -217,7 +217,7 @@ Notes:
 
 ### systemd startup tuning (optional)
 
-If this Pi is mostly running OpenClaw, add a service drop-in to reduce restart
+If this Pi is mostly running ClawMark, add a service drop-in to reduce restart
 jitter and keep startup env stable:
 
 ```bash
@@ -240,7 +240,7 @@ sudo systemctl daemon-reload
 sudo systemctl restart openclaw
 ```
 
-If possible, keep OpenClaw state/cache on SSD-backed storage to avoid SD-card
+If possible, keep ClawMark state/cache on SSD-backed storage to avoid SD-card
 random-I/O bottlenecks during cold starts.
 
 How `Restart=` policies help automated recovery:
@@ -275,7 +275,7 @@ htop
 
 ### Binary Compatibility
 
-Most OpenClaw features work on ARM64, but some external binaries may need ARM builds:
+Most ClawMark features work on ARM64, but some external binaries may need ARM builds:
 
 | Tool               | ARM64 Status | Notes                               |
 | ------------------ | ------------ | ----------------------------------- |

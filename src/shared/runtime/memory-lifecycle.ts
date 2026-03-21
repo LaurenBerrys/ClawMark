@@ -30,12 +30,7 @@ function toRecord(value: unknown): Record<string, unknown> | undefined {
   return value as Record<string, unknown>;
 }
 
-function normalizeInteger(
-  value: unknown,
-  fallback: number,
-  min: number,
-  max: number,
-): number {
+function normalizeInteger(value: unknown, fallback: number, min: number, max: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return fallback;
   }
@@ -50,7 +45,12 @@ export function resolveRuntimeMemoryLifecycleControls(
   const lastReviewAtRaw = Number(record?.lastReviewAt);
   return {
     enabled: record?.enabled !== false,
-    reviewIntervalHours: normalizeInteger(record?.reviewIntervalHours, fallback.reviewIntervalHours, 1, 168),
+    reviewIntervalHours: normalizeInteger(
+      record?.reviewIntervalHours,
+      fallback.reviewIntervalHours,
+      1,
+      168,
+    ),
     lastReviewAt:
       Number.isFinite(lastReviewAtRaw) && lastReviewAtRaw > 0
         ? Math.trunc(lastReviewAtRaw)

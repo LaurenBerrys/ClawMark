@@ -1,5 +1,5 @@
 ---
-summary: "Optional Docker-based setup and onboarding for OpenClaw"
+summary: "Optional Docker-based setup and onboarding for ClawMark"
 read_when:
   - You want a containerized gateway instead of local installs
   - You are validating the Docker flow
@@ -12,13 +12,13 @@ Docker is **optional**. Use it only if you want a containerized gateway or to va
 
 ## Is Docker right for me?
 
-- **Yes**: you want an isolated, throwaway gateway environment or to run OpenClaw on a host without local installs.
+- **Yes**: you want an isolated, throwaway gateway environment or to run ClawMark on a host without local installs.
 - **No**: you’re running on your own machine and just want the fastest dev loop. Use the normal install flow instead.
 - **Sandboxing note**: agent sandboxing uses Docker too, but it does **not** require the full gateway to run in Docker. See [Sandboxing](/gateway/sandboxing).
 
 This guide covers:
 
-- Containerized Gateway (full OpenClaw in Docker)
+- Containerized Gateway (full ClawMark in Docker)
 - Per-session Agent Sandbox (host gateway + Docker-isolated agent tools)
 
 Sandboxing details: [Sandboxing](/gateway/sandboxing)
@@ -79,7 +79,7 @@ Optional env vars:
 After it finishes:
 
 - Open `http://127.0.0.1:18789/` in your browser.
-- Paste the token into the Control UI (Settings → token).
+- Paste the token into the User Console (Settings → token).
 - Need the URL again? Run `docker compose run --rm openclaw-cli dashboard --no-open`.
 
 ### Enable agent sandbox for Docker gateway (opt-in)
@@ -176,8 +176,8 @@ and points at the pinned multi-arch manifest list for that tag):
 - `org.opencontainers.image.url=https://openclaw.ai`
 - `org.opencontainers.image.documentation=https://docs.openclaw.ai/install/docker`
 - `org.opencontainers.image.licenses=MIT`
-- `org.opencontainers.image.title=OpenClaw`
-- `org.opencontainers.image.description=OpenClaw gateway and CLI runtime container image`
+- `org.opencontainers.image.title=ClawMark`
+- `org.opencontainers.image.description=ClawMark gateway and CLI runtime container image`
 - `org.opencontainers.image.revision=<git-sha>`
 - `org.opencontainers.image.version=<tag-or-main>`
 - `org.opencontainers.image.created=<rfc3339 timestamp>`
@@ -237,7 +237,7 @@ Note: run `docker compose ...` from the repo root. If you enabled
 docker compose -f docker-compose.yml -f docker-compose.extra.yml <command>
 ```
 
-### Control UI token + pairing (Docker)
+### User Console token + pairing (Docker)
 
 If you see “unauthorized” or “disconnected (1008): pairing required”, fetch a
 fresh dashboard link and approve the browser device:
@@ -482,7 +482,7 @@ Aliases: `/health` and `/ready`.
 managed channels are still disconnected after grace or disconnect later.
 
 The Docker image includes a built-in `HEALTHCHECK` that pings `/healthz` in the
-background. In plain terms: Docker keeps checking if OpenClaw is still
+background. In plain terms: Docker keeps checking if ClawMark is still
 responsive. If checks keep failing, Docker marks the container as `unhealthy`,
 and orchestration systems (Docker Compose restart policy, Swarm, Kubernetes,
 etc.) can automatically restart or replace it.
@@ -598,7 +598,7 @@ If you plan to install packages in `setupCommand`, note:
 - Break-glass override: `agents.defaults.sandbox.docker.dangerouslyAllowContainerNamespaceJoin: true`.
 - `readOnlyRoot: true` blocks package installs.
 - `user` must be root for `apt-get` (omit `user` or set `user: "0:0"`).
-  OpenClaw auto-recreates containers when `setupCommand` (or docker config) changes
+  ClawMark auto-recreates containers when `setupCommand` (or docker config) changes
   unless the container was **recently used** (within ~5 minutes). Hot containers
   log a warning with the exact `openclaw sandbox recreate ...` command.
 
@@ -718,7 +718,7 @@ Notes:
 - No full desktop environment (GNOME) is needed; Xvfb provides the display.
 - Browser containers default to a dedicated Docker network (`openclaw-sandbox-browser`) instead of global `bridge`.
 - Optional `agents.defaults.sandbox.browser.cdpSourceRange` restricts container-edge CDP ingress by CIDR (for example `172.21.0.1/32`).
-- noVNC observer access is password-protected by default; OpenClaw provides a short-lived observer token URL that serves a local bootstrap page and keeps the password in URL fragment (instead of URL query).
+- noVNC observer access is password-protected by default; ClawMark provides a short-lived observer token URL that serves a local bootstrap page and keeps the password in URL fragment (instead of URL query).
 - Browser container startup defaults are conservative for shared/container workloads, including:
   - `--remote-debugging-address=127.0.0.1`
   - `--remote-debugging-port=<derived from OPENCLAW_BROWSER_CDP_PORT>`
@@ -837,7 +837,7 @@ Example:
 - Container not running: it will auto-create per session on demand.
 - Permission errors in sandbox: set `docker.user` to a UID:GID that matches your
   mounted workspace ownership (or chown the workspace folder).
-- Custom tools not found: OpenClaw runs commands with `sh -lc` (login shell), which
+- Custom tools not found: ClawMark runs commands with `sh -lc` (login shell), which
   sources `/etc/profile` and may reset PATH. Set `docker.env.PATH` to prepend your
   custom tool paths (e.g., `/custom/bin:/usr/local/share/npm-global/bin`), or add
   a script under `/etc/profile.d/` in your Dockerfile.

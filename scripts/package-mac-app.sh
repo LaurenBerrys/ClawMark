@@ -8,6 +8,9 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_ROOT="$ROOT_DIR/dist/OpenClaw.app"
 BUILD_ROOT="$ROOT_DIR/apps/macos/.build"
 PRODUCT="OpenClaw"
+DESKTOP_RUNTIME_ROOT="$APP_ROOT/Contents/Resources/DesktopRuntime"
+DESKTOP_RUNTIME_APP_ROOT="$DESKTOP_RUNTIME_ROOT/app"
+DESKTOP_RUNTIME_BIN_ROOT="$DESKTOP_RUNTIME_ROOT/bin"
 BUNDLE_ID="${BUNDLE_ID:-ai.openclaw.mac.debug}"
 PKG_VERSION="$(cd "$ROOT_DIR" && node -p "require('./package.json').version" 2>/dev/null || echo "0.0.0")"
 BUILD_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -30,7 +33,7 @@ fi
 IFS=' ' read -r -a BUILD_ARCHS <<< "$BUILD_ARCHS_VALUE"
 PRIMARY_ARCH="${BUILD_ARCHS[0]}"
 SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-AGCY8w5vHirVfGGDGc8Szc5iuOqupZSh9pMj/Qs67XI=}"
-SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-https://raw.githubusercontent.com/openclaw/openclaw/main/appcast.xml}"
+SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-https://raw.githubusercontent.com/LaurenBerrys/ClawMark/main/appcast.xml}"
 AUTO_CHECKS=true
 if [[ "$BUNDLE_ID" == *.debug ]]; then
   SPARKLE_FEED_URL=""
@@ -250,6 +253,46 @@ if [ -d "$OPENCLAWKIT_BUNDLE" ]; then
 else
   echo "WARN: OpenClawKit resource bundle not found at $OPENCLAWKIT_BUNDLE (continuing)" >&2
 fi
+
+echo "📦 Bundling desktop runtime payload"
+mkdir -p "$DESKTOP_RUNTIME_APP_ROOT"
+mkdir -p "$DESKTOP_RUNTIME_BIN_ROOT"
+
+if [ -f "$ROOT_DIR/openclaw.mjs" ]; then
+  cp "$ROOT_DIR/openclaw.mjs" "$DESKTOP_RUNTIME_APP_ROOT/openclaw.mjs"
+else
+  echo "ERROR: openclaw.mjs missing at $ROOT_DIR/openclaw.mjs" >&2
+  exit 1
+fi
+
+if [ -f "$ROOT_DIR/package.json" ]; then
+  cp "$ROOT_DIR/package.json" "$DESKTOP_RUNTIME_APP_ROOT/package.json"
+fi
+
+if [ -d "$ROOT_DIR/dist" ]; then
+  rm -rf "$DESKTOP_RUNTIME_APP_ROOT/dist"
+  mkdir -p "$DESKTOP_RUNTIME_APP_ROOT/dist"
+  rsync -a --delete --exclude "$PRODUCT.app" "$ROOT_DIR/dist/" "$DESKTOP_RUNTIME_APP_ROOT/dist/"
+else
+  echo "ERROR: dist directory missing; run pnpm build before packaging" >&2
+  exit 1
+fi
+
+if [ -d "$ROOT_DIR/node_modules" ]; then
+  rm -rf "$DESKTOP_RUNTIME_APP_ROOT/node_modules"
+  cp -R "$ROOT_DIR/node_modules" "$DESKTOP_RUNTIME_APP_ROOT/node_modules"
+else
+  echo "ERROR: node_modules missing; run pnpm install before packaging" >&2
+  exit 1
+fi
+
+BUNDLED_NODE_SOURCE="${BUNDLED_NODE_BINARY:-$(command -v node || true)}"
+if [ -z "$BUNDLED_NODE_SOURCE" ] || [ ! -x "$BUNDLED_NODE_SOURCE" ]; then
+  echo "ERROR: No executable node binary found for bundling. Set BUNDLED_NODE_BINARY=/path/to/node" >&2
+  exit 1
+fi
+cp "$BUNDLED_NODE_SOURCE" "$DESKTOP_RUNTIME_BIN_ROOT/node"
+chmod +x "$DESKTOP_RUNTIME_BIN_ROOT/node"
 
 echo "📦 Copying Textual resources"
 TEXTUAL_BUNDLE_DIR="$(build_path_for_arch "$PRIMARY_ARCH")/$BUILD_CONFIG"

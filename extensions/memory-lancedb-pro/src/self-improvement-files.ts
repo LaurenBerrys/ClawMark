@@ -83,7 +83,9 @@ export interface AppendSelfImprovementEntryParams {
   source?: string;
 }
 
-export async function appendSelfImprovementEntry(params: AppendSelfImprovementEntryParams): Promise<{
+export async function appendSelfImprovementEntry(
+  params: AppendSelfImprovementEntryParams,
+): Promise<{
   id: string;
   filePath: string;
 }> {

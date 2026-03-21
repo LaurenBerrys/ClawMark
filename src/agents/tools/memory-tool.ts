@@ -54,7 +54,8 @@ export function createExpandMemoryTool(options: {
   return {
     label: "Expand Memory",
     name: "expand_memory",
-    description: "Expand a memory ID to read full details (Lazy Context). Use this when you have a memory reference with only a summary but need the full detail text.",
+    description:
+      "Expand a memory ID to read full details (Lazy Context). Use this when you have a memory reference with only a summary but need the full detail text.",
     parameters: ExpandMemorySchema,
     execute: async (_toolCallId, params) => {
       const id = readStringParam(params, "id", { required: true });

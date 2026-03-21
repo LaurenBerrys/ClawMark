@@ -75,7 +75,9 @@ export function resolveCanonicalConfigPath(
 ): string {
   const override = env.OPENCLAW_CONFIG_PATH?.trim() || env.CLAWDBOT_CONFIG_PATH?.trim();
   const homeDir = resolveHomeDirFromEnv(env, homedir);
-  if (override) return resolvePathWithHome(override, { homeDir });
+  if (override) {
+    return resolvePathWithHome(override, { homeDir });
+  }
   const manifest = resolveInstanceManifest({ env, homedir });
   if (path.resolve(stateDir) !== path.resolve(manifest.stateRoot)) {
     return joinResolvedPath(stateDir, CONFIG_FILENAME);
@@ -99,7 +101,9 @@ export function resolveConfigPathCandidate(
       return false;
     }
   });
-  if (existing) return existing;
+  if (existing) {
+    return existing;
+  }
   return resolveCanonicalConfigPath(env, resolveStateDir(env, homedir), homedir);
 }
 
@@ -113,7 +117,9 @@ export function resolveConfigPath(
 ): string {
   const override = env.OPENCLAW_CONFIG_PATH?.trim();
   const homeDir = resolveHomeDirFromEnv(env, homedir);
-  if (override) return resolvePathWithHome(override, { homeDir });
+  if (override) {
+    return resolvePathWithHome(override, { homeDir });
+  }
   const manifest = resolveInstanceManifest({ env, homedir });
   const configRoot =
     path.resolve(stateDir) === path.resolve(manifest.stateRoot) ? manifest.configRoot : stateDir;
@@ -129,8 +135,12 @@ export function resolveConfigPath(
       return false;
     }
   });
-  if (existing) return existing;
-  if (stateOverride) return joinResolvedPath(configRoot, CONFIG_FILENAME);
+  if (existing) {
+    return existing;
+  }
+  if (stateOverride) {
+    return joinResolvedPath(configRoot, CONFIG_FILENAME);
+  }
   const defaultStateDir = resolveStateDir(env, homedir);
   if (path.resolve(stateDir) === path.resolve(defaultStateDir)) {
     return resolveConfigPathCandidate(env, homedir);
@@ -150,7 +160,9 @@ export function resolveDefaultConfigCandidates(
 ): string[] {
   const explicit = env.OPENCLAW_CONFIG_PATH?.trim() || env.CLAWDBOT_CONFIG_PATH?.trim();
   const homeDir = resolveHomeDirFromEnv(env, homedir);
-  if (explicit) return [resolvePathWithHome(explicit, { homeDir })];
+  if (explicit) {
+    return [resolvePathWithHome(explicit, { homeDir })];
+  }
 
   const candidates: string[] = [];
   const manifest = resolveInstanceManifest({ env, homedir });
@@ -240,11 +252,15 @@ export function resolveGatewayPort(
   const envRaw = env.OPENCLAW_GATEWAY_PORT?.trim() || env.CLAWDBOT_GATEWAY_PORT?.trim();
   if (envRaw) {
     const parsed = Number.parseInt(envRaw, 10);
-    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
   }
   const configPort = cfg?.gateway?.port;
   if (typeof configPort === "number" && Number.isFinite(configPort)) {
-    if (configPort > 0) return configPort;
+    if (configPort > 0) {
+      return configPort;
+    }
   }
   return DEFAULT_GATEWAY_PORT;
 }

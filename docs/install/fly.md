@@ -1,15 +1,15 @@
 ---
 title: Fly.io
-description: Deploy OpenClaw on Fly.io
-summary: "Step-by-step Fly.io deployment for OpenClaw with persistent storage and HTTPS"
+description: Deploy ClawMark on Fly.io
+summary: "Step-by-step Fly.io deployment for ClawMark with persistent storage and HTTPS"
 read_when:
-  - Deploying OpenClaw on Fly.io
+  - Deploying ClawMark on Fly.io
   - Setting up Fly volumes, secrets, and first-run config
 ---
 
 # Fly.io Deployment
 
-**Goal:** OpenClaw Gateway running on a [Fly.io](https://fly.io) machine with persistent storage, automatic HTTPS, and Discord/channel access.
+**Goal:** ClawMark Gateway running on a [Fly.io](https://fly.io) machine with persistent storage, automatic HTTPS, and Discord/channel access.
 
 ## What you need
 
@@ -23,7 +23,7 @@ read_when:
 1. Clone repo → customize `fly.toml`
 2. Create app + volume → set secrets
 3. Deploy with `fly deploy`
-4. SSH in to create config or use Control UI
+4. SSH in to create config or use User Console
 
 ## 1) Create the Fly app
 
@@ -217,7 +217,7 @@ fly machine restart <machine-id>
 
 ## 6) Access the Gateway
 
-### Control UI
+### User Console
 
 Open in browser:
 
@@ -465,12 +465,12 @@ The ngrok tunnel runs inside the container and provides a public webhook URL wit
 
 ### Security benefits
 
-| Aspect            | Public       | Private    |
-| ----------------- | ------------ | ---------- |
-| Internet scanners | Discoverable | Hidden     |
-| Direct attacks    | Possible     | Blocked    |
-| Control UI access | Browser      | Proxy/VPN  |
-| Webhook delivery  | Direct       | Via tunnel |
+| Aspect              | Public       | Private    |
+| ------------------- | ------------ | ---------- |
+| Internet scanners   | Discoverable | Hidden     |
+| Direct attacks      | Possible     | Blocked    |
+| User Console access | Browser      | Proxy/VPN  |
+| Webhook delivery    | Direct       | Via tunnel |
 
 ## Notes
 

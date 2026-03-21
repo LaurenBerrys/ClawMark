@@ -1,21 +1,21 @@
 ---
 summary: "Integrated Tailscale Serve/Funnel for the Gateway dashboard"
 read_when:
-  - Exposing the Gateway Control UI outside localhost
+  - Exposing the Gateway User Console outside localhost
   - Automating tailnet or public dashboard access
 title: "Tailscale"
 ---
 
 # Tailscale (Gateway dashboard)
 
-OpenClaw can auto-configure Tailscale **Serve** (tailnet) or **Funnel** (public) for the
+ClawMark can auto-configure Tailscale **Serve** (tailnet) or **Funnel** (public) for the
 Gateway dashboard and WebSocket port. This keeps the Gateway bound to loopback while
 Tailscale provides HTTPS, routing, and (for Serve) identity headers.
 
 ## Modes
 
 - `serve`: Tailnet-only Serve via `tailscale serve`. The gateway stays on `127.0.0.1`.
-- `funnel`: Public HTTPS via `tailscale funnel`. OpenClaw requires a shared password.
+- `funnel`: Public HTTPS via `tailscale funnel`. ClawMark requires a shared password.
 - `off`: Default (no Tailscale automation).
 
 ## Auth
@@ -26,11 +26,11 @@ Set `gateway.auth.mode` to control the handshake:
 - `password` (shared secret via `OPENCLAW_GATEWAY_PASSWORD` or config)
 
 When `tailscale.mode = "serve"` and `gateway.auth.allowTailscale` is `true`,
-Control UI/WebSocket auth can use Tailscale identity headers
-(`tailscale-user-login`) without supplying a token/password. OpenClaw verifies
+User Console/WebSocket auth can use Tailscale identity headers
+(`tailscale-user-login`) without supplying a token/password. ClawMark verifies
 the identity by resolving the `x-forwarded-for` address via the local Tailscale
 daemon (`tailscale whois`) and matching it to the header before accepting it.
-OpenClaw only treats a request as Serve when it arrives from loopback with
+ClawMark only treats a request as Serve when it arrives from loopback with
 Tailscale’s `x-forwarded-for`, `x-forwarded-proto`, and `x-forwarded-host`
 headers.
 HTTP API endpoints (for example `/v1/*`, `/tools/invoke`, and `/api/channels/*`)
@@ -71,7 +71,7 @@ Use this when you want the Gateway to listen directly on the Tailnet IP (no Serv
 
 Connect from another Tailnet device:
 
-- Control UI: `http://<tailscale-ip>:18789/`
+- User Console: `http://<tailscale-ip>:18789/`
 - WebSocket: `ws://<tailscale-ip>:18789`
 
 Note: loopback (`http://127.0.0.1:18789`) will **not** work in this mode.
@@ -101,7 +101,7 @@ openclaw gateway --tailscale funnel --auth password
 
 - Tailscale Serve/Funnel requires the `tailscale` CLI to be installed and logged in.
 - `tailscale.mode: "funnel"` refuses to start unless auth mode is `password` to avoid public exposure.
-- Set `gateway.tailscale.resetOnExit` if you want OpenClaw to undo `tailscale serve`
+- Set `gateway.tailscale.resetOnExit` if you want ClawMark to undo `tailscale serve`
   or `tailscale funnel` configuration on shutdown.
 - `gateway.bind: "tailnet"` is a direct Tailnet bind (no HTTPS, no Serve/Funnel).
 - `gateway.bind: "auto"` prefers loopback; use `tailnet` if you want Tailnet-only.

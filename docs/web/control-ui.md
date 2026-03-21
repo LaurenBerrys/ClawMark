@@ -1,19 +1,21 @@
 ---
-summary: "Browser-based control UI for the Gateway (chat, nodes, config)"
+summary: "Browser-based User Console for the Gateway: chat, runtime controls, nodes, and config"
 read_when:
   - You want to operate the Gateway from a browser
   - You want Tailnet access without SSH tunnels
-title: "Control UI"
+title: "User Console"
 ---
 
-# Control UI (browser)
+# User Console (browser dashboard)
 
-The Control UI is a small **Vite + Lit** single-page app served by the Gateway:
+The User Console is a small **Vite + Lit** single-page app served by the Gateway:
 
 - default: `http://<host>:18789/`
 - optional prefix: set `gateway.controlUi.basePath` (e.g. `/openclaw`)
 
 It speaks **directly to the Gateway WebSocket** on the same port.
+
+Compatibility note: the config key and route names still use `controlUi`, but the product-facing browser surface is the User Console.
 
 ## Quick open (local)
 
@@ -32,7 +34,7 @@ Auth is supplied during the WebSocket handshake via:
 
 ## Device pairing (first connection)
 
-When you connect to the Control UI from a new browser or device, the Gateway
+When you connect to the User Console from a new browser or device, the Gateway
 requires a **one-time pairing approval** — even if you're on the same Tailnet
 with `gateway.auth.allowTailscale: true`. This is a security measure to prevent
 unauthorized access.
@@ -62,7 +64,7 @@ you revoke it with `openclaw devices revoke --device <id> --role <role>`. See
 
 ## Language support
 
-The Control UI can localize itself on first load based on your browser locale, and you can override it later from the language picker in the Access card.
+The User Console can localize itself on first load based on your browser locale, and you can override it later from the language picker in the Access card.
 
 - Supported locales: `en`, `zh-CN`, `zh-TW`, `pt-BR`, `de`, `es`
 - Non-English translations are lazy-loaded in the browser.
@@ -129,8 +131,8 @@ Open:
 
 - `https://<magicdns>/` (or your configured `gateway.controlUi.basePath`)
 
-By default, Control UI/WebSocket Serve requests can authenticate via Tailscale identity headers
-(`tailscale-user-login`) when `gateway.auth.allowTailscale` is `true`. OpenClaw
+By default, User Console/WebSocket Serve requests can authenticate via Tailscale identity headers
+(`tailscale-user-login`) when `gateway.auth.allowTailscale` is `true`. ClawMark
 verifies the identity by resolving the `x-forwarded-for` address with
 `tailscale whois` and matching it to the header, and only accepts these when the
 request hits loopback with Tailscale’s `x-forwarded-*` headers. Set
@@ -155,7 +157,7 @@ Paste the token into the UI settings (sent as `connect.params.auth.token`).
 
 If you open the dashboard over plain HTTP (`http://<lan-ip>` or `http://<tailscale-ip>`),
 the browser runs in a **non-secure context** and blocks WebCrypto. By default,
-OpenClaw **blocks** Control UI connections without device identity.
+ClawMark **blocks** User Console connections without device identity.
 
 **Recommended fix:** use HTTPS (Tailscale Serve) or open the UI locally:
 
@@ -176,7 +178,7 @@ OpenClaw **blocks** Control UI connections without device identity.
 
 `allowInsecureAuth` is a local compatibility toggle only:
 
-- It allows localhost Control UI sessions to proceed without device identity in
+- It allows localhost User Console sessions to proceed without device identity in
   non-secure HTTP contexts.
 - It does not bypass pairing checks.
 - It does not relax remote (non-localhost) device identity requirements.
@@ -193,7 +195,7 @@ OpenClaw **blocks** Control UI connections without device identity.
 }
 ```
 
-`dangerouslyDisableDeviceAuth` disables Control UI device identity checks and is a
+`dangerouslyDisableDeviceAuth` disables User Console device identity checks and is a
 severe security downgrade. Revert quickly after emergency use.
 
 See [Tailscale](/gateway/tailscale) for HTTPS setup guidance.
@@ -222,7 +224,7 @@ Then point the UI at your Gateway WS URL (e.g. `ws://127.0.0.1:18789`).
 
 ## Debugging/testing: dev server + remote Gateway
 
-The Control UI is static files; the WebSocket target is configurable and can be
+The User Console is static files; the WebSocket target is configurable and can be
 different from the HTTP origin. This is handy when you want the Vite dev server
 locally but the Gateway runs elsewhere.
 
@@ -248,7 +250,7 @@ Notes:
   Provide `token` (or `password`) explicitly. Missing explicit credentials is an error.
 - Use `wss://` when the Gateway is behind TLS (Tailscale Serve, HTTPS proxy, etc.).
 - `gatewayUrl` is only accepted in a top-level window (not embedded) to prevent clickjacking.
-- Non-loopback Control UI deployments must set `gateway.controlUi.allowedOrigins`
+- Non-loopback User Console deployments must set `gateway.controlUi.allowedOrigins`
   explicitly (full origins). This includes remote dev setups.
 - `gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true` enables
   Host-header origin fallback mode, but it is a dangerous security mode.

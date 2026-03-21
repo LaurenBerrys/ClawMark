@@ -1,4 +1,8 @@
-import type { FederationInboxRecord, FederationPackageState, RuntimeMetadata } from "./contracts.js";
+import type {
+  FederationInboxRecord,
+  FederationPackageState,
+  RuntimeMetadata,
+} from "./contracts.js";
 import {
   appendRuntimeEvent,
   loadRuntimeStoreBundle,
@@ -202,7 +206,9 @@ export function resolveFederationPackageMaintenanceStatus(
   }
   const reviewStartedAt = resolveStateTimestamp(record, record.state);
   const expireAfterHours = resolveExpirationHours(controls, record.state);
-  const expiresAt = reviewStartedAt ? reviewStartedAt + expireAfterHours * 60 * 60 * 1000 : undefined;
+  const expiresAt = reviewStartedAt
+    ? reviewStartedAt + expireAfterHours * 60 * 60 * 1000
+    : undefined;
   return {
     actionable: true,
     state: record.state,

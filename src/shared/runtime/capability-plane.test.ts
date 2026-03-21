@@ -242,8 +242,9 @@ describe("runtime capability plane", () => {
         )?.metadata?.source,
       ).toBe("runtime-user-console");
       expect(
-        status.entries.find((entry) => entry.registryType === "skill" && entry.targetId === "pitch-deck")
-          ?.metadata?.source,
+        status.entries.find(
+          (entry) => entry.registryType === "skill" && entry.targetId === "pitch-deck",
+        )?.metadata?.source,
       ).toBe("runtime-user-console");
     });
   });
@@ -346,9 +347,8 @@ describe("runtime capability plane", () => {
         )?.state,
       ).toBe("allowed");
       expect(
-        status.entries.find(
-          (entry) => entry.registryType === "skill" && entry.targetId === "shell",
-        )?.state,
+        status.entries.find((entry) => entry.registryType === "skill" && entry.targetId === "shell")
+          ?.state,
       ).toBe("blocked");
       expect(
         status.entries.find(
@@ -552,9 +552,9 @@ describe("runtime capability plane", () => {
         "reviewer",
         "research",
       ]);
-      expect(
-        policy.sortByExecutionPreference("skill", ["shell", "browser", "patch-edit"]),
-      ).toEqual(["patch-edit", "browser", "shell"]);
+      expect(policy.sortByExecutionPreference("skill", ["shell", "browser", "patch-edit"])).toEqual(
+        ["patch-edit", "browser", "shell"],
+      );
       expect(policy.resolveExecutionStatus("skill", "shell").mode).toBe("shadow_only");
       expect(policy.resolveExecutionStatus("skill", "browser").mode).toBe("candidate_only");
       expect(policy.resolveExecutionStatus("agent", "main").preferenceLabel).toBe("core");

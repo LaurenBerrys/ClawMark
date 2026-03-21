@@ -20,9 +20,14 @@
 
   function getToken() {
     const app = getApp();
-    const token = app && app.settings && typeof app.settings.token === "string" ? app.settings.token.trim() : "";
+    const token =
+      app && app.settings && typeof app.settings.token === "string"
+        ? app.settings.token.trim()
+        : "";
     if (token) return token;
-    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+    const hash = window.location.hash.startsWith("#")
+      ? window.location.hash.slice(1)
+      : window.location.hash;
     const tokenFromHash = new URLSearchParams(hash).get("token");
     return tokenFromHash ? tokenFromHash.trim() : "";
   }
@@ -33,7 +38,7 @@
       method: options && options.method ? options.method : "GET",
       headers,
       body: options && options.body ? JSON.stringify(options.body) : undefined,
-      credentials: "same-origin"
+      credentials: "same-origin",
     });
     const text = await response.text();
     let data = null;
@@ -43,11 +48,12 @@
       data = { rawText: text };
     }
     if (!response.ok) {
-      const message = data && data.error && typeof data.error === "object"
-        ? data.error.message || JSON.stringify(data.error)
-        : data && data.error
-          ? String(data.error)
-          : text || ("HTTP " + response.status);
+      const message =
+        data && data.error && typeof data.error === "object"
+          ? data.error.message || JSON.stringify(data.error)
+          : data && data.error
+            ? String(data.error)
+            : text || "HTTP " + response.status;
       throw new Error(message);
     }
     return data;
@@ -289,7 +295,7 @@
     autopilotTaskTitle: "",
     autopilotTaskGoal: "",
     autopilotTaskDoneCriteria: "",
-    autopilotTaskNextRunAt: ""
+    autopilotTaskNextRunAt: "",
   };
 
   function fmtTime(iso) {
@@ -305,12 +311,14 @@
     if (!iso) return "";
     try {
       const date = new Date(iso);
-      const pad = function (value) { return String(value).padStart(2, "0"); };
-      return [
-        date.getFullYear(),
-        pad(date.getMonth() + 1),
-        pad(date.getDate())
-      ].join("-") + "T" + [pad(date.getHours()), pad(date.getMinutes())].join(":");
+      const pad = function (value) {
+        return String(value).padStart(2, "0");
+      };
+      return (
+        [date.getFullYear(), pad(date.getMonth() + 1), pad(date.getDate())].join("-") +
+        "T" +
+        [pad(date.getHours()), pad(date.getMinutes())].join(":")
+      );
     } catch {
       return "";
     }
@@ -394,7 +402,7 @@
         profiles: [],
         login: login || null,
         codexCli: null,
-        autopilot: null
+        autopilot: null,
       };
       return;
     }
@@ -409,7 +417,7 @@
         profiles: [],
         login: null,
         codexCli: codexCli || null,
-        autopilot: null
+        autopilot: null,
       };
       return;
     }
@@ -424,7 +432,7 @@
         profiles: [],
         login: null,
         codexCli: null,
-        autopilot: autopilot || null
+        autopilot: autopilot || null,
       };
       return;
     }
@@ -463,15 +471,23 @@
     const root = createRoot();
     const previousScrollTop = readPanelScrollTop(root);
     const status = state.status;
-    const currentProfile = status && status.auth && status.auth.effectiveOrder && status.auth.effectiveOrder[0] ? status.auth.effectiveOrder[0] : "未连接";
-    const currentProfileEntry = status && status.profiles
-      ? status.profiles.find(function (profile) { return profile.profileId === currentProfile; }) || null
-      : null;
-    const currentModel = status && status.config ? status.config.defaultModel || "未设置" : "加载中";
+    const currentProfile =
+      status && status.auth && status.auth.effectiveOrder && status.auth.effectiveOrder[0]
+        ? status.auth.effectiveOrder[0]
+        : "未连接";
+    const currentProfileEntry =
+      status && status.profiles
+        ? status.profiles.find(function (profile) {
+            return profile.profileId === currentProfile;
+          }) || null
+        : null;
+    const currentModel =
+      status && status.config ? status.config.defaultModel || "未设置" : "加载中";
     const login = status && status.login ? status.login : null;
     const cli = status && status.codexCli ? status.codexCli : null;
     const cliCurrent = cli && cli.current && cli.current.authFilePresent ? cli.current : null;
-    const cliAuthPath = cli && cli.paths && cli.paths.authPath ? cli.paths.authPath : "Codex CLI auth 文件";
+    const cliAuthPath =
+      cli && cli.paths && cli.paths.authPath ? cli.paths.authPath : "Codex CLI auth 文件";
     const autopilot = status && status.autopilot ? status.autopilot : null;
     const pill = `
       <div class="ocx-pill" id="ocx-pill">
@@ -493,23 +509,29 @@
 
     let cards = "";
     if (status && status.profiles && status.profiles.length) {
-      cards = status.profiles.map(function (profile) {
-        const flags = [];
-        const sameAsCli = cliCurrent && cliCurrent.accountId && profile.accountId && cliCurrent.accountId === profile.accountId;
-        if (profile.isNext) flags.push(badge("当前优先", "hot"));
-        if (sameAsCli) flags.push(badge("当前 CLI", "ok"));
-        if (profile.isPinned) flags.push(badge("手动置顶", "ok"));
-        if (profile.isLastGood) flags.push(badge("上次成功", "ok"));
-        if (profile.isExpired) flags.push(badge("已过期", "warn"));
-        if (profile.isExpiringSoon) flags.push(badge("即将过期", "warn"));
-        if (profile.isInCooldown) flags.push(badge("冷却 " + (profile.cooldownIn || ""), "warn"));
-        if (profile.expiresIn) flags.push(badge(profile.expiresIn + " 后过期"));
+      cards = status.profiles
+        .map(function (profile) {
+          const flags = [];
+          const sameAsCli =
+            cliCurrent &&
+            cliCurrent.accountId &&
+            profile.accountId &&
+            cliCurrent.accountId === profile.accountId;
+          if (profile.isNext) flags.push(badge("当前优先", "hot"));
+          if (sameAsCli) flags.push(badge("当前 CLI", "ok"));
+          if (profile.isPinned) flags.push(badge("手动置顶", "ok"));
+          if (profile.isLastGood) flags.push(badge("上次成功", "ok"));
+          if (profile.isExpired) flags.push(badge("已过期", "warn"));
+          if (profile.isExpiringSoon) flags.push(badge("即将过期", "warn"));
+          if (profile.isInCooldown) flags.push(badge("冷却 " + (profile.cooldownIn || ""), "warn"));
+          if (profile.expiresIn) flags.push(badge(profile.expiresIn + " 后过期"));
 
-        const usage = profile.usage && profile.usage.windows && profile.usage.windows.length
-          ? profile.usage.windows.map(usageWindowHtml).join("")
-          : `<div class="ocx-muted" style="margin-top:10px">${profile.usage && profile.usage.error ? "额度读取失败：" + profile.usage.error : "没有额度窗口数据"}</div>`;
+          const usage =
+            profile.usage && profile.usage.windows && profile.usage.windows.length
+              ? profile.usage.windows.map(usageWindowHtml).join("")
+              : `<div class="ocx-muted" style="margin-top:10px">${profile.usage && profile.usage.error ? "额度读取失败：" + profile.usage.error : "没有额度窗口数据"}</div>`;
 
-        return `
+          return `
           <section class="ocx-card" data-profile-id="${profile.profileId}">
             <div class="ocx-card-top">
               <div>
@@ -535,25 +557,29 @@
             </div>
           </section>
         `;
-      }).join("");
+        })
+        .join("");
     } else if (status && status.auth && status.auth.profileCount === 0) {
       cards = `<div class="ocx-footnote">还没有检测到 Codex profile。现在可以直接点上面的 <code>新增账号</code>，不用去终端。</div>`;
     }
 
     let cliCards = "";
     if (cli && cli.profiles && cli.profiles.length) {
-      cliCards = cli.profiles.map(function (profile) {
-        const flags = [];
-        if (profile.isCurrent) flags.push(badge("当前 CLI", "hot"));
-        if (profile.isIdTokenExpired) flags.push(badge("ID Token 已过期", "warn"));
-        if (profile.isAccessTokenExpired) flags.push(badge("Access 已过期", "warn"));
-        if (profile.accessTokenExpiresIn) flags.push(badge(profile.accessTokenExpiresIn + " 后刷新"));
-        if (profile.workspaceTitle) flags.push(badge(profile.workspaceTitle, "ok"));
-        if (profile.plan) flags.push(badge(profile.plan));
-        const usage = profile.usage && profile.usage.windows && profile.usage.windows.length
-          ? profile.usage.windows.map(usageWindowHtml).join("")
-          : `<div class="ocx-muted" style="margin-top:10px">${profile.usage && profile.usage.error ? "额度读取失败：" + profile.usage.error : "没有额度窗口数据"}</div>`;
-        return `
+      cliCards = cli.profiles
+        .map(function (profile) {
+          const flags = [];
+          if (profile.isCurrent) flags.push(badge("当前 CLI", "hot"));
+          if (profile.isIdTokenExpired) flags.push(badge("ID Token 已过期", "warn"));
+          if (profile.isAccessTokenExpired) flags.push(badge("Access 已过期", "warn"));
+          if (profile.accessTokenExpiresIn)
+            flags.push(badge(profile.accessTokenExpiresIn + " 后刷新"));
+          if (profile.workspaceTitle) flags.push(badge(profile.workspaceTitle, "ok"));
+          if (profile.plan) flags.push(badge(profile.plan));
+          const usage =
+            profile.usage && profile.usage.windows && profile.usage.windows.length
+              ? profile.usage.windows.map(usageWindowHtml).join("")
+              : `<div class="ocx-muted" style="margin-top:10px">${profile.usage && profile.usage.error ? "额度读取失败：" + profile.usage.error : "没有额度窗口数据"}</div>`;
+          return `
           <section class="ocx-card" data-cli-profile-id="${profile.profileId}">
             <div class="ocx-card-top">
               <div>
@@ -581,10 +607,12 @@
             </div>
           </section>
         `;
-      }).join("");
+        })
+        .join("");
     }
 
-    const cliSection = cli ? `
+    const cliSection = cli
+      ? `
       <div class="ocx-card">
         <div class="ocx-card-title">Codex CLI</div>
         <div class="ocx-muted" style="margin-top:10px">
@@ -597,47 +625,66 @@
           ID Token 到期：${escapeHtml(cliCurrent && cliCurrent.idTokenExpiresIso ? fmtTime(cliCurrent.idTokenExpiresIso) : "未知")}<br>
           Access 到期：${escapeHtml(cliCurrent && cliCurrent.accessTokenExpiresIso ? fmtTime(cliCurrent.accessTokenExpiresIso) : "未知")}
         </div>
-        ${cliCurrent && cliCurrent.usage && cliCurrent.usage.windows && cliCurrent.usage.windows.length
-          ? cliCurrent.usage.windows.map(usageWindowHtml).join("")
-          : cliCurrent
-            ? `<div class="ocx-muted" style="margin-top:10px">${cliCurrent.usage && cliCurrent.usage.error ? "额度读取失败：" + cliCurrent.usage.error : "没有额度窗口数据"}</div>`
-            : ""}
+        ${
+          cliCurrent &&
+          cliCurrent.usage &&
+          cliCurrent.usage.windows &&
+          cliCurrent.usage.windows.length
+            ? cliCurrent.usage.windows.map(usageWindowHtml).join("")
+            : cliCurrent
+              ? `<div class="ocx-muted" style="margin-top:10px">${cliCurrent.usage && cliCurrent.usage.error ? "额度读取失败：" + cliCurrent.usage.error : "没有额度窗口数据"}</div>`
+              : ""
+        }
         <div class="ocx-actions">
           <button class="ocx-primary" id="ocx-cli-save"${!cliCurrent || state.loading ? " disabled" : ""}>保存当前 CLI 账号</button>
         </div>
       </div>
-      ${!cliCurrent ? `
+      ${
+        !cliCurrent
+          ? `
         <div class="ocx-footnote">还没有检测到 <code>${escapeHtml(cliAuthPath)}</code>。先在终端执行 <code>codex login</code>，完成后回到这里点 <code>保存当前 CLI 账号</code>。</div>
-      ` : !cliCurrent.matchedProfileId ? `
+      `
+          : !cliCurrent.matchedProfileId
+            ? `
         <div class="ocx-footnote">当前 CLI 账号还没纳入切换器。先点 <code>保存当前 CLI 账号</code>，以后就能在这里一键切换。</div>
-      ` : `
+      `
+            : `
         <div class="ocx-footnote">你也可以直接在上面的 OpenClaw 账号卡里点 <code>切到 CLI</code>，不用再单独跑一次 <code>codex login</code>。</div>
-      `}
+      `
+      }
       ${cliCards}
-    ` : "";
+    `
+      : "";
 
     let autopilotTasks = "";
     if (autopilot && autopilot.tasks && autopilot.tasks.length) {
-      autopilotTasks = autopilot.tasks.map(function (task) {
-        const flags = [];
-        flags.push(badge(
-          autopilotStatusLabel(task.status),
-          task.status === "running"
-            ? "hot"
-            : task.status === "completed"
-              ? "ok"
-              : task.status === "blocked" || task.status === "waiting_user"
-                ? "warn"
-                : ""
-        ));
-        flags.push(badge(task.priority === "high" ? "高优先" : task.priority === "low" ? "低优先" : "普通优先"));
-        flags.push(badge(autopilotBudgetLabel(task.effectiveBudgetMode)));
-        flags.push(badge(autopilotRetrievalLabel(task.effectiveRetrievalMode)));
-        if (task.localOnly) flags.push(badge("仅本地", "ok"));
-        else if (task.localFirst) flags.push(badge("本地优先", "ok"));
-        if (task.isDue) flags.push(badge("到点了", "warn"));
-        if (task.nextRunIn) flags.push(badge(task.nextRunIn));
-        return `
+      autopilotTasks = autopilot.tasks
+        .map(function (task) {
+          const flags = [];
+          flags.push(
+            badge(
+              autopilotStatusLabel(task.status),
+              task.status === "running"
+                ? "hot"
+                : task.status === "completed"
+                  ? "ok"
+                  : task.status === "blocked" || task.status === "waiting_user"
+                    ? "warn"
+                    : "",
+            ),
+          );
+          flags.push(
+            badge(
+              task.priority === "high" ? "高优先" : task.priority === "low" ? "低优先" : "普通优先",
+            ),
+          );
+          flags.push(badge(autopilotBudgetLabel(task.effectiveBudgetMode)));
+          flags.push(badge(autopilotRetrievalLabel(task.effectiveRetrievalMode)));
+          if (task.localOnly) flags.push(badge("仅本地", "ok"));
+          else if (task.localFirst) flags.push(badge("本地优先", "ok"));
+          if (task.isDue) flags.push(badge("到点了", "warn"));
+          if (task.nextRunIn) flags.push(badge(task.nextRunIn));
+          return `
           <section class="ocx-card" data-autopilot-task-id="${task.id}">
             <div class="ocx-card-top">
               <div>
@@ -666,10 +713,12 @@
             </div>
           </section>
         `;
-      }).join("");
+        })
+        .join("");
     }
 
-    const autopilotSection = autopilot ? `
+    const autopilotSection = autopilot
+      ? `
       <div class="ocx-card">
         <div class="ocx-card-title">Autopilot</div>
         <div class="ocx-muted" style="margin-top:10px">
@@ -677,20 +726,20 @@
           本地优先：${autopilot.config && autopilot.config.localFirst ? "是" : "否"}<br>
           默认预算：${escapeHtml(autopilotBudgetLabel(autopilot.config && autopilot.config.defaultBudgetMode))}<br>
           默认检索：${escapeHtml(autopilotRetrievalLabel(autopilot.config && autopilot.config.defaultRetrievalMode))}<br>
-          单轮输入上限：${escapeHtml(String(autopilot.config && autopilot.config.maxInputTokensPerTurn || 0))} tokens<br>
-          单任务远程调用：${escapeHtml(String(autopilot.config && autopilot.config.maxRemoteCallsPerTask || 0))} 次<br>
-          单日远程预算：${escapeHtml(String(autopilot.config && autopilot.config.dailyRemoteTokenBudget || 0))} tokens<br>
+          单轮输入上限：${escapeHtml(String((autopilot.config && autopilot.config.maxInputTokensPerTurn) || 0))} tokens<br>
+          单任务远程调用：${escapeHtml(String((autopilot.config && autopilot.config.maxRemoteCallsPerTask) || 0))} 次<br>
+          单日远程预算：${escapeHtml(String((autopilot.config && autopilot.config.dailyRemoteTokenBudget) || 0))} tokens<br>
           最近 tick：${escapeHtml(autopilot.scheduler && autopilot.scheduler.lastTickIso ? fmtTime(autopilot.scheduler.lastTickIso) : "未记录")}
           ${autopilot.scheduler && autopilot.scheduler.lastError ? "<br>调度错误：" + escapeHtml(autopilot.scheduler.lastError) : ""}
         </div>
         <div class="ocx-badges">
-          ${badge("总任务 " + String(autopilot.stats && autopilot.stats.total || 0))}
-          ${badge("到期 " + String(autopilot.stats && autopilot.stats.due || 0), (autopilot.stats && autopilot.stats.due) ? "warn" : "ok")}
-          ${badge("就绪 " + String(autopilot.stats && autopilot.stats.ready || 0), (autopilot.stats && autopilot.stats.ready) ? "ok" : "")}
-          ${badge("运行中 " + String(autopilot.stats && autopilot.stats.running || 0), (autopilot.stats && autopilot.stats.running) ? "hot" : "")}
-          ${badge("阻塞 " + String(autopilot.stats && autopilot.stats.blocked || 0), (autopilot.stats && autopilot.stats.blocked) ? "warn" : "")}
-          ${badge("等你 " + String(autopilot.stats && autopilot.stats.waitingUser || 0), (autopilot.stats && autopilot.stats.waitingUser) ? "warn" : "")}
-          ${badge("完成 " + String(autopilot.stats && autopilot.stats.completed || 0), "ok")}
+          ${badge("总任务 " + String((autopilot.stats && autopilot.stats.total) || 0))}
+          ${badge("到期 " + String((autopilot.stats && autopilot.stats.due) || 0), autopilot.stats && autopilot.stats.due ? "warn" : "ok")}
+          ${badge("就绪 " + String((autopilot.stats && autopilot.stats.ready) || 0), autopilot.stats && autopilot.stats.ready ? "ok" : "")}
+          ${badge("运行中 " + String((autopilot.stats && autopilot.stats.running) || 0), autopilot.stats && autopilot.stats.running ? "hot" : "")}
+          ${badge("阻塞 " + String((autopilot.stats && autopilot.stats.blocked) || 0), autopilot.stats && autopilot.stats.blocked ? "warn" : "")}
+          ${badge("等你 " + String((autopilot.stats && autopilot.stats.waitingUser) || 0), autopilot.stats && autopilot.stats.waitingUser ? "warn" : "")}
+          ${badge("完成 " + String((autopilot.stats && autopilot.stats.completed) || 0), "ok")}
         </div>
         <div class="ocx-grid" style="margin-top:10px">
           <label class="ocx-muted">开关
@@ -720,16 +769,16 @@
             </select>
           </label>
           <label class="ocx-muted">单轮输入上限
-            <input id="ocx-autopilot-max-input" type="number" min="500" step="500" value="${escapeHtml(String(autopilot.config && autopilot.config.maxInputTokensPerTurn || 6000))}">
+            <input id="ocx-autopilot-max-input" type="number" min="500" step="500" value="${escapeHtml(String((autopilot.config && autopilot.config.maxInputTokensPerTurn) || 6000))}">
           </label>
           <label class="ocx-muted">单任务远程调用
-            <input id="ocx-autopilot-max-calls" type="number" min="1" step="1" value="${escapeHtml(String(autopilot.config && autopilot.config.maxRemoteCallsPerTask || 6))}">
+            <input id="ocx-autopilot-max-calls" type="number" min="1" step="1" value="${escapeHtml(String((autopilot.config && autopilot.config.maxRemoteCallsPerTask) || 6))}">
           </label>
           <label class="ocx-muted">上下文字符上限
-            <input id="ocx-autopilot-max-context" type="number" min="1000" step="500" value="${escapeHtml(String(autopilot.config && autopilot.config.maxContextChars || 9000))}">
+            <input id="ocx-autopilot-max-context" type="number" min="1000" step="500" value="${escapeHtml(String((autopilot.config && autopilot.config.maxContextChars) || 9000))}">
           </label>
           <label class="ocx-muted">单日远程预算
-            <input id="ocx-autopilot-daily-budget" type="number" min="10000" step="10000" value="${escapeHtml(String(autopilot.config && autopilot.config.dailyRemoteTokenBudget || 250000))}">
+            <input id="ocx-autopilot-daily-budget" type="number" min="10000" step="10000" value="${escapeHtml(String((autopilot.config && autopilot.config.dailyRemoteTokenBudget) || 250000))}">
           </label>
         </div>
         <div class="ocx-actions">
@@ -754,10 +803,12 @@
         </div>
       </div>
       ${autopilotTasks || `<div class="ocx-footnote">还没有任务账本。先在这里把长期任务写进去，别再让任务只活在聊天记录里。</div>`}
-    ` : "";
+    `
+      : "";
 
-    const priorityWarning = currentProfileEntry && currentProfileEntry.isExpired
-      ? `
+    const priorityWarning =
+      currentProfileEntry && currentProfileEntry.isExpired
+        ? `
         <div class="ocx-footnote" style="background:rgba(170,68,42,.1);color:#8a5136">
           当前优先 profile 已过期，建议立即重新登录。
           <div class="ocx-actions" style="margin-top:10px">
@@ -765,8 +816,8 @@
           </div>
         </div>
       `
-      : currentProfileEntry && currentProfileEntry.isExpiringSoon
-        ? `
+        : currentProfileEntry && currentProfileEntry.isExpiringSoon
+          ? `
           <div class="ocx-footnote" style="background:rgba(165,112,17,.12);color:#9a6810">
             当前优先 profile 快过期了，建议提前重登，避免跑任务时突然掉线。
             <div class="ocx-actions" style="margin-top:10px">
@@ -774,9 +825,10 @@
             </div>
           </div>
         `
-        : "";
+          : "";
 
-    const loginSection = login ? `
+    const loginSection = login
+      ? `
       <div class="ocx-card">
         <div class="ocx-card-title">网页登录</div>
         <div class="ocx-muted" style="margin-top:10px">
@@ -787,20 +839,29 @@
           ${login.result && login.result.preservedProfileId ? "旧 profile 已固化为：" + escapeHtml(login.result.preservedProfileId) + "<br>" : ""}
           ${login.instructions ? escapeHtml(login.instructions) : "浏览器能自动回调最好；如果没自动完成，就把最终回调 URL 粘贴到下面。"}
         </div>
-        ${login.authUrl ? `
+        ${
+          login.authUrl
+            ? `
           <div class="ocx-actions">
             <button class="ocx-primary" id="ocx-open-login">打开登录页</button>
           </div>
-        ` : ""}
-        ${!isTerminalLogin(login.status) ? `
+        `
+            : ""
+        }
+        ${
+          !isTerminalLogin(login.status)
+            ? `
           <input id="ocx-login-input" placeholder="如果没有自动完成，把最终回调 URL 或 code 粘贴到这里" value="${escapeHtml(state.loginInput)}">
           <div class="ocx-row" style="margin-top:10px">
             <button class="ocx-primary" id="ocx-submit-login">提交回调</button>
             <button class="ocx-secondary" id="ocx-cancel-login">取消登录</button>
           </div>
-        ` : ""}
+        `
+            : ""
+        }
       </div>
-    ` : "";
+    `
+      : "";
 
     root.innerHTML = `
       <div class="ocx-panel">
@@ -851,9 +912,15 @@
       localStorage.setItem(STORAGE_KEY, "1");
       render();
     };
-    document.getElementById("ocx-refresh").onclick = function () { refresh(); };
-    document.getElementById("ocx-add-account").onclick = function () { actionLoginStart(""); };
-    document.getElementById("ocx-auto").onclick = function () { actionAuto(); };
+    document.getElementById("ocx-refresh").onclick = function () {
+      refresh();
+    };
+    document.getElementById("ocx-add-account").onclick = function () {
+      actionLoginStart("");
+    };
+    document.getElementById("ocx-auto").onclick = function () {
+      actionAuto();
+    };
     if (document.getElementById("ocx-task-title")) {
       document.getElementById("ocx-task-title").oninput = function (event) {
         state.autopilotTaskTitle = event && event.target ? event.target.value : "";
@@ -875,13 +942,19 @@
       };
     }
     if (document.getElementById("ocx-autopilot-save")) {
-      document.getElementById("ocx-autopilot-save").onclick = function () { actionAutopilotSave(); };
+      document.getElementById("ocx-autopilot-save").onclick = function () {
+        actionAutopilotSave();
+      };
     }
     if (document.getElementById("ocx-task-add")) {
-      document.getElementById("ocx-task-add").onclick = function () { actionAutopilotTaskAdd(); };
+      document.getElementById("ocx-task-add").onclick = function () {
+        actionAutopilotTaskAdd();
+      };
     }
     if (document.getElementById("ocx-cli-save")) {
-      document.getElementById("ocx-cli-save").onclick = function () { actionCliSaveCurrent(); };
+      document.getElementById("ocx-cli-save").onclick = function () {
+        actionCliSaveCurrent();
+      };
     }
     if (document.getElementById("ocx-relogin-current")) {
       document.getElementById("ocx-relogin-current").onclick = function () {
@@ -899,10 +972,14 @@
       };
     }
     if (document.getElementById("ocx-submit-login")) {
-      document.getElementById("ocx-submit-login").onclick = function () { actionLoginSubmit(); };
+      document.getElementById("ocx-submit-login").onclick = function () {
+        actionLoginSubmit();
+      };
     }
     if (document.getElementById("ocx-cancel-login")) {
-      document.getElementById("ocx-cancel-login").onclick = function () { actionLoginCancel(); };
+      document.getElementById("ocx-cancel-login").onclick = function () {
+        actionLoginCancel();
+      };
     }
 
     root.querySelectorAll(".ocx-select").forEach(function (button) {
@@ -923,7 +1000,9 @@
     root.querySelectorAll(".ocx-rename").forEach(function (button) {
       button.onclick = function () {
         const profileId = button.getAttribute("data-profile-id");
-        const input = root.querySelector('.ocx-alias[data-profile-id="' + CSS.escape(profileId) + '"]');
+        const input = root.querySelector(
+          '.ocx-alias[data-profile-id="' + CSS.escape(profileId) + '"]',
+        );
         actionRename(profileId, input ? input.value : "");
       };
     });
@@ -935,7 +1014,9 @@
     root.querySelectorAll(".ocx-cli-rename").forEach(function (button) {
       button.onclick = function () {
         const profileId = button.getAttribute("data-profile-id");
-        const input = root.querySelector('.ocx-cli-alias[data-profile-id="' + CSS.escape(profileId) + '"]');
+        const input = root.querySelector(
+          '.ocx-cli-alias[data-profile-id="' + CSS.escape(profileId) + '"]',
+        );
         actionCliRename(profileId, input ? input.value : "");
       };
     });
@@ -945,16 +1026,24 @@
       };
     });
     root.querySelectorAll(".ocx-task-run").forEach(function (button) {
-      button.onclick = function () { actionAutopilotTaskTransition(button.getAttribute("data-task-id"), "running"); };
+      button.onclick = function () {
+        actionAutopilotTaskTransition(button.getAttribute("data-task-id"), "running");
+      };
     });
     root.querySelectorAll(".ocx-task-block").forEach(function (button) {
-      button.onclick = function () { actionAutopilotTaskTransition(button.getAttribute("data-task-id"), "blocked"); };
+      button.onclick = function () {
+        actionAutopilotTaskTransition(button.getAttribute("data-task-id"), "blocked");
+      };
     });
     root.querySelectorAll(".ocx-task-wait").forEach(function (button) {
-      button.onclick = function () { actionAutopilotTaskTransition(button.getAttribute("data-task-id"), "waiting_user"); };
+      button.onclick = function () {
+        actionAutopilotTaskTransition(button.getAttribute("data-task-id"), "waiting_user");
+      };
     });
     root.querySelectorAll(".ocx-task-done").forEach(function (button) {
-      button.onclick = function () { actionAutopilotTaskTransition(button.getAttribute("data-task-id"), "completed"); };
+      button.onclick = function () {
+        actionAutopilotTaskTransition(button.getAttribute("data-task-id"), "completed");
+      };
     });
     root.querySelectorAll(".ocx-task-queue").forEach(function (button) {
       button.onclick = function () {
@@ -962,7 +1051,9 @@
       };
     });
     root.querySelectorAll(".ocx-task-delete").forEach(function (button) {
-      button.onclick = function () { actionAutopilotTaskDelete(button.getAttribute("data-task-id")); };
+      button.onclick = function () {
+        actionAutopilotTaskDelete(button.getAttribute("data-task-id"));
+      };
     });
   }
 
@@ -987,7 +1078,10 @@
     state.error = "";
     render();
     try {
-      state.status = await api("/profile/select", { method: "POST", body: { profileId: profileId } });
+      state.status = await api("/profile/select", {
+        method: "POST",
+        body: { profileId: profileId },
+      });
     } catch (error) {
       state.error = error && error.message ? error.message : String(error);
     } finally {
@@ -1017,21 +1111,29 @@
     state.error = "";
     render();
     try {
-      setAutopilotStatus(await api("/autopilot/config", {
-        method: "POST",
-        body: {
-          config: {
-            enabled: document.getElementById("ocx-autopilot-enabled").value === "true",
-            localFirst: document.getElementById("ocx-autopilot-local-first").value === "true",
-            defaultBudgetMode: document.getElementById("ocx-autopilot-budget-mode").value,
-            defaultRetrievalMode: document.getElementById("ocx-autopilot-retrieval-mode").value,
-            maxInputTokensPerTurn: Number(document.getElementById("ocx-autopilot-max-input").value),
-            maxRemoteCallsPerTask: Number(document.getElementById("ocx-autopilot-max-calls").value),
-            maxContextChars: Number(document.getElementById("ocx-autopilot-max-context").value),
-            dailyRemoteTokenBudget: Number(document.getElementById("ocx-autopilot-daily-budget").value)
-          }
-        }
-      }));
+      setAutopilotStatus(
+        await api("/autopilot/config", {
+          method: "POST",
+          body: {
+            config: {
+              enabled: document.getElementById("ocx-autopilot-enabled").value === "true",
+              localFirst: document.getElementById("ocx-autopilot-local-first").value === "true",
+              defaultBudgetMode: document.getElementById("ocx-autopilot-budget-mode").value,
+              defaultRetrievalMode: document.getElementById("ocx-autopilot-retrieval-mode").value,
+              maxInputTokensPerTurn: Number(
+                document.getElementById("ocx-autopilot-max-input").value,
+              ),
+              maxRemoteCallsPerTask: Number(
+                document.getElementById("ocx-autopilot-max-calls").value,
+              ),
+              maxContextChars: Number(document.getElementById("ocx-autopilot-max-context").value),
+              dailyRemoteTokenBudget: Number(
+                document.getElementById("ocx-autopilot-daily-budget").value,
+              ),
+            },
+          },
+        }),
+      );
     } catch (error) {
       state.error = error && error.message ? error.message : String(error);
     } finally {
@@ -1050,17 +1152,19 @@
     state.error = "";
     render();
     try {
-      setAutopilotStatus(await api("/autopilot/task/upsert", {
-        method: "POST",
-        body: {
-          task: {
-            title: state.autopilotTaskTitle,
-            goal: state.autopilotTaskGoal,
-            doneCriteria: state.autopilotTaskDoneCriteria,
-            nextRunAt: state.autopilotTaskNextRunAt || null
-          }
-        }
-      }));
+      setAutopilotStatus(
+        await api("/autopilot/task/upsert", {
+          method: "POST",
+          body: {
+            task: {
+              title: state.autopilotTaskTitle,
+              goal: state.autopilotTaskGoal,
+              doneCriteria: state.autopilotTaskDoneCriteria,
+              nextRunAt: state.autopilotTaskNextRunAt || null,
+            },
+          },
+        }),
+      );
       state.autopilotTaskTitle = "";
       state.autopilotTaskGoal = "";
       state.autopilotTaskDoneCriteria = "";
@@ -1081,13 +1185,15 @@
     try {
       const body = {
         taskId: taskId,
-        status: statusValue
+        status: statusValue,
       };
       if (nextRunAtValue) body.nextRunAt = nextRunAtValue;
-      setAutopilotStatus(await api("/autopilot/task/transition", {
-        method: "POST",
-        body: body
-      }));
+      setAutopilotStatus(
+        await api("/autopilot/task/transition", {
+          method: "POST",
+          body: body,
+        }),
+      );
     } catch (error) {
       state.error = error && error.message ? error.message : String(error);
     } finally {
@@ -1103,10 +1209,12 @@
     state.error = "";
     render();
     try {
-      setAutopilotStatus(await api("/autopilot/task/delete", {
-        method: "POST",
-        body: { taskId: taskId }
-      }));
+      setAutopilotStatus(
+        await api("/autopilot/task/delete", {
+          method: "POST",
+          body: { taskId: taskId },
+        }),
+      );
     } catch (error) {
       state.error = error && error.message ? error.message : String(error);
     } finally {
@@ -1127,7 +1235,7 @@
     try {
       state.status = await api("/profile/rename", {
         method: "POST",
-        body: { profileId: profileId, alias: alias }
+        body: { profileId: profileId, alias: alias },
       });
     } catch (error) {
       state.error = error && error.message ? error.message : String(error);
@@ -1146,16 +1254,20 @@
     if (popup && popup.document) {
       try {
         popup.document.title = "OpenClaw Codex Login";
-        popup.document.body.innerHTML = "<p style='font-family:sans-serif;padding:24px'>正在跳转到 OpenAI 登录页…</p>";
+        popup.document.body.innerHTML =
+          "<p style='font-family:sans-serif;padding:24px'>正在跳转到 OpenAI 登录页…</p>";
       } catch {}
     }
     try {
-      setLoginStatus(await api("/login/start", {
-        method: "POST",
-        body: targetProfileId ? { targetProfileId: targetProfileId } : {}
-      }));
+      setLoginStatus(
+        await api("/login/start", {
+          method: "POST",
+          body: targetProfileId ? { targetProfileId: targetProfileId } : {},
+        }),
+      );
       if (popup) {
-        if (state.status && state.status.login && state.status.login.authUrl) popup.location.replace(state.status.login.authUrl);
+        if (state.status && state.status.login && state.status.login.authUrl)
+          popup.location.replace(state.status.login.authUrl);
         else popup.close();
       } else if (state.status && state.status.login && state.status.login.authUrl) {
         window.open(state.status.login.authUrl, "_blank");
@@ -1180,10 +1292,12 @@
     state.error = "";
     render();
     try {
-      setLoginStatus(await api("/login/submit", {
-        method: "POST",
-        body: { input: state.loginInput }
-      }));
+      setLoginStatus(
+        await api("/login/submit", {
+          method: "POST",
+          body: { input: state.loginInput },
+        }),
+      );
       state.loginInput = "";
     } catch (error) {
       state.error = error && error.message ? error.message : String(error);
@@ -1229,10 +1343,12 @@
     state.error = "";
     render();
     try {
-      setCodexCliStatus(await api("/codex-cli/activate", {
-        method: "POST",
-        body: { profileId: profileId }
-      }));
+      setCodexCliStatus(
+        await api("/codex-cli/activate", {
+          method: "POST",
+          body: { profileId: profileId },
+        }),
+      );
     } catch (error) {
       state.error = error && error.message ? error.message : String(error);
     } finally {
@@ -1251,10 +1367,12 @@
     state.error = "";
     render();
     try {
-      setCodexCliStatus(await api("/codex-cli/rename", {
-        method: "POST",
-        body: { profileId: profileId, alias: alias }
-      }));
+      setCodexCliStatus(
+        await api("/codex-cli/rename", {
+          method: "POST",
+          body: { profileId: profileId, alias: alias },
+        }),
+      );
     } catch (error) {
       state.error = error && error.message ? error.message : String(error);
     } finally {
@@ -1266,7 +1384,8 @@
   async function actionCliDelete(profileId) {
     if (!profileId) return;
     const cli = state.status && state.status.codexCli ? state.status.codexCli : null;
-    const cliAuthPath = cli && cli.paths && cli.paths.authPath ? cli.paths.authPath : "Codex CLI auth 文件";
+    const cliAuthPath =
+      cli && cli.paths && cli.paths.authPath ? cli.paths.authPath : "Codex CLI auth 文件";
     if (!window.confirm(`删除这个已保存的 Codex CLI 账号快照？当前 ${cliAuthPath} 不会被删除。`)) {
       return;
     }
@@ -1274,10 +1393,12 @@
     state.error = "";
     render();
     try {
-      setCodexCliStatus(await api("/codex-cli/delete", {
-        method: "POST",
-        body: { profileId: profileId }
-      }));
+      setCodexCliStatus(
+        await api("/codex-cli/delete", {
+          method: "POST",
+          body: { profileId: profileId },
+        }),
+      );
     } catch (error) {
       state.error = error && error.message ? error.message : String(error);
     } finally {
@@ -1288,7 +1409,9 @@
 
   async function actionCliFromOpenClaw(profileId) {
     if (!profileId) return;
-    const setOpenClawCurrent = window.confirm("同时把这个账号设成当前 OpenClaw 优先账号吗？点击“确定”会同时切换 OpenClaw 和 Codex CLI；点击“取消”只切换 Codex CLI。");
+    const setOpenClawCurrent = window.confirm(
+      "同时把这个账号设成当前 OpenClaw 优先账号吗？点击“确定”会同时切换 OpenClaw 和 Codex CLI；点击“取消”只切换 Codex CLI。",
+    );
     state.loading = true;
     state.error = "";
     render();
@@ -1297,8 +1420,8 @@
         method: "POST",
         body: {
           profileId: profileId,
-          setOpenClawCurrent: setOpenClawCurrent
-        }
+          setOpenClawCurrent: setOpenClawCurrent,
+        },
       });
     } catch (error) {
       state.error = error && error.message ? error.message : String(error);

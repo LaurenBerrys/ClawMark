@@ -1,7 +1,7 @@
 ---
-summary: "Use Anthropic Claude via API keys or setup-token in OpenClaw"
+summary: "Use Anthropic Claude via API keys or setup-token in ClawMark"
 read_when:
-  - You want to use Anthropic models in OpenClaw
+  - You want to use Anthropic models in ClawMark
   - You want setup-token instead of API keys
 title: "Anthropic"
 ---
@@ -9,7 +9,7 @@ title: "Anthropic"
 # Anthropic (Claude)
 
 Anthropic builds the **Claude** model family and provides access via an API.
-In OpenClaw you can authenticate with an API key or a **setup-token**.
+In ClawMark you can authenticate with an API key or a **setup-token**.
 
 ## Option A: Anthropic API key
 
@@ -37,7 +37,7 @@ openclaw onboard --anthropic-api-key "$ANTHROPIC_API_KEY"
 
 ## Thinking defaults (Claude 4.6)
 
-- Anthropic Claude 4.6 models default to `adaptive` thinking in OpenClaw when no explicit thinking level is set.
+- Anthropic Claude 4.6 models default to `adaptive` thinking in ClawMark when no explicit thinking level is set.
 - You can override per-message (`/think:<level>`) or in model params:
   `agents.defaults.models["anthropic/<model>"].params.thinking`.
 - Related Anthropic docs:
@@ -46,7 +46,7 @@ openclaw onboard --anthropic-api-key "$ANTHROPIC_API_KEY"
 
 ## Fast mode (Anthropic API)
 
-OpenClaw's shared `/fast` toggle also supports direct Anthropic API-key traffic.
+ClawMark's shared `/fast` toggle also supports direct Anthropic API-key traffic.
 
 - `/fast on` maps to `service_tier: "auto"`
 - `/fast off` maps to `service_tier: "standard_only"`
@@ -68,13 +68,13 @@ OpenClaw's shared `/fast` toggle also supports direct Anthropic API-key traffic.
 
 Important limits:
 
-- This is **API-key only**. Anthropic setup-token / OAuth auth does not honor OpenClaw fast-mode tier injection.
-- OpenClaw only injects Anthropic service tiers for direct `api.anthropic.com` requests. If you route `anthropic/*` through a proxy or gateway, `/fast` leaves `service_tier` untouched.
+- This is **API-key only**. Anthropic setup-token / OAuth auth does not honor ClawMark fast-mode tier injection.
+- ClawMark only injects Anthropic service tiers for direct `api.anthropic.com` requests. If you route `anthropic/*` through a proxy or gateway, `/fast` leaves `service_tier` untouched.
 - Anthropic reports the effective tier on the response under `usage.service_tier`. On accounts without Priority Tier capacity, `service_tier: "auto"` may still resolve to `standard`.
 
 ## Prompt caching (Anthropic API)
 
-OpenClaw supports Anthropic's prompt caching feature. This is **API-only**; subscription auth does not honor cache settings.
+ClawMark supports Anthropic's prompt caching feature. This is **API-only**; subscription auth does not honor cache settings.
 
 ### Configuration
 
@@ -102,7 +102,7 @@ Use the `cacheRetention` parameter in your model config:
 
 ### Defaults
 
-When using Anthropic API Key authentication, OpenClaw automatically applies `cacheRetention: "short"` (5-minute cache) for all Anthropic models. You can override this by explicitly setting `cacheRetention` in your config.
+When using Anthropic API Key authentication, ClawMark automatically applies `cacheRetention: "short"` (5-minute cache) for all Anthropic models. You can override this by explicitly setting `cacheRetention` in your config.
 
 ### Per-agent cacheRetention overrides
 
@@ -149,12 +149,12 @@ The older `cacheControlTtl` parameter is still supported for backwards compatibi
 
 We recommend migrating to the new `cacheRetention` parameter.
 
-OpenClaw includes the `extended-cache-ttl-2025-04-11` beta flag for Anthropic API
+ClawMark includes the `extended-cache-ttl-2025-04-11` beta flag for Anthropic API
 requests; keep it if you override provider headers (see [/gateway/configuration](/gateway/configuration)).
 
 ## 1M context window (Anthropic beta)
 
-Anthropic's 1M context window is beta-gated. In OpenClaw, enable it per model
+Anthropic's 1M context window is beta-gated. In ClawMark, enable it per model
 with `params.context1m: true` for supported Opus/Sonnet models.
 
 ```json5
@@ -171,7 +171,7 @@ with `params.context1m: true` for supported Opus/Sonnet models.
 }
 ```
 
-OpenClaw maps this to `anthropic-beta: context-1m-2025-08-07` on Anthropic
+ClawMark maps this to `anthropic-beta: context-1m-2025-08-07` on Anthropic
 requests.
 
 This only activates when `params.context1m` is explicitly set to `true` for
@@ -183,7 +183,7 @@ enabled). Otherwise Anthropic returns:
 `HTTP 429: rate_limit_error: Extra usage is required for long context requests`.
 
 Note: Anthropic currently rejects `context-1m-*` beta requests when using
-OAuth/subscription tokens (`sk-ant-oat-*`). OpenClaw automatically skips the
+OAuth/subscription tokens (`sk-ant-oat-*`). ClawMark automatically skips the
 context1m beta header for OAuth auth and keeps the required OAuth betas.
 
 ## Option B: Claude setup-token
@@ -198,7 +198,7 @@ Setup-tokens are created by the **Claude Code CLI**, not the Anthropic Console. 
 claude setup-token
 ```
 
-Paste the token into OpenClaw (wizard: **Anthropic token (paste setup-token)**), or run it on the gateway host:
+Paste the token into ClawMark (wizard: **Anthropic token (paste setup-token)**), or run it on the gateway host:
 
 ```bash
 openclaw models auth setup-token --provider anthropic

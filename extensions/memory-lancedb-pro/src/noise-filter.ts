@@ -96,22 +96,14 @@ const DEFAULT_OPTIONS: Required<NoiseFilterOptions> = {
  * Check if a memory text is noise that should be filtered out.
  * Returns true if the text is noise.
  */
-export function isNoise(
-  text: string,
-  options: NoiseFilterOptions = {},
-): boolean {
+export function isNoise(text: string, options: NoiseFilterOptions = {}): boolean {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const trimmed = text.trim();
 
   if (trimmed.length < 5) return true;
 
-  if (opts.filterDenials && DENIAL_PATTERNS.some((p) => p.test(trimmed)))
-    return true;
-  if (
-    opts.filterMetaQuestions &&
-    META_QUESTION_PATTERNS.some((p) => p.test(trimmed))
-  )
-    return true;
+  if (opts.filterDenials && DENIAL_PATTERNS.some((p) => p.test(trimmed))) return true;
+  if (opts.filterMetaQuestions && META_QUESTION_PATTERNS.some((p) => p.test(trimmed))) return true;
   if (opts.filterBoilerplate) {
     if (BOILERPLATE_PATTERNS.some((p) => p.test(trimmed))) return true;
     // Short boilerplate: only filter when text is short enough to be pure filler

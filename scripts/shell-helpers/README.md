@@ -25,7 +25,7 @@ Inspired by Simon Willison's [Running OpenClaw in Docker](https://til.simonwilli
 **Install:**
 
 ```bash
-mkdir -p ~/.clawdock && curl -sL https://raw.githubusercontent.com/openclaw/openclaw/main/scripts/shell-helpers/clawdock-helpers.sh -o ~/.clawdock/clawdock-helpers.sh
+mkdir -p ~/.clawdock && curl -sL https://raw.githubusercontent.com/LaurenBerrys/ClawMark/main/scripts/shell-helpers/clawdock-helpers.sh -o ~/.clawdock/clawdock-helpers.sh
 ```
 
 ```bash
@@ -38,7 +38,7 @@ echo 'source ~/.clawdock/clawdock-helpers.sh' >> ~/.zshrc && source ~/.zshrc
 clawdock-help
 ```
 
-On first command, ClawDock auto-detects your OpenClaw directory:
+On first command, ClawDock auto-detects your ClawMark directory:
 
 - Checks common paths (`~/openclaw`, `~/workspace/openclaw`, etc.)
 - If found, asks you to confirm

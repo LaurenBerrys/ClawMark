@@ -30,7 +30,7 @@ function resolveBuildOutputRoot(target: DesktopTarget, outputRootOverride?: stri
       "Build",
       "Products",
       "Release",
-      "desktop_console.app",
+      "ClawMark.app",
       "Contents",
       "Resources",
       runtimePayloadRootName,
@@ -213,10 +213,7 @@ function resolveFlutterBin(): string {
   return "flutter";
 }
 
-function shouldEmbedGatewayConnection(command: DesktopConsoleCommand): boolean {
-  if (command === "run") {
-    return true;
-  }
+function shouldEmbedGatewayConnection(): boolean {
   return process.env.CLAWMARK_DESKTOP_EMBED_GATEWAY_CONNECTION === "1";
 }
 

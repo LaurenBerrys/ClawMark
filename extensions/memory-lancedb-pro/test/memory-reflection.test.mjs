@@ -1,8 +1,8 @@
-import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import { fileURLToPath } from "node:url";
 import jitiFactory from "jiti";
 
@@ -54,7 +54,9 @@ const {
   REFLECTION_DERIVED_BASE_WEIGHT,
 } = jiti("../src/reflection-item-store.ts");
 const { buildReflectionMappedMetadata } = jiti("../src/reflection-mapped-metadata.ts");
-const { REFLECTION_FALLBACK_SCORE_FACTOR, computeReflectionScore } = jiti("../src/reflection-ranking.ts");
+const { REFLECTION_FALLBACK_SCORE_FACTOR, computeReflectionScore } = jiti(
+  "../src/reflection-ranking.ts",
+);
 const { MemoryRetriever } = jiti("../src/retriever.ts");
 
 function messageLine(role, text, ts) {
@@ -156,13 +158,19 @@ describe("memory reflection", () => {
 
       writeFileSync(
         sessionPath,
-        [messageLine("user", "/new", 1), messageLine("assistant", "/note self-improvement (before reset): ...", 2)].join("\n") + "\n",
-        "utf-8"
+        [
+          messageLine("user", "/new", 1),
+          messageLine("assistant", "/note self-improvement (before reset): ...", 2),
+        ].join("\n") + "\n",
+        "utf-8",
       );
       writeFileSync(
         resetOldPath,
-        [messageLine("user", "old reset snapshot", 3), messageLine("assistant", "old reset reply", 4)].join("\n") + "\n",
-        "utf-8"
+        [
+          messageLine("user", "old reset snapshot", 3),
+          messageLine("assistant", "old reset reply", 4),
+        ].join("\n") + "\n",
+        "utf-8",
       );
       writeFileSync(
         resetNewPath,
@@ -170,7 +178,7 @@ describe("memory reflection", () => {
           messageLine("user", "Please keep responses concise and factual.", 5),
           messageLine("assistant", "Acknowledged. I will keep responses concise and factual.", 6),
         ].join("\n") + "\n",
-        "utf-8"
+        "utf-8",
       );
 
       const oldTime = new Date("2024-01-01T00:00:00Z");
@@ -181,7 +189,10 @@ describe("memory reflection", () => {
       const conversation = await readSessionConversationWithResetFallback(sessionPath, 10);
       assert.ok(conversation);
       assert.match(conversation, /user: Please keep responses concise and factual\./);
-      assert.match(conversation, /assistant: Acknowledged\. I will keep responses concise and factual\./);
+      assert.match(
+        conversation,
+        /assistant: Acknowledged\. I will keep responses concise and factual\./,
+      );
       assert.doesNotMatch(conversation, /old reset snapshot/);
       assert.doesNotMatch(conversation, /^user:\s*\/new/m);
     });
@@ -199,7 +210,8 @@ describe("memory reflection", () => {
     });
 
     it("skips /note handoff/control prompts", () => {
-      const prompt = "Control wrapper line\n/note self-improvement (before reset): preserve incident timeline.";
+      const prompt =
+        "Control wrapper line\n/note self-improvement (before reset): preserve incident timeline.";
       assert.equal(shouldSkipRetrieval(prompt), true);
     });
 
@@ -217,7 +229,7 @@ describe("memory reflection", () => {
           scope: "project-a",
           metadata: JSON.stringify({ type: "memory-reflection-item", itemKind: "invariant" }),
         }),
-        "reflection:project-a"
+        "reflection:project-a",
       );
 
       assert.equal(
@@ -230,7 +242,7 @@ describe("memory reflection", () => {
             itemKind: "derived",
           }),
         }),
-        "reflection:project-b"
+        "reflection:project-b",
       );
     });
 
@@ -246,7 +258,7 @@ describe("memory reflection", () => {
             baseWeight: 1.1,
           }),
         }),
-        "reflection:global"
+        "reflection:global",
       );
 
       assert.equal(
@@ -259,7 +271,7 @@ describe("memory reflection", () => {
             eventId: "refl-test",
           }),
         }),
-        "reflection:global"
+        "reflection:global",
       );
     });
 
@@ -270,23 +282,31 @@ describe("memory reflection", () => {
           scope: "global",
           metadata: "{}",
         }),
-        "fact:global"
+        "fact:global",
       );
     });
   });
 
   describe("transient retry classifier", () => {
     it("classifies unexpected EOF as transient upstream error", () => {
-      const isTransient = isTransientReflectionUpstreamError(new Error("unexpected EOF while reading upstream response"));
+      const isTransient = isTransientReflectionUpstreamError(
+        new Error("unexpected EOF while reading upstream response"),
+      );
       assert.equal(isTransient, true);
     });
 
     it("classifies auth/billing/model/context/session/refusal errors as non-retry", () => {
       assert.equal(isReflectionNonRetryError(new Error("401 unauthorized: invalid api key")), true);
-      assert.equal(isReflectionNonRetryError(new Error("insufficient credits for this request")), true);
+      assert.equal(
+        isReflectionNonRetryError(new Error("insufficient credits for this request")),
+        true,
+      );
       assert.equal(isReflectionNonRetryError(new Error("model not found: gpt-x")), true);
       assert.equal(isReflectionNonRetryError(new Error("context length exceeded")), true);
-      assert.equal(isReflectionNonRetryError(new Error("session expired, please re-authenticate")), true);
+      assert.equal(
+        isReflectionNonRetryError(new Error("session expired, please re-authenticate")),
+        true,
+      );
       assert.equal(isReflectionNonRetryError(new Error("refusal due to safety policy")), true);
     });
 
@@ -329,9 +349,18 @@ describe("memory reflection", () => {
     });
 
     it("computes jitter delay in the required 1-3s range", () => {
-      assert.equal(computeReflectionRetryDelayMs(() => 0), 1000);
-      assert.equal(computeReflectionRetryDelayMs(() => 0.5), 2000);
-      assert.equal(computeReflectionRetryDelayMs(() => 1), 3000);
+      assert.equal(
+        computeReflectionRetryDelayMs(() => 0),
+        1000,
+      );
+      assert.equal(
+        computeReflectionRetryDelayMs(() => 0.5),
+        2000,
+      );
+      assert.equal(
+        computeReflectionRetryDelayMs(() => 1),
+        3000,
+      );
     });
   });
 
@@ -383,9 +412,9 @@ describe("memory reflection", () => {
             attempts += 1;
             throw new Error("invalid api key");
           },
-          sleep: async () => { },
+          sleep: async () => {},
         }),
-        /invalid api key/i
+        /invalid api key/i,
       );
 
       assert.equal(attempts, 1);
@@ -407,10 +436,10 @@ describe("memory reflection", () => {
             throw new Error("service unavailable 503");
           },
           random: () => 0.1,
-          sleep: async () => { },
+          sleep: async () => {},
           onLog: (level, message) => logs.push({ level, message }),
         }),
-        /service unavailable/i
+        /service unavailable/i,
       );
 
       assert.equal(attempts, 2);
@@ -453,8 +482,12 @@ describe("memory reflection", () => {
 
       const metas = storedEntries.map((entry) => JSON.parse(entry.metadata));
       const eventMeta = metas.find((meta) => meta.type === "memory-reflection-event");
-      const invariantMeta = metas.find((meta) => meta.type === "memory-reflection-item" && meta.itemKind === "invariant");
-      const derivedMeta = metas.find((meta) => meta.type === "memory-reflection-item" && meta.itemKind === "derived");
+      const invariantMeta = metas.find(
+        (meta) => meta.type === "memory-reflection-item" && meta.itemKind === "invariant",
+      );
+      const derivedMeta = metas.find(
+        (meta) => meta.type === "memory-reflection-item" && meta.itemKind === "derived",
+      );
 
       assert.ok(eventMeta);
       assert.equal(eventMeta.reflectionVersion, 4);
@@ -696,7 +729,7 @@ describe("memory reflection", () => {
             quality: 1,
             usedFallback: false,
           },
-        })
+        }),
       );
       for (const entry of entries) {
         entry.text = repeatedLine;
@@ -791,10 +824,11 @@ describe("memory reflection", () => {
             quality: 0.95,
             usedFallback: false,
           },
-        })
+        }),
       );
       for (let i = 0; i < entries.length; i += 1) {
-        entries[i].text = `Shortlist candidate ${i + 1}: preserve deterministic verification evidence.`;
+        entries[i].text =
+          `Shortlist candidate ${i + 1}: preserve deterministic verification evidence.`;
       }
 
       const rows10 = loadAgentDerivedRowsWithScoresFromEntries({
@@ -823,7 +857,9 @@ describe("memory reflection", () => {
       assert.equal(rows24.length, 24);
       assert.equal(rows36.length, 32);
       assert.ok(rows36.slice(24).length > 0);
-      assert.ok(rows36.slice(24).every((row) => typeof row.text === "string" && row.text.length > 0));
+      assert.ok(
+        rows36.slice(24).every((row) => typeof row.text === "string" && row.text.length > 0),
+      );
     });
 
     it("keeps final derived-focus selection capped at 13 without applying a hard score threshold", () => {
@@ -844,7 +880,7 @@ describe("memory reflection", () => {
             quality: 0.95,
             usedFallback: false,
           },
-        })
+        }),
       );
       strongEntries.forEach((entry, idx) => {
         entry.text = `Strong candidate ${idx + 1}: keep post-check output deterministic.`;
@@ -864,7 +900,8 @@ describe("memory reflection", () => {
           usedFallback: false,
         },
       });
-      borderline.text = "Borderline low-score candidate that should still remain eligible without score gating.";
+      borderline.text =
+        "Borderline low-score candidate that should still remain eligible without score gating.";
 
       const veryOldEntries = Array.from({ length: 8 }, (_, idx) =>
         makeEntry({
@@ -880,7 +917,7 @@ describe("memory reflection", () => {
             quality: 0.55,
             usedFallback: false,
           },
-        })
+        }),
       );
       veryOldEntries.forEach((entry, idx) => {
         entry.text = `Very old candidate ${idx + 1}: likely ranked below borderline.`;
@@ -977,7 +1014,9 @@ describe("memory reflection", () => {
       });
       const duplicateSoftKey = normalizeReflectionSoftKey(similarLines[0]);
 
-      const duplicateSoftKeyCount = rows.filter((row) => normalizeReflectionSoftKey(row.text) === duplicateSoftKey).length;
+      const duplicateSoftKeyCount = rows.filter(
+        (row) => normalizeReflectionSoftKey(row.text) === duplicateSoftKey,
+      ).length;
       const uniqueSoftKeys = new Set(rows.map((row) => normalizeReflectionSoftKey(row.text)));
 
       assert.equal(rows.length, 13);
@@ -1095,7 +1134,7 @@ describe("memory reflection", () => {
           scope: "global",
           metadata: JSON.stringify({ type: "memory-reflection-mapped", mappedKind: "user-model" }),
         }),
-        "preference:global"
+        "preference:global",
       );
     });
   });
@@ -1178,7 +1217,9 @@ describe("memory reflection", () => {
       assert.equal(selected[0].entry.id, "dup-1");
 
       const duplicateKey = normalizeRecallTextKey(rows[0].entry.text);
-      const duplicateCount = selected.filter((row) => normalizeRecallTextKey(row.entry.text) === duplicateKey).length;
+      const duplicateCount = selected.filter(
+        (row) => normalizeRecallTextKey(row.entry.text) === duplicateKey,
+      ).length;
       assert.equal(duplicateCount, 1);
       assert.ok(new Set(selected.map((row) => row.entry.category)).size >= 3);
       assert.ok(new Set(selected.map((row) => row.entry.scope)).size >= 2);
@@ -1227,7 +1268,7 @@ describe("memory reflection", () => {
 
       assert.deepEqual(
         forward.map((row) => row.entry.id),
-        reversed.map((row) => row.entry.id)
+        reversed.map((row) => row.entry.id),
       );
     });
 
@@ -1393,7 +1434,7 @@ describe("memory reflection", () => {
 
       assert.deepEqual(
         forward.map((row) => row.entry.id),
-        reversed.map((row) => row.entry.id)
+        reversed.map((row) => row.entry.id),
       );
     });
 
@@ -1447,7 +1488,7 @@ describe("memory reflection", () => {
       assert.equal(selected.filter((row) => row.entry.id.startsWith("dup-")).length, 1);
       assert.deepEqual(
         selected.map((row) => row.entry.id),
-        reversed.map((row) => row.entry.id)
+        reversed.map((row) => row.entry.id),
       );
     });
   });
@@ -1516,7 +1557,7 @@ describe("memory reflection", () => {
             baseWeight: 1.1,
             quality: 1,
           },
-        })
+        }),
       );
       for (const entry of entries) {
         entry.text = "Always verify mount + DNS health after service changes.";
@@ -1676,10 +1717,7 @@ describe("memory reflection", () => {
       });
 
       assert.equal(rows.length, 2);
-      assert.deepEqual(
-        [...new Set(rows.map((row) => row.kind))].sort(),
-        ["derived", "invariant"]
-      );
+      assert.deepEqual([...new Set(rows.map((row) => row.kind))].sort(), ["derived", "invariant"]);
       for (const row of rows) {
         assert.match(row.id, /^reflection:(derived|invariant)::/);
       }
@@ -1763,7 +1801,9 @@ describe("memory reflection", () => {
       });
 
       const duplicateSoftKey = normalizeReflectionSoftKey(similarLines[0]);
-      const duplicateSoftKeyCount = forward.filter((row) => normalizeReflectionSoftKey(row.text) === duplicateSoftKey).length;
+      const duplicateSoftKeyCount = forward.filter(
+        (row) => normalizeReflectionSoftKey(row.text) === duplicateSoftKey,
+      ).length;
       assert.equal(duplicateSoftKeyCount, 1);
       assert.deepEqual(forward, reversed);
     });
@@ -1772,19 +1812,22 @@ describe("memory reflection", () => {
   describe("dynamic recall session state hygiene", () => {
     it("clears per-session state so repeated-injection guard resets after session_end cleanup", async () => {
       const state = createDynamicRecallSessionState({ maxSessions: 16 });
-      const run = () => orchestrateDynamicRecall({
-        channelName: "unit-dynamic-recall",
-        prompt: "Need targeted recall",
-        minPromptLength: 1,
-        minRepeated: 2,
-        topK: 1,
-        sessionId: "session-a",
-        state,
-        outputTag: "relevant-memories",
-        headerLines: [],
-        loadCandidates: async () => [{ id: "rule-a", text: "Always verify post-checks.", score: 0.9 }],
-        formatLine: (candidate) => candidate.text,
-      });
+      const run = () =>
+        orchestrateDynamicRecall({
+          channelName: "unit-dynamic-recall",
+          prompt: "Need targeted recall",
+          minPromptLength: 1,
+          minRepeated: 2,
+          topK: 1,
+          sessionId: "session-a",
+          state,
+          outputTag: "relevant-memories",
+          headerLines: [],
+          loadCandidates: async () => [
+            { id: "rule-a", text: "Always verify post-checks.", score: 0.9 },
+          ],
+          formatLine: (candidate) => candidate.text,
+        });
 
       const first = await run();
       assert.ok(first);
@@ -1800,19 +1843,22 @@ describe("memory reflection", () => {
 
     it("bounds tracked sessions by maxSessions to avoid unbounded growth", async () => {
       const state = createDynamicRecallSessionState({ maxSessions: 2 });
-      const run = (sessionId) => orchestrateDynamicRecall({
-        channelName: "unit-dynamic-recall",
-        prompt: "Need targeted recall",
-        minPromptLength: 1,
-        minRepeated: 0,
-        topK: 1,
-        sessionId,
-        state,
-        outputTag: "relevant-memories",
-        headerLines: [],
-        loadCandidates: async () => [{ id: "rule-a", text: "Keep DNS checks in post-flight.", score: 0.9 }],
-        formatLine: (candidate) => candidate.text,
-      });
+      const run = (sessionId) =>
+        orchestrateDynamicRecall({
+          channelName: "unit-dynamic-recall",
+          prompt: "Need targeted recall",
+          minPromptLength: 1,
+          minRepeated: 0,
+          topK: 1,
+          sessionId,
+          state,
+          outputTag: "relevant-memories",
+          headerLines: [],
+          loadCandidates: async () => [
+            { id: "rule-a", text: "Keep DNS checks in post-flight.", score: 0.9 },
+          ],
+          formatLine: (candidate) => candidate.text,
+        });
 
       await run("session-a");
       await run("session-b");
@@ -1860,7 +1906,13 @@ describe("memory reflection", () => {
 
     it("defaults auto-recall category allowlist to include other while keeping reflection excluded", () => {
       const parsed = parsePluginConfig(baseConfig());
-      assert.deepEqual(parsed.autoRecallCategories, ["preference", "fact", "decision", "entity", "other"]);
+      assert.deepEqual(parsed.autoRecallCategories, [
+        "preference",
+        "fact",
+        "decision",
+        "entity",
+        "other",
+      ]);
       assert.equal(parsed.autoRecallExcludeReflection, true);
     });
 
@@ -1916,9 +1968,13 @@ describe("memory reflection", () => {
         sessionFile,
         [
           messageLine("user", "Please keep responses concise and verify test output.", 1),
-          messageLine("assistant", "Acknowledged. I will keep responses concise and verify output.", 2),
+          messageLine(
+            "assistant",
+            "Acknowledged. I will keep responses concise and verify output.",
+            2,
+          ),
         ].join("\n") + "\n",
-        "utf-8"
+        "utf-8",
       );
 
       originalList = MemoryStore.prototype.list;
@@ -2009,10 +2065,13 @@ describe("memory reflection", () => {
     it("injects inherited-rules in before_prompt_build and builds note with fresh open-loops + historical derived-focus", async () => {
       const beforePromptHooks = harness.eventHandlers.get("before_prompt_build") || [];
       assert.equal(beforePromptHooks.length, 1);
-      const inheritedResult = await beforePromptHooks[0].handler({}, {
-        sessionKey: "agent:main:session:s1",
-        agentId: "main",
-      });
+      const inheritedResult = await beforePromptHooks[0].handler(
+        {},
+        {
+          sessionKey: "agent:main:session:s1",
+          agentId: "main",
+        },
+      );
       assert.match(inheritedResult.prependContext, /<inherited-rules>/);
       assert.doesNotMatch(inheritedResult.prependContext, /<derived-focus>/);
 
@@ -2056,13 +2115,16 @@ describe("memory reflection", () => {
 
       await afterToolHooks[0].handler(
         { toolName: "shell", error: "ETIMEDOUT while contacting upstream" },
-        { sessionKey: "agent:main:session:s1" }
+        { sessionKey: "agent:main:session:s1" },
       );
 
-      const promptResult = await beforePromptHooks[0].handler({}, {
-        sessionKey: "agent:main:session:s1",
-        agentId: "main",
-      });
+      const promptResult = await beforePromptHooks[0].handler(
+        {},
+        {
+          sessionKey: "agent:main:session:s1",
+          agentId: "main",
+        },
+      );
       assert.match(promptResult.prependContext, /<inherited-rules>/);
       assert.match(promptResult.prependContext, /<error-detected>/);
       assert.match(promptResult.prependContext, /\[shell\]/);
@@ -2096,7 +2158,7 @@ describe("memory reflection", () => {
             baseWeight: 1.1,
             quality: 1,
           },
-        })
+        }),
       );
       reflectionEntries.forEach((entry, idx) => {
         entry.text = `Dynamic reflection rule ${idx + 1}`;
@@ -2216,10 +2278,13 @@ describe("memory reflection", () => {
       assert.equal(promptHooks.length, 1);
       const inherited = await promptHooks[0].handler(
         { prompt: "Please recall relevant constraints for this task." },
-        { sessionId: "fixed-s1", sessionKey: "agent:main:session:fixed-s1", agentId: "main" }
+        { sessionId: "fixed-s1", sessionKey: "agent:main:session:fixed-s1", agentId: "main" },
       );
       assert.ok(inherited);
-      assert.match(inherited.prependContext, /Dynamic reflection rule 1|Stable rules inherited from memory-lancedb-pro reflections\./);
+      assert.match(
+        inherited.prependContext,
+        /Dynamic reflection rule 1|Stable rules inherited from memory-lancedb-pro reflections\./,
+      );
     });
 
     it("keeps dynamic reflection top-k independent from relevant-memories top-k and excludes reflection rows from auto-recall", async () => {
@@ -2230,11 +2295,11 @@ describe("memory reflection", () => {
 
       const relevant = await beforeAgentStartHooks[0].handler(
         { prompt: "Need a concise plan and recall prior decisions for this deploy?" },
-        { sessionId: "s-dyn", sessionKey: "agent:main:session:s-dyn", agentId: "main" }
+        { sessionId: "s-dyn", sessionKey: "agent:main:session:s-dyn", agentId: "main" },
       );
       const inherited = await beforePromptHooks[0].handler(
         { prompt: "Need a concise plan and recall prior decisions for this deploy?" },
-        { sessionId: "s-dyn", sessionKey: "agent:main:session:s-dyn", agentId: "main" }
+        { sessionId: "s-dyn", sessionKey: "agent:main:session:s-dyn", agentId: "main" },
       );
       assert.ok(relevant);
       assert.ok(inherited);
@@ -2244,7 +2309,10 @@ describe("memory reflection", () => {
       assert.equal(relevantCount, 2);
       assert.equal(inheritedCount, 4);
 
-      assert.doesNotMatch(relevant.prependContext, /auto-reflection-1|Reflection row that should stay out of relevant-memories\./);
+      assert.doesNotMatch(
+        relevant.prependContext,
+        /auto-reflection-1|Reflection row that should stay out of relevant-memories\./,
+      );
       assert.match(relevant.prependContext, /User prefers concise incident updates\./);
       assert.match(relevant.prependContext, /Decide to verify services after config edits\./);
       assert.match(inherited.prependContext, /Dynamic reflection rule 1/);
@@ -2256,7 +2324,7 @@ describe("memory reflection", () => {
 
       const followUp = await beforePromptHooks[0].handler(
         { prompt: "继续按这个方案改，并给我步骤" },
-        { sessionId: "s-follow-up", sessionKey: "agent:main:session:s-follow-up", agentId: "main" }
+        { sessionId: "s-follow-up", sessionKey: "agent:main:session:s-follow-up", agentId: "main" },
       );
 
       assert.ok(followUp);
@@ -2281,15 +2349,27 @@ describe("memory reflection", () => {
       for (const prompt of controlPrompts) {
         const relevant = await beforeAgentStartHooks[0].handler(
           { prompt },
-          { sessionId: `auto-${prompt.length}`, sessionKey: `agent:main:session:auto-${prompt.length}`, agentId: "main" }
+          {
+            sessionId: `auto-${prompt.length}`,
+            sessionKey: `agent:main:session:auto-${prompt.length}`,
+            agentId: "main",
+          },
         );
         const inherited = await beforePromptHooks[0].handler(
           { prompt },
-          { sessionId: `reflect-${prompt.length}`, sessionKey: `agent:main:session:reflect-${prompt.length}`, agentId: "main" }
+          {
+            sessionId: `reflect-${prompt.length}`,
+            sessionKey: `agent:main:session:reflect-${prompt.length}`,
+            agentId: "main",
+          },
         );
 
         assert.equal(relevant, undefined, `expected auto-recall to skip control prompt: ${prompt}`);
-        assert.equal(inherited, undefined, `expected reflection recall to skip control prompt: ${prompt}`);
+        assert.equal(
+          inherited,
+          undefined,
+          `expected reflection recall to skip control prompt: ${prompt}`,
+        );
       }
     });
   });
@@ -2378,7 +2458,7 @@ describe("memory reflection", () => {
       assert.equal(hooks.length, 1);
       const output = await hooks[0].handler(
         { prompt: "Need rollout memories now." },
-        { sessionId: "mmr-mode", sessionKey: "agent:main:session:mmr-mode", agentId: "main" }
+        { sessionId: "mmr-mode", sessionKey: "agent:main:session:mmr-mode", agentId: "main" },
       );
       assert.ok(output);
       assert.match(output.prependContext, /<relevant-memories>/);
@@ -2408,7 +2488,11 @@ describe("memory reflection", () => {
       assert.equal(hooks.length, 1);
       const output = await hooks[0].handler(
         { prompt: "Need rollout memories now." },
-        { sessionId: "legacy-alias-mode", sessionKey: "agent:main:session:legacy-alias-mode", agentId: "main" }
+        {
+          sessionId: "legacy-alias-mode",
+          sessionKey: "agent:main:session:legacy-alias-mode",
+          agentId: "main",
+        },
       );
       assert.ok(output);
       assert.match(output.prependContext, /<relevant-memories>/);
@@ -2438,7 +2522,11 @@ describe("memory reflection", () => {
       assert.equal(hooks.length, 1);
       const output = await hooks[0].handler(
         { prompt: "Need rollout memories now." },
-        { sessionId: "setwise-mode", sessionKey: "agent:main:session:setwise-mode", agentId: "main" }
+        {
+          sessionId: "setwise-mode",
+          sessionKey: "agent:main:session:setwise-mode",
+          agentId: "main",
+        },
       );
       assert.ok(output);
       assert.match(output.prependContext, /<relevant-memories>/);

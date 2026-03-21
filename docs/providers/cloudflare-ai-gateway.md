@@ -2,13 +2,13 @@
 title: "Cloudflare AI Gateway"
 summary: "Cloudflare AI Gateway setup (auth + model selection)"
 read_when:
-  - You want to use Cloudflare AI Gateway with OpenClaw
+  - You want to use Cloudflare AI Gateway with ClawMark
   - You need the account ID, gateway ID, or API key env var
 ---
 
 # Cloudflare AI Gateway
 
-Cloudflare AI Gateway sits in front of provider APIs and lets you add analytics, caching, and controls. For Anthropic, OpenClaw uses the Anthropic Messages API through your Gateway endpoint.
+Cloudflare AI Gateway sits in front of provider APIs and lets you add analytics, caching, and controls. For Anthropic, ClawMark uses the Anthropic Messages API through your Gateway endpoint.
 
 - Provider: `cloudflare-ai-gateway`
 - Base URL: `https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_id>/anthropic`

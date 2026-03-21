@@ -11,7 +11,6 @@ import type {
   RuntimeMetadata,
 } from "./contracts.js";
 import { persistRuntimeFederationAssignments } from "./federation-assignments.js";
-import { buildFederationPushScopeSuppressions } from "./federation-policy.js";
 import { syncRuntimeFederationInbox, type FederationInboxSyncResult } from "./federation-inbox.js";
 import {
   syncRuntimeFederationOutbox,
@@ -19,6 +18,7 @@ import {
   type FederationOutboxSyncOptions,
   type FederationOutboxSyncResult,
 } from "./federation-outbox.js";
+import { buildFederationPushScopeSuppressions } from "./federation-policy.js";
 import { withFederationRemoteSyncMaintenanceAttempt } from "./federation-remote-maintenance.js";
 import { buildFederationRuntimeSnapshot } from "./runtime-dashboard.js";
 import { loadRuntimeStoreBundle, saveRuntimeStoreBundle } from "./store.js";
@@ -302,7 +302,8 @@ function resolvePushEnvelopes(
 function buildPreviewEnvelopeCounts(
   envelopes: Record<string, unknown>,
 ): FederationRemoteSyncPreview["envelopeCounts"] {
-  const countEntries = (value: unknown): number => (Array.isArray(value) ? value.length : value ? 1 : 0);
+  const countEntries = (value: unknown): number =>
+    Array.isArray(value) ? value.length : value ? 1 : 0;
   return {
     runtimeManifest: countEntries(envelopes.runtimeManifest),
     shareableReviews: countEntries(envelopes.shareableReviews),
@@ -380,9 +381,7 @@ function resolvePackageFileStem(raw: unknown, now: number): string {
   );
 }
 
-function readSyncAttempts(
-  metadata: RuntimeMetadata | undefined,
-): FederationSyncAttemptRecord[] {
+function readSyncAttempts(metadata: RuntimeMetadata | undefined): FederationSyncAttemptRecord[] {
   const raw = Array.isArray(toRecord(metadata)?.syncAttempts)
     ? (toRecord(metadata)?.syncAttempts as unknown[])
     : [];
@@ -418,11 +417,13 @@ function readSyncAttempts(
           ? record.pushedEnvelopeKeys.filter((value): value is string => typeof value === "string")
           : [],
         pulledPackageCount:
-          typeof record.pulledPackageCount === "number" && Number.isFinite(record.pulledPackageCount)
+          typeof record.pulledPackageCount === "number" &&
+          Number.isFinite(record.pulledPackageCount)
             ? Number(record.pulledPackageCount)
             : 0,
         inboxProcessedCount:
-          typeof record.inboxProcessedCount === "number" && Number.isFinite(record.inboxProcessedCount)
+          typeof record.inboxProcessedCount === "number" &&
+          Number.isFinite(record.inboxProcessedCount)
             ? Number(record.inboxProcessedCount)
             : 0,
         retryable: record.retryable !== false,
@@ -445,7 +446,9 @@ function writeSyncAttempt(
   }
   const existing = readSyncAttempts(federationStore.metadata);
   const nextAttempts = [attempt, ...existing.filter((entry) => entry.id !== attempt.id)]
-    .toSorted((left, right) => right.completedAt - left.completedAt || left.id.localeCompare(right.id))
+    .toSorted(
+      (left, right) => right.completedAt - left.completedAt || left.id.localeCompare(right.id),
+    )
     .slice(0, 20);
   stores.federationStore = {
     ...federationStore,
@@ -472,10 +475,7 @@ function writeSyncAttempt(
   });
 }
 
-function persistInboundPackages(
-  packages: unknown[],
-  opts: FederationRemoteSyncOptions,
-): number {
+function persistInboundPackages(packages: unknown[], opts: FederationRemoteSyncOptions): number {
   const resolver = resolvePathResolver({
     env: opts.env,
     homedir: opts.homedir,

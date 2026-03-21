@@ -1,10 +1,10 @@
-# OpenClaw Security & Trust
+# ClawMark Security & Trust
 
 **Live:** [trust.openclaw.ai](https://trust.openclaw.ai)
 
 ## Documents
 
-- [Threat Model](/security/THREAT-MODEL-ATLAS) - MITRE ATLAS-based threat model for the OpenClaw ecosystem
+- [Threat Model](/security/THREAT-MODEL-ATLAS) - MITRE ATLAS-based threat model for the ClawMark ecosystem
 - [Contributing to the Threat Model](/security/CONTRIBUTING-THREAT-MODEL) - How to add threats, mitigations, and attack chains
 
 ## Reporting Vulnerabilities

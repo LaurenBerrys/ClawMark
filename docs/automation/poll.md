@@ -71,7 +71,7 @@ Params:
 - Telegram: 2-10 options. Supports forum topics via `threadId` or `:topic:` targets. Uses `durationSeconds` instead of `durationHours`, limited to 5-600 seconds. Supports anonymous and public polls.
 - WhatsApp: 2-12 options, `maxSelections` must be within option count, ignores `durationHours`.
 - Discord: 2-10 options, `durationHours` clamped to 1-768 hours (default 24). `maxSelections > 1` enables multi-select; Discord does not support a strict selection count.
-- MS Teams: Adaptive Card polls (OpenClaw-managed). No native poll API; `durationHours` is ignored.
+- MS Teams: Adaptive Card polls (ClawMark-managed). No native poll API; `durationHours` is ignored.
 
 ## Agent tool (Message)
 

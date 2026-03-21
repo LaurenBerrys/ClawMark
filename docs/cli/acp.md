@@ -8,7 +8,7 @@ title: "acp"
 
 # acp
 
-Run the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) bridge that talks to a OpenClaw Gateway.
+Run the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) bridge that talks to a ClawMark Gateway.
 
 This command speaks ACP over stdio for IDEs and forwards prompts to the Gateway
 over WebSocket. It keeps ACP sessions mapped to Gateway session keys.
@@ -28,7 +28,7 @@ updates.
 | Session modes                                                         | Partial     | `session/set_mode` is supported and the bridge exposes initial Gateway-backed session controls for thought level, tool verbosity, reasoning, usage detail, and elevated actions. Broader ACP-native mode/config surfaces are still out of scope. |
 | Session info and usage updates                                        | Partial     | The bridge emits `session_info_update` and best-effort `usage_update` notifications from cached Gateway session snapshots. Usage is approximate and only sent when Gateway token totals are marked fresh.                                        |
 | Tool streaming                                                        | Partial     | `tool_call` / `tool_call_update` events include raw I/O, text content, and best-effort file locations when Gateway tool args/results expose them. Embedded terminals and richer diff-native output are still not exposed.                        |
-| Per-session MCP servers (`mcpServers`)                                | Unsupported | Bridge mode rejects per-session MCP server requests. Configure MCP on the OpenClaw gateway or agent instead.                                                                                                                                     |
+| Per-session MCP servers (`mcpServers`)                                | Unsupported | Bridge mode rejects per-session MCP server requests. Configure MCP on the ClawMark gateway or agent instead.                                                                                                                                     |
 | Client filesystem methods (`fs/read_text_file`, `fs/write_text_file`) | Unsupported | The bridge does not call ACP client filesystem methods.                                                                                                                                                                                          |
 | Client terminal methods (`terminal/*`)                                | Unsupported | The bridge does not create ACP client terminals or stream terminal ids through tool calls.                                                                                                                                                       |
 | Session plans / thought streaming                                     | Unsupported | The bridge currently emits output text and tool status, not ACP plan or thought updates.                                                                                                                                                         |
@@ -102,7 +102,7 @@ Permission model (client debug mode):
 ## How to use this
 
 Use ACP when an IDE (or other client) speaks Agent Client Protocol and you want
-it to drive a OpenClaw Gateway session.
+it to drive a ClawMark Gateway session.
 
 1. Ensure the Gateway is running (local or remote).
 2. Configure the Gateway target (config or flags).
@@ -146,24 +146,24 @@ error instead of silently ignoring them.
 ## Use from `acpx` (Codex, Claude, other ACP clients)
 
 If you want a coding agent such as Codex or Claude Code to talk to your
-OpenClaw bot over ACP, use `acpx` with its built-in `openclaw` target.
+ClawMark bot over ACP, use `acpx` with its built-in `openclaw` target.
 
 Typical flow:
 
 1. Run the Gateway and make sure the ACP bridge can reach it.
 2. Point `acpx openclaw` at `openclaw acp`.
-3. Target the OpenClaw session key you want the coding agent to use.
+3. Target the ClawMark session key you want the coding agent to use.
 
 Examples:
 
 ```bash
-# One-shot request into your default OpenClaw ACP session
-acpx openclaw exec "Summarize the active OpenClaw session state."
+# One-shot request into your default ClawMark ACP session
+acpx openclaw exec "Summarize the active ClawMark session state."
 
 # Persistent named session for follow-up turns
 acpx openclaw sessions ensure --name codex-bridge
 acpx openclaw -s codex-bridge --cwd /path/to/repo \
-  "Ask my OpenClaw work agent for recent context relevant to this repo."
+  "Ask my ClawMark work agent for recent context relevant to this repo."
 ```
 
 If you want `acpx openclaw` to target a specific Gateway and session key every
@@ -179,7 +179,7 @@ time, override the `openclaw` agent command in `~/.acpx/config.json`:
 }
 ```
 
-For a repo-local OpenClaw checkout, use the direct CLI entrypoint instead of the
+For a repo-local ClawMark checkout, use the direct CLI entrypoint instead of the
 dev runner so the ACP stream stays clean. For example:
 
 ```bash
@@ -187,7 +187,7 @@ env OPENCLAW_HIDE_BANNER=1 OPENCLAW_SUPPRESS_NOTES=1 node openclaw.mjs acp ...
 ```
 
 This is the easiest way to let Codex, Claude Code, or another ACP-aware client
-pull contextual information from an OpenClaw agent without scraping a terminal.
+pull contextual information from an ClawMark agent without scraping a terminal.
 
 ## Zed editor setup
 
@@ -196,7 +196,7 @@ Add a custom ACP agent in `~/.config/zed/settings.json` (or use Zed’s Settings
 ```json
 {
   "agent_servers": {
-    "OpenClaw ACP": {
+    "ClawMark ACP": {
       "type": "custom",
       "command": "openclaw",
       "args": ["acp"],
@@ -211,7 +211,7 @@ To target a specific Gateway or agent:
 ```json
 {
   "agent_servers": {
-    "OpenClaw ACP": {
+    "ClawMark ACP": {
       "type": "custom",
       "command": "openclaw",
       "args": [
@@ -229,7 +229,7 @@ To target a specific Gateway or agent:
 }
 ```
 
-In Zed, open the Agent panel and select “OpenClaw ACP” to start a thread.
+In Zed, open the Agent panel and select “ClawMark ACP” to start a thread.
 
 ## Session mapping
 

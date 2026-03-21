@@ -26,7 +26,10 @@ export interface ReflectionGroup {
   finalScore: number;
 }
 
-export function aggregateReflectionGroups(items: ReflectionScoredItem[], now: number): ReflectionGroup[] {
+export function aggregateReflectionGroups(
+  items: ReflectionScoredItem[],
+  now: number,
+): ReflectionGroup[] {
   const byStrictKey = new Map<string, ReflectionScoredItem[]>();
   for (const item of items) {
     if (!item.strictKey) continue;
@@ -59,9 +62,8 @@ export function aggregateReflectionGroups(items: ReflectionScoredItem[], now: nu
 
     const topScores = itemsByRecency.map((item) => item.score).sort((a, b) => b - a);
     const maxItemScore = topScores[0] ?? 0;
-    const top2MeanScore = topScores.length > 1
-      ? ((topScores[0] ?? 0) + (topScores[1] ?? 0)) / 2
-      : maxItemScore;
+    const top2MeanScore =
+      topScores.length > 1 ? ((topScores[0] ?? 0) + (topScores[1] ?? 0)) / 2 : maxItemScore;
     const baseScore = 0.7 * maxItemScore + 0.3 * top2MeanScore;
 
     const supportScore = 1 - Math.exp(-repeatCount / 2.5);
@@ -71,11 +73,12 @@ export function aggregateReflectionGroups(items: ReflectionScoredItem[], now: nu
     const burstPenalty = computeBurstPenalty(itemsByRecency);
     const stabilityScore = Math.max(0, 0.7 * densityScore + 0.3 * supportScore - burstPenalty);
     const qualityScore = clamp(representative.quality, 0.2, 1);
-    const finalScore = (0.50 * baseScore)
-      + (0.16 * supportScore)
-      + (0.12 * freshnessScore)
-      + (0.16 * stabilityScore)
-      + (0.06 * qualityScore);
+    const finalScore =
+      0.5 * baseScore +
+      0.16 * supportScore +
+      0.12 * freshnessScore +
+      0.16 * stabilityScore +
+      0.06 * qualityScore;
 
     return {
       strictKey,
@@ -113,13 +116,19 @@ function pickRepresentative(items: ReflectionScoredItem[], latestTs: number): Re
 
 function representativeUtility(
   item: ReflectionScoredItem,
-  options: { maxScore: number; latestTs: number }
+  options: { maxScore: number; latestTs: number },
 ): number {
   const normalizedScore = options.maxScore > 0 ? item.score / options.maxScore : 0;
   const recencyScore = Math.exp(-Math.max(0, options.latestTs - item.ts) / (3 * DAY_MS));
   const fallbackPenalty = item.isFallback ? 0.18 : 0;
   const verbosityPenalty = item.text.length > 180 ? 0.04 : 0;
-  return (0.56 * normalizedScore) + (0.24 * clamp(item.quality, 0.2, 1)) + (0.20 * recencyScore) - fallbackPenalty - verbosityPenalty;
+  return (
+    0.56 * normalizedScore +
+    0.24 * clamp(item.quality, 0.2, 1) +
+    0.2 * recencyScore -
+    fallbackPenalty -
+    verbosityPenalty
+  );
 }
 
 function dominantSoftKey(items: ReflectionScoredItem[], fallback: string): string {
@@ -156,7 +165,7 @@ function computeBurstPenalty(items: ReflectionScoredItem[]): number {
 
   const shortGapRatio = shortGapCount / Math.max(1, byTimeAsc.length - 1);
   const sameDayRatio = 1 - computeDensityScore(items);
-  return Math.min(0.35, (shortGapRatio * 0.24) + (sameDayRatio * 0.16));
+  return Math.min(0.35, shortGapRatio * 0.24 + sameDayRatio * 0.16);
 }
 
 function clamp(value: number, min: number, max: number): number {

@@ -60,10 +60,7 @@ async function testBatchEmbedding() {
     dimensions: DIMENSIONS,
   });
 
-  const vectors = await embedder.embedBatch([
-    "TypeScript is great",
-    "Python is versatile",
-  ]);
+  const vectors = await embedder.embedBatch(["TypeScript is great", "Python is versatile"]);
 
   if (vectors.length !== 2) {
     throw new Error(`Expected 2 vectors, got ${vectors.length}`);

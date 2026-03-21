@@ -11,7 +11,7 @@ import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
 import { join, dirname, basename } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/compat";
 import { createMemoryCLI } from "./cli.js";
 import { AccessTracker } from "./src/access-tracker.js";
 import { selectFinalAutoRecallResults } from "./src/auto-recall-final-selection.js";

@@ -2,7 +2,14 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import type { RuntimeIntelStore, RuntimeUserModel, SurfaceRecord, SurfaceRoleOverlay, TaskRecord, TaskReview } from "./contracts.js";
+import type {
+  RuntimeIntelStore,
+  RuntimeUserModel,
+  SurfaceRecord,
+  SurfaceRoleOverlay,
+  TaskRecord,
+  TaskReview,
+} from "./contracts.js";
 import {
   applyRuntimeMemoryInvalidationRollback,
   applyRuntimeMemoryLifecycleReview,
@@ -192,8 +199,9 @@ describe("runtime memory update engine", () => {
       }
 
       expect(result.memoryIds).toEqual([result.memory.id]);
-      expect(memoryStore.memories.find((entry) => entry.scope === `surface:${surface.id}`)?.memoryType)
-        .toBe("communication");
+      expect(
+        memoryStore.memories.find((entry) => entry.scope === `surface:${surface.id}`)?.memoryType,
+      ).toBe("communication");
       expect(engineEvent?.payload?.kind).toBe("surface_role_overlay_update");
     });
   });

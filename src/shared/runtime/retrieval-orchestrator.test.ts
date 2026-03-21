@@ -186,7 +186,8 @@ describe("buildContextPack", () => {
             plane: "session",
             recordId: "coord-coder",
             title: "Coordinator suggestion: keep the task blocked until approval",
-            excerpt: "Shared routing says to wait for operator approval before resuming coder work.",
+            excerpt:
+              "Shared routing says to wait for operator approval before resuming coder work.",
             score: 0.82,
             confidence: 84,
             sourceRef: "runtime-coordinator-suggestion",
@@ -201,7 +202,8 @@ describe("buildContextPack", () => {
             plane: "session",
             recordId: "coord-coder-blocked",
             title: "Coordinator suggestion: open a surface task",
-            excerpt: "The sales surface asked to queue a local follow-up, but local task creation is disabled.",
+            excerpt:
+              "The sales surface asked to queue a local follow-up, but local task creation is disabled.",
             score: 0.88,
             confidence: 84,
             sourceRef: "runtime-coordinator-suggestion",
@@ -219,7 +221,8 @@ describe("buildContextPack", () => {
             plane: "session",
             recordId: "runtime-user-model-mirror",
             title: "Pending USER.md import",
-            excerpt: "Manual USER.md edits are waiting to be imported into the authoritative Runtime user model.",
+            excerpt:
+              "Manual USER.md edits are waiting to be imported into the authoritative Runtime user model.",
             score: 0.93,
             confidence: 92,
             sourceRef: "runtime-user-model-mirror",
@@ -275,7 +278,8 @@ describe("buildContextPack", () => {
             plane: "session",
             recordId: "session-sales",
             title: "Sales session preference",
-            excerpt: "Use detailed updates and keep strict confirmation for the active sales session.",
+            excerpt:
+              "Use detailed updates and keep strict confirmation for the active sales session.",
             score: 0.72,
             confidence: 90,
             sourceRef: "runtime-session-working-preference",

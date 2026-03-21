@@ -65,23 +65,23 @@ import {
   buildRuntimeEvolutionVerificationReview,
 } from "./evolution-risk.js";
 import {
+  listRuntimeFederationAssignments,
+  type FederationAssignmentAction,
+} from "./federation-assignments.js";
+import {
   readFederationInboxMaintenanceControls,
   resolveFederationPackageMaintenanceStatus,
   summarizeFederationInboxMaintenance,
 } from "./federation-maintenance.js";
 import {
-  readFederationRemoteSyncMaintenanceControls,
-  summarizeFederationRemoteSyncMaintenance,
-} from "./federation-remote-maintenance.js";
-import {
-  listRuntimeFederationAssignments,
-  type FederationAssignmentAction,
-} from "./federation-assignments.js";
-import {
   buildFederationPushScopeSuppressions,
   resolveFederationPushPolicy,
   type FederationPushScopeSuppression,
 } from "./federation-policy.js";
+import {
+  readFederationRemoteSyncMaintenanceControls,
+  summarizeFederationRemoteSyncMaintenance,
+} from "./federation-remote-maintenance.js";
 import {
   listRuntimeIntelDeliveryHistory,
   previewRuntimeIntelDeliveries,
@@ -93,7 +93,6 @@ import {
   labelRuntimeInfoDomain,
   normalizeRuntimeInfoDomain,
 } from "./intel-domains.js";
-import { resolveRuntimeMemoryLifecycleControls } from "./memory-lifecycle.js";
 import {
   buildRuntimeIntelRefreshAudit,
   listRuntimeIntelDomainDefinitions,
@@ -101,6 +100,7 @@ import {
   resolveRuntimeIntelPanelConfig,
   type RuntimeIntelRefreshOutcome,
 } from "./intel-refresh.js";
+import { resolveRuntimeMemoryLifecycleControls } from "./memory-lifecycle.js";
 import { buildRuntimeMemoryMarkdownMirrorStatus } from "./memory-markdown-mirror.js";
 import {
   loadRuntimeFederationStore,
@@ -328,6 +328,7 @@ type LegacyEvolutionState = {
   config?: {
     enabled?: boolean;
     autoApplyLowRisk?: boolean;
+    autoCanaryEvolution?: boolean;
     reviewIntervalHours?: number;
   };
   candidates?: LegacyEvolutionCandidate[];
@@ -440,6 +441,7 @@ export type RuntimeTasksListResult = {
   activeTaskCount: number;
   replanPendingCount: number;
   leaseDurationMs: number;
+  archivedStepCount: number;
   maxConcurrentRunsPerWorker: number;
   maxConcurrentRunsPerRoute: number;
   activeWorkerSlots: Record<string, number>;
@@ -534,6 +536,7 @@ export type RuntimeRetrievalStatus = {
   defaultRetrievalMode: string;
   maxInputTokensPerTurn: number;
   maxContextChars: number;
+  compactionWatermark: number;
   maxRemoteCallsPerTask: number;
   leaseDurationMs: number;
   maxConcurrentRunsPerWorker: number;
@@ -616,6 +619,7 @@ export type RuntimeUserConsoleActionItem = {
   id: string;
   kind:
     | "waiting_user_task"
+    | "evolution_candidate_review"
     | "evolution_revert_recommendation"
     | "user_model_mirror_import"
     | "user_model_optimization"
@@ -644,6 +648,9 @@ export type RuntimeUserConsoleActionItem = {
   escalationTarget?: SurfaceLocalBusinessPolicy["escalationTarget"];
   actionBlockedReason?: string;
   mirrorPath?: string;
+  candidateState?: RuntimeEvolutionCandidateStatus["state"];
+  estimatedImpact?: string;
+  requiresReasonOnAdopt?: boolean;
   verificationStatus?: RuntimeEvolutionCandidateStatus["verificationStatus"];
   verificationObservationCount?: number;
   lastVerifiedAt?: number;
@@ -990,6 +997,7 @@ export type RuntimeEvolutionStatus = {
   generatedAt: number;
   enabled: boolean;
   autoApplyLowRisk: boolean;
+  autoCanaryEvolution: boolean;
   reviewIntervalHours: number;
   candidateCount: number;
   stateCounts: Record<string, number>;
@@ -1008,6 +1016,7 @@ export type RuntimeEvolutionCandidateStatus = {
   riskSummary: string;
   riskSignals: string[];
   summary: string;
+  estimatedImpact: string;
   route?: string;
   worker?: string;
   lane?: "system1" | "system2";
@@ -1816,10 +1825,7 @@ function readFederationRoleOptimizationSourceRuntimeId(
 }
 
 function resolveFederationSurfaceLabel(
-  surfaceProfilesById: Map<
-    string,
-    ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]
-  >,
+  surfaceProfilesById: Map<string, ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]>,
   surfaceId: string | undefined,
 ): string | undefined {
   if (!surfaceId) {
@@ -1832,7 +1838,9 @@ function buildFederationPolicyOverlayPreview(policy: Record<string, unknown>): s
   const preview: string[] = [];
   const governanceEntries = toArray<Record<string, unknown>>(policy.governanceEntries);
   if (governanceEntries.length > 0) {
-    preview.push(`${governanceEntries.length} governance entr${governanceEntries.length === 1 ? "y" : "ies"}`);
+    preview.push(
+      `${governanceEntries.length} governance entr${governanceEntries.length === 1 ? "y" : "ies"}`,
+    );
   }
   const blockedCounts = [
     ["blocked skills", toArray<string>(policy.blockedSkills).length],
@@ -1863,10 +1871,7 @@ function buildFederationPolicyOverlayPreview(policy: Record<string, unknown>): s
 
 function buildFederationPackagePayloadPreview(
   entry: FederationInboxRecord,
-  surfaceProfilesById: Map<
-    string,
-    ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]
-  >,
+  surfaceProfilesById: Map<string, ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]>,
 ): string[] {
   switch (entry.payload.type) {
     case "invalid-package": {
@@ -1913,13 +1918,19 @@ function buildFederationPackagePayloadPreview(
       return uniqueStrings([
         `${strategies.length} strateg${strategies.length === 1 ? "y" : "ies"}`,
         strategies.length > 0
-          ? `routes ${uniqueStrings(strategies.map((strategy) => strategy.route)).slice(0, 3).join(", ")}`
+          ? `routes ${uniqueStrings(strategies.map((strategy) => strategy.route))
+              .slice(0, 3)
+              .join(", ")}`
           : undefined,
         strategies.length > 0
-          ? `workers ${uniqueStrings(strategies.map((strategy) => strategy.worker)).slice(0, 3).join(", ")}`
+          ? `workers ${uniqueStrings(strategies.map((strategy) => strategy.worker))
+              .slice(0, 3)
+              .join(", ")}`
           : undefined,
         strategies.length > 0
-          ? `skills ${uniqueStrings(strategies.flatMap((strategy) => strategy.skillIds)).slice(0, 4).join(", ")}`
+          ? `skills ${uniqueStrings(strategies.flatMap((strategy) => strategy.skillIds))
+              .slice(0, 4)
+              .join(", ")}`
           : undefined,
       ]).slice(0, 4);
     }
@@ -1927,9 +1938,16 @@ function buildFederationPackagePayloadPreview(
       const records = entry.payload.payload.records;
       return uniqueStrings([
         `${records.length} record${records.length === 1 ? "" : "s"}`,
-        records.length > 0 ? `titles ${records.slice(0, 2).map((record) => record.title).join(" / ")}` : undefined,
         records.length > 0
-          ? `tags ${uniqueStrings(records.flatMap((record) => record.tags)).slice(0, 4).join(", ")}`
+          ? `titles ${records
+              .slice(0, 2)
+              .map((record) => record.title)
+              .join(" / ")}`
+          : undefined,
+        records.length > 0
+          ? `tags ${uniqueStrings(records.flatMap((record) => record.tags))
+              .slice(0, 4)
+              .join(", ")}`
           : undefined,
       ]).slice(0, 4);
     }
@@ -1964,10 +1982,7 @@ function buildFederationPackageLocalLanding(
   entry: FederationInboxRecord,
   federationStore: ReturnType<typeof loadRuntimeFederationStore>,
   userConsoleStore: ReturnType<typeof loadRuntimeUserConsoleStore>,
-  surfaceProfilesById: Map<
-    string,
-    ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]
-  >,
+  surfaceProfilesById: Map<string, ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]>,
 ): { localLandingLabel?: string; localLandingSummary?: string } {
   switch (entry.payload.type) {
     case "invalid-package":
@@ -2059,7 +2074,8 @@ function buildFederationPackageLocalLanding(
       if (!overlay) {
         return {};
       }
-      const route = toStringValue(overlay.route).trim() || toStringValue(entry.payload.payload.route).trim();
+      const route =
+        toStringValue(overlay.route).trim() || toStringValue(entry.payload.payload.route).trim();
       const policyPreview = buildFederationPolicyOverlayPreview(toRecord(overlay.policy) ?? {});
       return {
         localLandingLabel: route ? "route-overlay" : "global-overlay",
@@ -2360,6 +2376,7 @@ function buildImportedTaskStore(location: LegacyRuntimeLocation, now: number): R
       defaultRetrievalMode: normalizeLegacyRetrievalMode(autopilot?.config?.defaultRetrievalMode),
       maxInputTokensPerTurn: toNumber(autopilot?.config?.maxInputTokensPerTurn, 6000),
       maxContextChars: toNumber(autopilot?.config?.maxContextChars, 9000),
+      compactionWatermark: 4000,
       maxRemoteCallsPerTask: toNumber(autopilot?.config?.maxRemoteCallsPerTask, 6),
       leaseDurationMs: 10 * 60 * 1000,
       maxConcurrentRunsPerWorker: 2,
@@ -2368,6 +2385,7 @@ function buildImportedTaskStore(location: LegacyRuntimeLocation, now: number): R
     tasks,
     runs: [],
     steps: [],
+    archivedSteps: [],
     reviews: [],
     reports: [],
     lastImportedAt: now,
@@ -2490,9 +2508,9 @@ function buildImportedMemoryStore(
       sourceReviewIds: [],
       sourceSessionIds: [],
       sourceIntelIds: [],
-      derivedFromMemoryIds: toArray<string>(entry.sourceMemoryIds || entry.derivedFromMemoryIds).filter(
-        (value) => typeof value === "string",
-      ),
+      derivedFromMemoryIds: toArray<string>(
+        entry.sourceMemoryIds || entry.derivedFromMemoryIds,
+      ).filter((value) => typeof value === "string"),
       lastReinforcedAt: undefined,
       decayScore: 0,
       createdAt: toNumber(entry.createdAt, now),
@@ -2712,6 +2730,7 @@ function buildImportedGovernanceStore(
     metadata: {
       enabled: evolution?.config?.enabled !== false,
       autoApplyLowRisk: evolution?.config?.autoApplyLowRisk === true,
+      autoCanaryEvolution: evolution?.config?.autoCanaryEvolution === true,
       reviewIntervalHours: toNumber(evolution?.config?.reviewIntervalHours, 12),
       skillGovernance: {
         scannedAt: toNumber(skillGovernance?.scannedAt, 0) || undefined,
@@ -2817,9 +2836,14 @@ export function buildRuntimeTasksList(opts: RuntimeStateOptions = {}): RuntimeTa
     now,
   });
   const surfaceProfileById = new Map(surfaceProfiles.map((entry) => [entry.surface.id, entry]));
-  const agentNameById = new Map(userConsoleStore.agents.map((entry) => [entry.id, entry.name || entry.id]));
+  const agentNameById = new Map(
+    userConsoleStore.agents.map((entry) => [entry.id, entry.name || entry.id]),
+  );
   const sessionLabelById = new Map(
-    userConsoleStore.sessionWorkingPreferences.map((entry) => [entry.sessionId, entry.label || entry.sessionId]),
+    userConsoleStore.sessionWorkingPreferences.map((entry) => [
+      entry.sessionId,
+      entry.label || entry.sessionId,
+    ]),
   );
   const schedulerPolicy = resolveTaskSchedulerPolicy(taskStore.defaults);
   const activeConcurrency = buildActiveTaskConcurrencySnapshot(taskStore.tasks, now);
@@ -2846,7 +2870,9 @@ export function buildRuntimeTasksList(opts: RuntimeStateOptions = {}): RuntimeTa
       (toStringValue(taskSurface?.ownerKind).trim() === "agent"
         ? toStringValue(taskSurface?.ownerId).trim()
         : "") ||
-      (surfaceProfile?.surface.ownerKind === "agent" ? surfaceProfile.surface.ownerId ?? "" : "") ||
+      (surfaceProfile?.surface.ownerKind === "agent"
+        ? (surfaceProfile.surface.ownerId ?? "")
+        : "") ||
       undefined;
     const sessionId = toStringValue(taskContext?.sessionId).trim() || undefined;
     return {
@@ -2856,11 +2882,11 @@ export function buildRuntimeTasksList(opts: RuntimeStateOptions = {}): RuntimeTa
       title: task.title,
       route: task.route,
       agentId,
-      agentLabel: agentId ? agentNameById.get(agentId) ?? agentId : undefined,
+      agentLabel: agentId ? (agentNameById.get(agentId) ?? agentId) : undefined,
       surfaceId,
-      surfaceLabel: surfaceId ? surfaceProfile?.surface.label ?? surfaceId : undefined,
+      surfaceLabel: surfaceId ? (surfaceProfile?.surface.label ?? surfaceId) : undefined,
       sessionId,
-      sessionLabel: sessionId ? sessionLabelById.get(sessionId) ?? sessionId : undefined,
+      sessionLabel: sessionId ? (sessionLabelById.get(sessionId) ?? sessionId) : undefined,
       status: normalizeTaskStatus(task.status),
       priority: task.priority,
       budgetMode: task.budgetMode,
@@ -2991,6 +3017,7 @@ export function buildRuntimeTasksList(opts: RuntimeStateOptions = {}): RuntimeTa
     activeTaskCount: activeConcurrency.activeCount,
     replanPendingCount: sorted.filter((task) => task.needsReplan).length,
     leaseDurationMs: schedulerPolicy.leaseDurationMs,
+    archivedStepCount: taskStore.archivedSteps.length,
     maxConcurrentRunsPerWorker: schedulerPolicy.maxConcurrentRunsPerWorker,
     maxConcurrentRunsPerRoute: schedulerPolicy.maxConcurrentRunsPerRoute,
     activeWorkerSlots: activeConcurrency.workerCounts,
@@ -3242,6 +3269,7 @@ export function buildRuntimeRetrievalStatus(
     defaultRetrievalMode: taskStore.defaults.defaultRetrievalMode,
     maxInputTokensPerTurn: taskStore.defaults.maxInputTokensPerTurn,
     maxContextChars: taskStore.defaults.maxContextChars,
+    compactionWatermark: taskStore.defaults.compactionWatermark,
     maxRemoteCallsPerTask: taskStore.defaults.maxRemoteCallsPerTask,
     leaseDurationMs: taskStore.defaults.leaseDurationMs,
     maxConcurrentRunsPerWorker: taskStore.defaults.maxConcurrentRunsPerWorker,
@@ -3286,6 +3314,9 @@ function buildUserConsoleActionQueue(params: {
   const recommendedPackages = params.federationStore.inbox.filter(
     (entry) => entry.state === "recommended",
   );
+  const actionableEvolutionApprovals = params.evolutionCandidates.filter(
+    (candidate) => candidate.state === "candidate",
+  );
   const actionableEvolutionCandidates = params.evolutionCandidates.filter(
     (candidate) =>
       candidate.state === "adopted" &&
@@ -3306,49 +3337,74 @@ function buildUserConsoleActionQueue(params: {
     params.now;
 
   const actionQueue = [
-    ...waitingUserReports.map(
-      (report): RuntimeUserConsoleActionItem => {
-        const surfaceProfile = report.surfaceId ? surfaceProfileById.get(report.surfaceId) : undefined;
-        return {
-          id: `waiting-user-report:${report.id}`,
-          kind: "waiting_user_task",
-          priority: "high",
-          title: report.title,
-          summary: report.summary,
-          updatedAt: report.updatedAt,
-          taskId: report.taskId,
-          surfaceId: report.surfaceId,
-          surfaceLabel: report.surfaceLabel ?? surfaceProfile?.surface.label,
-          reportTarget: report.reportTarget,
-          taskCreationPolicy: surfaceProfile?.effectiveLocalBusinessPolicy?.taskCreation,
-          escalationTarget:
-            report.escalationTarget ?? surfaceProfile?.effectiveLocalBusinessPolicy?.escalationTarget,
-        };
-      },
-    ),
-    ...waitingUserTasks.map(
-      (task): RuntimeUserConsoleActionItem => {
-        const surfaceId = resolveTaskSurfaceId(task);
-        const surfaceProfile = surfaceId ? surfaceProfileById.get(surfaceId) : undefined;
-        return {
-          id: `waiting-user:${task.id}`,
-          kind: "waiting_user_task",
-          priority: "high",
-          title: task.title,
-          summary:
-            toStringValue(task.nextAction).trim() ||
-            toStringValue(task.planSummary).trim() ||
-            toStringValue(task.goal).trim() ||
-            "Task is paused for explicit user input.",
-          updatedAt: task.updatedAt,
-          taskId: task.id,
-          surfaceId,
-          surfaceLabel: surfaceProfile?.surface.label,
-          reportTarget: surfaceProfile?.effectiveReportTarget,
-          taskCreationPolicy: surfaceProfile?.effectiveLocalBusinessPolicy?.taskCreation,
-          escalationTarget: surfaceProfile?.effectiveLocalBusinessPolicy?.escalationTarget,
-        };
-      },
+    ...waitingUserReports.map((report): RuntimeUserConsoleActionItem => {
+      const surfaceProfile = report.surfaceId
+        ? surfaceProfileById.get(report.surfaceId)
+        : undefined;
+      return {
+        id: `waiting-user-report:${report.id}`,
+        kind: "waiting_user_task",
+        priority: "high",
+        title: report.title,
+        summary: report.summary,
+        updatedAt: report.updatedAt,
+        taskId: report.taskId,
+        surfaceId: report.surfaceId,
+        surfaceLabel: report.surfaceLabel ?? surfaceProfile?.surface.label,
+        reportTarget: report.reportTarget,
+        taskCreationPolicy: surfaceProfile?.effectiveLocalBusinessPolicy?.taskCreation,
+        escalationTarget:
+          report.escalationTarget ?? surfaceProfile?.effectiveLocalBusinessPolicy?.escalationTarget,
+      };
+    }),
+    ...waitingUserTasks.map((task): RuntimeUserConsoleActionItem => {
+      const surfaceId = resolveTaskSurfaceId(task);
+      const surfaceProfile = surfaceId ? surfaceProfileById.get(surfaceId) : undefined;
+      return {
+        id: `waiting-user:${task.id}`,
+        kind: "waiting_user_task",
+        priority: "high",
+        title: task.title,
+        summary:
+          toStringValue(task.nextAction).trim() ||
+          toStringValue(task.planSummary).trim() ||
+          toStringValue(task.goal).trim() ||
+          "Task is paused for explicit user input.",
+        updatedAt: task.updatedAt,
+        taskId: task.id,
+        surfaceId,
+        surfaceLabel: surfaceProfile?.surface.label,
+        reportTarget: surfaceProfile?.effectiveReportTarget,
+        taskCreationPolicy: surfaceProfile?.effectiveLocalBusinessPolicy?.taskCreation,
+        escalationTarget: surfaceProfile?.effectiveLocalBusinessPolicy?.escalationTarget,
+      };
+    }),
+    ...actionableEvolutionApprovals.map(
+      (candidate): RuntimeUserConsoleActionItem => ({
+        id: `evolution-candidate:${candidate.id}`,
+        kind: "evolution_candidate_review",
+        priority:
+          candidate.riskLevel === "high"
+            ? "high"
+            : candidate.riskLevel === "medium"
+              ? "medium"
+              : "low",
+        title: `Review optimization candidate: ${candidate.summary}`,
+        summary: [
+          candidate.estimatedImpact,
+          candidate.route ? `route=${candidate.route}` : undefined,
+          candidate.worker ? `worker=${candidate.worker}` : undefined,
+          candidate.observationCount > 0 ? `observations=${candidate.observationCount}` : undefined,
+          candidate.autoApplySummary,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        updatedAt: candidate.updatedAt,
+        candidateId: candidate.id,
+        candidateState: candidate.state,
+        estimatedImpact: candidate.estimatedImpact,
+        requiresReasonOnAdopt: candidate.requiresReasonOnAdopt,
+      }),
     ),
     ...actionableEvolutionCandidates.map(
       (candidate): RuntimeUserConsoleActionItem => ({
@@ -3364,7 +3420,9 @@ function buildUserConsoleActionQueue(params: {
           candidate.verificationObservationCount > 0
             ? `observations=${candidate.verificationObservationCount}`
             : undefined,
-          candidate.materializedStrategyId ? `strategy=${candidate.materializedStrategyId}` : undefined,
+          candidate.materializedStrategyId
+            ? `strategy=${candidate.materializedStrategyId}`
+            : undefined,
         ]
           .filter(Boolean)
           .join(" · "),
@@ -3427,7 +3485,9 @@ function buildUserConsoleActionQueue(params: {
         surfaceProfile?.surface.label ? `surface=${surfaceProfile.surface.label}` : undefined,
         taskCreationPolicy ? `taskCreation=${taskCreationPolicy}` : undefined,
         escalationTarget ? `escalate=${escalationTarget}` : undefined,
-        entry.lastMaterializedLocalTaskId ? `lastLocalTask=${entry.lastMaterializedLocalTaskId}` : undefined,
+        entry.lastMaterializedLocalTaskId
+          ? `lastLocalTask=${entry.lastMaterializedLocalTaskId}`
+          : undefined,
         entry.localTaskStatus ? `lastLocalStatus=${entry.localTaskStatus}` : undefined,
         entry.rematerializeReason ? `requeue=${entry.rematerializeReason}` : undefined,
         actionBlockedReason ? `blocked=${actionBlockedReason}` : undefined,
@@ -3437,11 +3497,7 @@ function buildUserConsoleActionQueue(params: {
       return {
         id: `coordinator-suggestion:${entry.id}`,
         kind: "coordinator_suggestion",
-        priority: actionBlockedReason
-          ? "medium"
-          : entry.rematerializeReason
-            ? "high"
-            : "low",
+        priority: actionBlockedReason ? "medium" : entry.rematerializeReason ? "high" : "low",
         title: entry.title,
         summary,
         updatedAt: entry.updatedAt,
@@ -3482,6 +3538,7 @@ function buildUserConsoleActionQueue(params: {
     pendingActionCount:
       waitingUserReports.length +
       waitingUserTasks.length +
+      actionableEvolutionApprovals.length +
       actionableEvolutionCandidates.length +
       recommendedUserModelCandidates.length +
       recommendedRoleCandidates.length +
@@ -3512,7 +3569,7 @@ export function buildRuntimeNotifyStatus(opts: RuntimeStateOptions = {}): Runtim
       (report) => report.state === "pending" && report.kind === "waiting_user",
     ).length,
     proactiveReportCount: reports.filter(
-      (report) => report.state === "delivered" && ! report.requiresUserAction,
+      (report) => report.state === "delivered" && !report.requiresUserAction,
     ).length,
     recentReports: reports.slice(0, 12).map((report) => ({
       id: report.id,
@@ -3735,10 +3792,7 @@ function resolveTaskSurfaceId(task: TaskRecord): string | undefined {
 
 function resolveTaskAgentIds(
   task: TaskRecord,
-  surfaceProfilesById: Map<
-    string,
-    ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]
-  >,
+  surfaceProfilesById: Map<string, ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]>,
 ): string[] {
   const metadata = toRecord(task.metadata);
   const taskContext = toRecord(metadata?.taskContext);
@@ -3746,7 +3800,9 @@ function resolveTaskAgentIds(
   const surfaceId = resolveTaskSurfaceId(task);
   return uniqueStrings([
     toStringValue(taskContext?.agentId).trim() || undefined,
-    toStringValue(surface?.ownerKind) === "agent" ? toStringValue(surface?.ownerId).trim() : undefined,
+    toStringValue(surface?.ownerKind) === "agent"
+      ? toStringValue(surface?.ownerId).trim()
+      : undefined,
     surfaceId && surfaceProfilesById.get(surfaceId)?.surface.ownerKind === "agent"
       ? surfaceProfilesById.get(surfaceId)?.surface.ownerId
       : undefined,
@@ -3784,10 +3840,7 @@ function resolveTaskReportEcologyTimestamp(report: TaskReportRecord): number {
 
 function resolveTaskReportAgentIds(
   report: TaskReportRecord,
-  surfaceProfilesById: Map<
-    string,
-    ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]
-  >,
+  surfaceProfilesById: Map<string, ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]>,
 ): string[] {
   const ownerAgentId =
     report.surfaceId && surfaceProfilesById.get(report.surfaceId)?.surface.ownerKind === "agent"
@@ -3814,7 +3867,9 @@ function buildTaskReportEcologyActivity(report: TaskReportRecord): RuntimeEcolog
   };
 }
 
-function resolveSuggestionSurfaceId(suggestion: { metadata?: RuntimeMetadata }): string | undefined {
+function resolveSuggestionSurfaceId(suggestion: {
+  metadata?: RuntimeMetadata;
+}): string | undefined {
   const metadata = toRecord(suggestion.metadata);
   const surfaceId = toStringValue(metadata?.surfaceId).trim();
   return surfaceId || undefined;
@@ -3824,10 +3879,7 @@ function resolveSuggestionAgentIds(
   suggestion: {
     metadata?: RuntimeMetadata;
   },
-  surfaceProfilesById: Map<
-    string,
-    ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]
-  >,
+  surfaceProfilesById: Map<string, ReturnType<typeof listRuntimeResolvedSurfaceProfiles>[number]>,
 ): string[] {
   const metadata = toRecord(suggestion.metadata);
   const surfaceId = resolveSuggestionSurfaceId(suggestion);
@@ -3850,21 +3902,19 @@ function resolveCoordinatorSuggestionLifecycleState(params: {
   return normalizeText(params.rematerializeReason) ? "requeued" : "queued";
 }
 
-function buildCoordinatorSuggestionEcologyActivity(
-  suggestion: {
-    id: string;
-    title: string;
-    summary: string;
-    sourceRuntimeId: string;
-    updatedAt: number;
-    localTaskId?: string;
-    localTaskStatus?: TaskStatus | "missing";
-    lastMaterializedLocalTaskId?: string;
-    rematerializeReason?: string;
-    materializedAt?: number;
-    metadata?: RuntimeMetadata;
-  },
-): RuntimeEcologyActivityStatus {
+function buildCoordinatorSuggestionEcologyActivity(suggestion: {
+  id: string;
+  title: string;
+  summary: string;
+  sourceRuntimeId: string;
+  updatedAt: number;
+  localTaskId?: string;
+  localTaskStatus?: TaskStatus | "missing";
+  lastMaterializedLocalTaskId?: string;
+  rematerializeReason?: string;
+  materializedAt?: number;
+  metadata?: RuntimeMetadata;
+}): RuntimeEcologyActivityStatus {
   const metadata = toRecord(suggestion.metadata);
   const state = resolveCoordinatorSuggestionLifecycleState(suggestion);
   return {
@@ -3873,7 +3923,9 @@ function buildCoordinatorSuggestionEcologyActivity(
     title: suggestion.title,
     summary: [
       `state=${state}`,
-      toStringValue(metadata?.route).trim() ? `route=${toStringValue(metadata?.route).trim()}` : undefined,
+      toStringValue(metadata?.route).trim()
+        ? `route=${toStringValue(metadata?.route).trim()}`
+        : undefined,
       toStringValue(metadata?.worker).trim()
         ? `worker=${toStringValue(metadata?.worker).trim()}`
         : undefined,
@@ -3927,8 +3979,12 @@ function buildSurfacePolicyEcologyActivity(
       kind: "surface_policy",
       title: "Surface role overlay updated",
       summary: [
-        toStringValue(payload?.channel).trim() ? `channel=${toStringValue(payload?.channel).trim()}` : undefined,
-        toStringValue(payload?.role).trim() ? `role=${toStringValue(payload?.role).trim()}` : undefined,
+        toStringValue(payload?.channel).trim()
+          ? `channel=${toStringValue(payload?.channel).trim()}`
+          : undefined,
+        toStringValue(payload?.role).trim()
+          ? `role=${toStringValue(payload?.role).trim()}`
+          : undefined,
       ]
         .filter(Boolean)
         .join(" · "),
@@ -3989,7 +4045,9 @@ function buildRuntimeEcologyStatusBundle(
     homedir: opts.homedir,
     now,
   });
-  const surfaceProfilesById = new Map(surfaceProfiles.map((profile) => [profile.surface.id, profile] as const));
+  const surfaceProfilesById = new Map(
+    surfaceProfiles.map((profile) => [profile.surface.id, profile] as const),
+  );
   const overlaysByAgentId = new Map(
     store.agentOverlays.map((overlay) => [overlay.agentId, overlay]),
   );
@@ -4153,7 +4211,8 @@ function buildRuntimeEcologyStatusBundle(
     }
     for (const agentId of uniqueStrings([
       candidate.agentId,
-      candidate.surfaceId && surfaceProfilesById.get(candidate.surfaceId)?.surface.ownerKind === "agent"
+      candidate.surfaceId &&
+      surfaceProfilesById.get(candidate.surfaceId)?.surface.ownerKind === "agent"
         ? surfaceProfilesById.get(candidate.surfaceId)?.surface.ownerId
         : undefined,
     ])) {
@@ -4362,8 +4421,7 @@ export function buildRuntimeIntelStatus(opts: RuntimeStateOptions = {}): Runtime
     const sourceAudit = toRecord(sourceAuditRoot?.[source.id]);
     const metadata = toRecord(profile?.metadata);
     const sourceLastRefreshAt = toNumber(sourceAudit?.lastRefreshAt, 0) || null;
-    const sourceLastSuccessfulRefreshAt =
-      toNumber(sourceAudit?.lastSuccessfulRefreshAt, 0) || null;
+    const sourceLastSuccessfulRefreshAt = toNumber(sourceAudit?.lastSuccessfulRefreshAt, 0) || null;
     const latestFetchAt =
       toNumber(metadata?.latestFetchAt ?? metadata?.lastFetchedAt, 0) ||
       toNumber(sourceAudit?.lastFetchedAt, 0) ||
@@ -4385,13 +4443,14 @@ export function buildRuntimeIntelStatus(opts: RuntimeStateOptions = {}): Runtime
       label: source.label,
       priority: source.priority,
       enabled: source.enabled,
-      refreshStatus: !panelConfig.enabled || !source.enabled
-        ? "paused"
-        : lastError
-          ? "error"
-          : stale
-            ? "stale"
-            : "healthy",
+      refreshStatus:
+        !panelConfig.enabled || !source.enabled
+          ? "paused"
+          : lastError
+            ? "error"
+            : stale
+              ? "stale"
+              : "healthy",
       custom: source.custom,
       url: source.url,
       lastRefreshAt: sourceLastRefreshAt,
@@ -4441,7 +4500,10 @@ export function buildRuntimeIntelStatus(opts: RuntimeStateOptions = {}): Runtime
   const recentDigestWindowMs = 7 * 24 * 60 * 60 * 1000;
   const recentDigestCountsBySource = new Map<string, number>();
   for (const digestItem of intelStore.digestItems) {
-    if (!Number.isFinite(digestItem.createdAt) || now - digestItem.createdAt > recentDigestWindowMs) {
+    if (
+      !Number.isFinite(digestItem.createdAt) ||
+      now - digestItem.createdAt > recentDigestWindowMs
+    ) {
       continue;
     }
     for (const sourceId of digestItem.sourceIds) {
@@ -4556,70 +4618,79 @@ export function buildRuntimeIntelStatus(opts: RuntimeStateOptions = {}): Runtime
   const usefulnessHistory = [...intelStore.usefulnessRecords]
     .toSorted((left, right) => right.createdAt - left.createdAt)
     .slice(0, 12)
-    .map((record) => ({
-      id: record.id,
-      intelId: record.intelId,
-      sourceId: record.sourceId,
-      domain: record.domain,
-      usefulnessScore: normalizeConfidencePercent(record.usefulnessScore, 0),
-      reason: toStringValue(record.reason) || undefined,
-      createdAt: record.createdAt,
-      title:
-        toStringValue(toRecord(record.metadata)?.title) ||
-        intelTitleById.get(record.intelId) ||
-        undefined,
-      promotedToMemoryId: pinnedRecordsByIntelId.get(record.intelId)?.promotedToMemoryId,
-    } satisfies RuntimeIntelUsefulnessStatus));
+    .map(
+      (record) =>
+        ({
+          id: record.id,
+          intelId: record.intelId,
+          sourceId: record.sourceId,
+          domain: record.domain,
+          usefulnessScore: normalizeConfidencePercent(record.usefulnessScore, 0),
+          reason: toStringValue(record.reason) || undefined,
+          createdAt: record.createdAt,
+          title:
+            toStringValue(toRecord(record.metadata)?.title) ||
+            intelTitleById.get(record.intelId) ||
+            undefined,
+          promotedToMemoryId: pinnedRecordsByIntelId.get(record.intelId)?.promotedToMemoryId,
+        }) satisfies RuntimeIntelUsefulnessStatus,
+    );
   const digestHistory = [...intelStore.digestItems]
     .toSorted((left, right) => right.createdAt - left.createdAt)
     .slice(0, 12)
-    .map((entry) => ({
-      id: entry.id,
-      domain: entry.domain,
-      title: entry.title,
-      exploit: entry.exploit,
-      createdAt: entry.createdAt,
-      sourceIds: [...entry.sourceIds],
-      whyItMatters: entry.whyItMatters,
-      recommendedAttention: entry.recommendedAttention,
-      recommendedAction: entry.recommendedAction,
-      url: toStringValue(toRecord(entry.metadata)?.sourceUrl) || undefined,
-      candidateId: toStringValue(toRecord(entry.metadata)?.candidateId) || undefined,
-    } satisfies RuntimeIntelDigestHistoryStatus));
+    .map(
+      (entry) =>
+        ({
+          id: entry.id,
+          domain: entry.domain,
+          title: entry.title,
+          exploit: entry.exploit,
+          createdAt: entry.createdAt,
+          sourceIds: [...entry.sourceIds],
+          whyItMatters: entry.whyItMatters,
+          recommendedAttention: entry.recommendedAttention,
+          recommendedAction: entry.recommendedAction,
+          url: toStringValue(toRecord(entry.metadata)?.sourceUrl) || undefined,
+          candidateId: toStringValue(toRecord(entry.metadata)?.candidateId) || undefined,
+        }) satisfies RuntimeIntelDigestHistoryStatus,
+    );
   const rankHistory = [...intelStore.rankRecords]
     .toSorted((left, right) => right.createdAt - left.createdAt)
     .slice(0, 16)
-    .map((entry) => ({
-      id: entry.id,
-      intelId: entry.intelId,
-      sourceId: entry.sourceId,
-      domain: entry.domain,
-      title:
-        toStringValue(toRecord(entry.metadata)?.title) ||
-        intelTitleById.get(entry.intelId) ||
-        "Untitled intel",
-      selectionRank:
-        typeof entry.selectionRank === "number" && Number.isFinite(entry.selectionRank)
-          ? Math.max(1, Math.trunc(entry.selectionRank))
-          : undefined,
-      explorationRank:
-        typeof entry.explorationRank === "number" && Number.isFinite(entry.explorationRank)
-          ? Math.max(1, Math.trunc(entry.explorationRank))
-          : undefined,
-      selectionScore: normalizeConfidencePercent(entry.selectionScore, 0),
-      explorationScore: normalizeConfidencePercent(entry.explorationScore, 0),
-      selected:  entry.selected,
-      selectedMode:
-        entry.selectedMode === "exploit" ||
-        entry.selectedMode === "explore" ||
-        entry.selectedMode === "none"
-          ? entry.selectedMode
-          : entry.selected
-            ? "exploit"
-            : "none",
-      createdAt: entry.createdAt,
-      topicFingerprint: toStringValue(toRecord(entry.metadata)?.topicFingerprint) || undefined,
-    } satisfies RuntimeIntelRankHistoryStatus));
+    .map(
+      (entry) =>
+        ({
+          id: entry.id,
+          intelId: entry.intelId,
+          sourceId: entry.sourceId,
+          domain: entry.domain,
+          title:
+            toStringValue(toRecord(entry.metadata)?.title) ||
+            intelTitleById.get(entry.intelId) ||
+            "Untitled intel",
+          selectionRank:
+            typeof entry.selectionRank === "number" && Number.isFinite(entry.selectionRank)
+              ? Math.max(1, Math.trunc(entry.selectionRank))
+              : undefined,
+          explorationRank:
+            typeof entry.explorationRank === "number" && Number.isFinite(entry.explorationRank)
+              ? Math.max(1, Math.trunc(entry.explorationRank))
+              : undefined,
+          selectionScore: normalizeConfidencePercent(entry.selectionScore, 0),
+          explorationScore: normalizeConfidencePercent(entry.explorationScore, 0),
+          selected: entry.selected,
+          selectedMode:
+            entry.selectedMode === "exploit" ||
+            entry.selectedMode === "explore" ||
+            entry.selectedMode === "none"
+              ? entry.selectedMode
+              : entry.selected
+                ? "exploit"
+                : "none",
+          createdAt: entry.createdAt,
+          topicFingerprint: toStringValue(toRecord(entry.metadata)?.topicFingerprint) || undefined,
+        }) satisfies RuntimeIntelRankHistoryStatus,
+    );
   const recentItems = [
     ...intelStore.digestItems.map((entry) => ({
       id: entry.id,
@@ -5035,7 +5106,8 @@ function buildRuntimeEvolutionCandidateStatuses(
         entry.candidateType === "retry_policy_review" && toStringValue(metadata?.retrievalMode)
           ? `retrieval ${toStringValue(metadata?.retrievalMode)}`
           : undefined,
-        entry.candidateType === "retry_policy_review" && toNumber(metadata?.retryDelayMinutes, 0) > 0
+        entry.candidateType === "retry_policy_review" &&
+        toNumber(metadata?.retryDelayMinutes, 0) > 0
           ? `retry ${Math.round(toNumber(metadata?.retryDelayMinutes, 0))}m`
           : undefined,
         entry.candidateType === "retry_policy_review" && toNumber(metadata?.blockedThreshold, 0) > 0
@@ -5057,6 +5129,10 @@ function buildRuntimeEvolutionCandidateStatuses(
           toNumber(metadata?.revertedAt, 0) >= toNumber(metadata?.adoptedAt, 0))
           ? "reverted"
           : entry.adoptionState;
+      const estimatedImpact =
+        relatedEvaluations
+          .map((evaluation) => normalizeText(evaluation.expectedEffect))
+          .find(Boolean) || "Estimated impact unavailable.";
       return {
         id: entry.id,
         candidateType: entry.candidateType,
@@ -5068,6 +5144,7 @@ function buildRuntimeEvolutionCandidateStatuses(
         riskSummary: riskReview.summary,
         riskSignals: [...riskReview.signals],
         summary: entry.summary,
+        estimatedImpact,
         route: toStringValue(metadata?.route) || undefined,
         worker: toStringValue(metadata?.worker) || undefined,
         lane:
@@ -5107,9 +5184,7 @@ function buildRuntimeEvolutionCandidateStatuses(
         verificationSignals: verificationReview ? [...verificationReview.signals] : [],
         verificationObservationCount: verificationMetrics?.observationCount ?? 0,
         lastVerifiedAt:
-          toNumber(metadata?.lastVerifiedAt, 0) ||
-          verificationMetrics?.lastObservedAt ||
-          undefined,
+          toNumber(metadata?.lastVerifiedAt, 0) || verificationMetrics?.lastObservedAt || undefined,
         materializedStrategyId,
         strategyInvalidated: Boolean(materializedStrategy?.invalidatedBy.length),
         updatedAt: Math.max(
@@ -5143,6 +5218,7 @@ export function buildRuntimeEvolutionStatus(
     generatedAt: now,
     enabled: metadata?.enabled !== false,
     autoApplyLowRisk: metadata?.autoApplyLowRisk === true,
+    autoCanaryEvolution: metadata?.autoCanaryEvolution === true,
     reviewIntervalHours: toNumber(metadata?.reviewIntervalHours, 12),
     candidateCount: memoryStore.evolutionMemory.length,
     stateCounts:
@@ -5496,11 +5572,15 @@ function buildFederationOutboxJournalSummary(
     }
     case "strategy-digest": {
       const strategies = Array.isArray(payload?.strategies) ? payload.strategies.length : 0;
-      return strategies > 0 ? `Strategy digest (${strategies} strategies)` : "Publish strategy digest";
+      return strategies > 0
+        ? `Strategy digest (${strategies} strategies)`
+        : "Publish strategy digest";
     }
     case "news-digest": {
       const digestPayload = toRecord(payload?.payload);
-      const items = Array.isArray(digestPayload?.digestItems) ? digestPayload.digestItems.length : 0;
+      const items = Array.isArray(digestPayload?.digestItems)
+        ? digestPayload.digestItems.length
+        : 0;
       return items > 0 ? `News digest (${items} items)` : "Publish news digest";
     }
     case "shadow-telemetry": {
@@ -5516,7 +5596,9 @@ function buildFederationOutboxJournalSummary(
     }
     case "team-knowledge": {
       const knowledgePayload = toRecord(payload?.payload);
-      const records = Array.isArray(knowledgePayload?.records) ? knowledgePayload.records.length : 0;
+      const records = Array.isArray(knowledgePayload?.records)
+        ? knowledgePayload.records.length
+        : 0;
       return records > 0 ? `Team knowledge (${records} records)` : "Publish team knowledge";
     }
     default:
@@ -5592,7 +5674,10 @@ export function buildFederationRuntimeSnapshot(
     homedir: opts.homedir,
     now,
   });
-  const federationPolicy = resolveFederationPushPolicy(opts.config ?? null, federationStore.metadata);
+  const federationPolicy = resolveFederationPushPolicy(
+    opts.config ?? null,
+    federationStore.metadata,
+  );
   const latestSyncAttempts = readFederationSyncAttempts(federationStore.metadata);
   const remoteMaintenanceControls = readFederationRemoteSyncMaintenanceControls(
     federationStore.metadata,

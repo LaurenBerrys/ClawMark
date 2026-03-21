@@ -1,9 +1,13 @@
 ---
+---
+
 summary: "Quick start has moved to Getting Started."
 read_when:
-  - You are looking for the fastest setup steps
-  - You were sent here from an older link
-title: "Quick start"
+
+- You are looking for the fastest setup steps
+- You were sent here from an older link
+  title: "Quick start"
+
 ---
 
 # Quick start
@@ -14,7 +18,7 @@ Quick start is now part of [Getting Started](/start/getting-started).
 
 <Columns>
   <Card title="Getting Started" href="/start/getting-started">
-    Install OpenClaw and run your first chat in minutes.
+    Install ClawMark and run your first chat in minutes.
   </Card>
   <Card title="Onboarding Wizard" href="/start/wizard">
     Full CLI wizard reference and advanced options.

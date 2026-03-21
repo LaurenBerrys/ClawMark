@@ -1,7 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { resolvePathResolver } from "../../instance/paths.js";
-import type { RuntimeMetadata, RuntimeUserModel, RuntimeUserModelPreferencePatch } from "./contracts.js";
+import type {
+  RuntimeMetadata,
+  RuntimeUserModel,
+  RuntimeUserModelPreferencePatch,
+} from "./contracts.js";
 import {
   appendRuntimeEvent,
   loadRuntimeUserConsoleStore,
@@ -64,13 +68,16 @@ function readMirrorMetadata(metadata: RuntimeMetadata | undefined): UserModelMir
   const lastImportedAt = Number((record as Record<string, unknown>).lastImportedAt);
   const lastImportedMtimeMs = Number((record as Record<string, unknown>).lastImportedMtimeMs);
   return {
-    lastSyncedAt: Number.isFinite(lastSyncedAt) && lastSyncedAt > 0 ? Math.trunc(lastSyncedAt) : undefined,
+    lastSyncedAt:
+      Number.isFinite(lastSyncedAt) && lastSyncedAt > 0 ? Math.trunc(lastSyncedAt) : undefined,
     lastSyncedMtimeMs:
       Number.isFinite(lastSyncedMtimeMs) && lastSyncedMtimeMs > 0
         ? Math.trunc(lastSyncedMtimeMs)
         : undefined,
     lastImportedAt:
-      Number.isFinite(lastImportedAt) && lastImportedAt > 0 ? Math.trunc(lastImportedAt) : undefined,
+      Number.isFinite(lastImportedAt) && lastImportedAt > 0
+        ? Math.trunc(lastImportedAt)
+        : undefined,
     lastImportedMtimeMs:
       Number.isFinite(lastImportedMtimeMs) && lastImportedMtimeMs > 0
         ? Math.trunc(lastImportedMtimeMs)
@@ -185,9 +192,10 @@ function buildInitialMirrorContent(userModel: RuntimeUserModel): string {
 }
 
 function renderMirrorContent(userModel: RuntimeUserModel, existingContent?: string): string {
-  const base = existingContent && existingContent.trim().length > 0
-    ? existingContent
-    : buildInitialMirrorContent(userModel);
+  const base =
+    existingContent && existingContent.trim().length > 0
+      ? existingContent
+      : buildInitialMirrorContent(userModel);
   const withSummary = replaceManagedSection(
     base,
     USER_MODEL_SUMMARY_START,
@@ -216,7 +224,9 @@ function extractManagedJson(content: string): string {
   return fenced[1].trim();
 }
 
-function parseImportedPatch(jsonText: string): RuntimeUserModelPreferencePatch & { displayName?: string } {
+function parseImportedPatch(
+  jsonText: string,
+): RuntimeUserModelPreferencePatch & { displayName?: string } {
   const parsed = JSON.parse(jsonText) as Record<string, unknown>;
   return {
     displayName: normalizeText(parsed.displayName) || undefined,
@@ -257,7 +267,10 @@ export function buildRuntimeUserModelMirrorStatus(
   const lastModifiedAt = readFileMtime(filePath);
   const exists = typeof lastModifiedAt === "number";
   const metadata = readMirrorMetadata(store.metadata);
-  const baselineMtime = Math.max(metadata.lastSyncedMtimeMs ?? 0, metadata.lastImportedMtimeMs ?? 0);
+  const baselineMtime = Math.max(
+    metadata.lastSyncedMtimeMs ?? 0,
+    metadata.lastImportedMtimeMs ?? 0,
+  );
   const pendingImport = exists && (lastModifiedAt ?? 0) > baselineMtime;
   return {
     path: filePath,

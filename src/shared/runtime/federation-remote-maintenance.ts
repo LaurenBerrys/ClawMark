@@ -151,7 +151,8 @@ export function summarizeFederationRemoteSyncMaintenance(params: {
   const { controls, remoteEnabled, remoteConfigured, syncCursor, latestAttempt, now } = params;
   const lastSuccessfulSyncAt = resolveLastSuccessfulSyncAt(syncCursor, controls);
   const lastFailedSyncAt = resolveLastFailedSyncAt(controls, latestAttempt);
-  const lastAttemptAt = normalizeTimestamp(latestAttempt?.completedAt) ?? controls.lastAutoSyncAttemptAt;
+  const lastAttemptAt =
+    normalizeTimestamp(latestAttempt?.completedAt) ?? controls.lastAutoSyncAttemptAt;
   const lastAttemptStatus = latestAttempt?.status ?? controls.lastAutoSyncStatus;
 
   if (!controls.enabled) {

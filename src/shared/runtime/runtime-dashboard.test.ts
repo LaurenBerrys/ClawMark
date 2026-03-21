@@ -206,6 +206,7 @@ async function seedLegacyRuntime(root: string) {
         config: {
           enabled: true,
           autoApplyLowRisk: false,
+          autoCanaryEvolution: true,
           reviewIntervalHours: 12,
         },
         candidates: [
@@ -305,6 +306,8 @@ describe("runtime dashboard legacy import", () => {
       });
       expect(storePaths.dbPath).toContain(path.join("instance", "data", "runtime", "v2"));
       expect(importedTaskStore.tasks.some((task) => task.id === "task-a")).toBe(true);
+      expect(importedTaskStore.defaults.compactionWatermark).toBe(4000);
+      expect(importedTaskStore.archivedSteps).toEqual([]);
       expect(importedMemoryStore.memories.some((memory) => memory.id === "memory-a")).toBe(true);
       expect(importedIntelStore.digestItems.some((item) => item.id === "digest-item-a")).toBe(true);
       expect(importedGovernanceStore.entries.some((entry) => entry.targetId === "patch-edit")).toBe(
@@ -373,6 +376,7 @@ describe("runtime dashboard legacy import", () => {
       expect(dashboard.intel.digestCount).toBe(1);
       expect(dashboard.capabilities.skillCount).toBe(1);
       expect(dashboard.capabilities.governanceStateCounts.shadow).toBe(1);
+      expect(dashboard.evolution.autoCanaryEvolution).toBe(true);
       expect(dashboard.userConsole.model.id).toBe("runtime-user");
       expect(dashboard.agents).toEqual([]);
       expect(dashboard.surfaces).toEqual([]);
@@ -452,10 +456,10 @@ describe("runtime dashboard legacy import", () => {
       expect(dashboard.memory.strategyCount).toBe(0);
       expect(dashboard.intel.itemCount).toBe(0);
       expect(dashboard.intel.domains.map((domain) => domain.id)).toEqual([
+        "military",
         "tech",
         "ai",
         "business",
-        "github",
       ]);
       expect(dashboard.userConsole.model.id).toBe("runtime-user");
       expect(dashboard.agents).toEqual([]);

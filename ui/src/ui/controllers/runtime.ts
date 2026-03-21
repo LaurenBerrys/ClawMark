@@ -146,6 +146,7 @@ export type RuntimeIntelSourceInput = {
 export type RuntimeEvolutionConfigureInput = {
   enabled?: boolean;
   autoApplyLowRisk?: boolean;
+  autoCanaryEvolution?: boolean;
   reviewIntervalHours?: number;
 };
 
@@ -165,6 +166,7 @@ export type RuntimeTaskLoopConfigureInput = {
   defaultRetrievalMode?: "off" | "light" | "deep";
   maxInputTokensPerTurn?: number;
   maxContextChars?: number;
+  compactionWatermark?: number;
   maxRemoteCallsPerTask?: number;
   leaseDurationMs?: number;
   maxConcurrentRunsPerWorker?: number;

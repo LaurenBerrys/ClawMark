@@ -4,9 +4,15 @@ import FlutterMacOS
 class MainFlutterWindow: NSWindow {
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
-    let windowFrame = self.frame
+    let idealSize = NSSize(width: 1440, height: 920)
+    let minimumSize = NSSize(width: 1200, height: 780)
+    var windowFrame = self.frame
+    windowFrame.size.width = max(windowFrame.size.width, idealSize.width)
+    windowFrame.size.height = max(windowFrame.size.height, idealSize.height)
     self.contentViewController = flutterViewController
+    self.minSize = minimumSize
     self.setFrame(windowFrame, display: true)
+    self.center()
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     let desktopChannel = FlutterMethodChannel(

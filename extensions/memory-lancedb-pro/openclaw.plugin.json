@@ -73,11 +73,7 @@
       },
       "sessionStrategy": {
         "type": "string",
-        "enum": [
-          "memoryReflection",
-          "systemSessionMemory",
-          "none"
-        ],
+        "enum": ["memoryReflection", "systemSessionMemory", "none"],
         "default": "systemSessionMemory",
         "description": "Choose session pipeline: plugin memory-reflection, built-in session-memory, or none"
       },
@@ -111,11 +107,7 @@
       },
       "autoRecallSelectionMode": {
         "type": "string",
-        "enum": [
-          "mmr",
-          "legacy",
-          "setwise-v2"
-        ],
+        "enum": ["mmr", "legacy", "setwise-v2"],
         "default": "mmr",
         "description": "Generic Auto-Recall final top-k mode. mmr keeps direct truncation after post-processing as the canonical mode; legacy is accepted as a backward-compatible alias to mmr; setwise-v2 enables set-wise final selection with higher diversity/coverage but potentially lower average per-item relevance."
       },
@@ -123,22 +115,9 @@
         "type": "array",
         "items": {
           "type": "string",
-          "enum": [
-            "preference",
-            "fact",
-            "decision",
-            "entity",
-            "other",
-            "reflection"
-          ]
+          "enum": ["preference", "fact", "decision", "entity", "other", "reflection"]
         },
-        "default": [
-          "preference",
-          "fact",
-          "decision",
-          "entity",
-          "other"
-        ],
+        "default": ["preference", "fact", "decision", "entity", "other"],
         "description": "Allowlist of memory categories eligible for generic Auto-Recall."
       },
       "autoRecallExcludeReflection": {
@@ -169,10 +148,7 @@
         "properties": {
           "mode": {
             "type": "string",
-            "enum": [
-              "hybrid",
-              "vector"
-            ],
+            "enum": ["hybrid", "vector"],
             "default": "hybrid"
           },
           "vectorWeight": {
@@ -195,11 +171,7 @@
           },
           "rerank": {
             "type": "string",
-            "enum": [
-              "cross-encoder",
-              "lightweight",
-              "none"
-            ],
+            "enum": ["cross-encoder", "lightweight", "none"],
             "default": "cross-encoder"
           },
           "rerankApiKey": {
@@ -218,13 +190,7 @@
           },
           "rerankProvider": {
             "type": "string",
-            "enum": [
-              "jina",
-              "siliconflow",
-              "voyage",
-              "pinecone",
-              "vllm"
-            ],
+            "enum": ["jina", "siliconflow", "voyage", "pinecone", "vllm"],
             "default": "jina",
             "description": "Reranker provider format. Determines request/response shape and auth header. Use 'vllm' for Docker Model Runner."
           },
@@ -340,10 +306,7 @@
           },
           "injectMode": {
             "type": "string",
-            "enum": [
-              "inheritance-only",
-              "inheritance+derived"
-            ],
+            "enum": ["inheritance-only", "inheritance+derived"],
             "default": "inheritance+derived"
           },
           "agentId": {
@@ -370,13 +333,7 @@
           },
           "thinkLevel": {
             "type": "string",
-            "enum": [
-              "off",
-              "minimal",
-              "low",
-              "medium",
-              "high"
-            ],
+            "enum": ["off", "minimal", "low", "medium", "high"],
             "default": "medium"
           },
           "errorReminderMaxEntries": {
@@ -395,10 +352,7 @@
             "properties": {
               "mode": {
                 "type": "string",
-                "enum": [
-                  "fixed",
-                  "dynamic"
-                ],
+                "enum": ["fixed", "dynamic"],
                 "default": "fixed"
               },
               "topK": {
@@ -411,14 +365,9 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": [
-                    "invariant",
-                    "derived"
-                  ]
+                  "enum": ["invariant", "derived"]
                 },
-                "default": [
-                  "invariant"
-                ]
+                "default": ["invariant"]
               },
               "maxAgeDays": {
                 "type": "integer",
@@ -500,9 +449,7 @@
         }
       }
     },
-    "required": [
-      "embedding"
-    ]
+    "required": ["embedding"]
   },
   "uiHints": {
     "embedding.apiKey": {

@@ -1,7 +1,7 @@
 ---
-summary: "Use MiniMax M2.5 in OpenClaw"
+summary: "Use MiniMax M2.5 in ClawMark"
 read_when:
-  - You want MiniMax models in OpenClaw
+  - You want MiniMax models in ClawMark
   - You need MiniMax setup guidance
 title: "MiniMax"
 ---

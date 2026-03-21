@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 $RootDir = Split-Path -Parent $PSScriptRoot
 $SourceDir = Join-Path $RootDir "apps\desktop_console\build\windows\x64\runner\Release"
 $DistRoot = Join-Path $RootDir "dist"
-$AppLabel = if ($env:APP_LABEL) { $env:APP_LABEL } else { "ClawMarkDesktopConsole" }
+$AppLabel = if ($env:APP_LABEL) { $env:APP_LABEL } else { "ClawMark" }
 $StageDir = Join-Path $DistRoot "$AppLabel-win-x64"
 $SkipJsBuild = $env:SKIP_JS_BUILD -eq "1"
 $SkipFlutterBuild = $env:SKIP_FLUTTER_BUILD -eq "1"
@@ -81,7 +81,7 @@ if (-not $BundleDesktopCore) {
   Remove-Item -Recurse -Force (Join-Path $StageDir 'data\DesktopRuntime') -ErrorAction SilentlyContinue
 }
 
-$ExePath = Join-Path $StageDir "desktop_console.exe"
+$ExePath = Join-Path $StageDir "ClawMark.exe"
 if ($ShouldSign -and (Test-Path $ExePath)) {
   $signtool = if ($env:WINDOWS_SIGNTOOL_PATH) { $env:WINDOWS_SIGNTOOL_PATH } else { "signtool.exe" }
   $timestampUrl = if ($env:WINDOWS_SIGNTOOL_TIMESTAMP_URL) {
@@ -100,7 +100,7 @@ if ($ShouldSign -and (Test-Path $ExePath)) {
     $signtoolArgs += @("/p", $env:WINDOWS_SIGNTOOL_PASSWORD)
   }
   $signtoolArgs += $ExePath
-  Write-Host "Signing desktop_console.exe"
+  Write-Host "Signing ClawMark.exe"
   & $signtool @signtoolArgs
 } else {
   Write-Host "Skipping Windows signing (set WINDOWS_SIGNTOOL_CERT_PATH to enable)"
@@ -116,6 +116,6 @@ Write-Host "Creating zip archive: $ZipPath"
 Compress-Archive -Path (Join-Path $StageDir '*') -DestinationPath $ZipPath -Force
 
 Write-Host ""
-Write-Host "Desktop Console Windows packaging complete:"
+Write-Host "ClawMark Windows packaging complete:"
 Write-Host "  Directory: $StageDir"
 Write-Host "  Zip: $ZipPath"

@@ -35,7 +35,6 @@ PR: #50
 
 ---
 
-
 ## 1.0.31
 
 - Fix: `memory-pro import` now preserves provided IDs and is idempotent (skips if ID already exists).
@@ -44,7 +43,7 @@ PR: #50
 
 **Access Reinforcement for Time Decay**
 
-- **Feat**: Access reinforcement — frequently *manually recalled* memories decay more slowly (spaced-repetition style)
+- **Feat**: Access reinforcement — frequently _manually recalled_ memories decay more slowly (spaced-repetition style)
 - **New**: `AccessTracker` with debounced metadata write-back (records accessCount / lastAccessedAt)
 - **New**: Config options under `retrieval`: `reinforcementFactor` (default: 0.5) and `maxHalfLifeMultiplier` (default: 3)
 - **New**: `MemoryStore.getById()` pure-read helper for efficient metadata lookup
@@ -54,7 +53,6 @@ PR: #37
 Breaking changes: None. Backward compatible (set `reinforcementFactor: 0` to disable).
 
 ---
-
 
 ## 1.0.22
 

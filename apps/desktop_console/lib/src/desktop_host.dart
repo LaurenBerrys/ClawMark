@@ -62,15 +62,14 @@ class DesktopBootstrapRequired implements Exception {
   final Map<String, dynamic> status;
 
   @override
-  String toString() =>
-      "DesktopBootstrapRequired(${asString(status["state"], "unavailable")})";
+  String toString() => "桌面启动链路尚未就绪（${asString(status["state"], "不可用")}）";
 }
 
 class NoPublishedClawMarkCoreRelease implements Exception {
   const NoPublishedClawMarkCoreRelease();
 
   @override
-  String toString() => "GitHub Releases 中还没有已发布的 ClawMarkCore 版本。";
+  String toString() => "公开发布页中还没有已发布的 ClawMark 核心版本。";
 }
 
 class NoCompatibleClawMarkCoreAsset implements Exception {
@@ -83,8 +82,7 @@ class NoCompatibleClawMarkCoreAsset implements Exception {
   final String arch;
 
   @override
-  String toString() =>
-      "GitHub Releases 中还没有适用于 $platform / $arch 的 ClawMarkCore 安装包。";
+  String toString() => "公开发布页中还没有适用于 $platform / $arch 的 ClawMark 核心安装包。";
 }
 
 class ClawMarkCoreRelease {
@@ -115,7 +113,9 @@ class ClawMarkCoreRelease {
       publishedAt: asString(json["publishedAt"]),
       localArchivePath: _nullableString(json["localArchivePath"]),
       downloadedAt:
-          json["downloadedAt"] is num ? (json["downloadedAt"] as num).toInt() : null,
+          json["downloadedAt"] is num
+              ? (json["downloadedAt"] as num).toInt()
+              : null,
     );
   }
 
@@ -151,10 +151,7 @@ class ClawMarkCoreRelease {
     };
   }
 
-  ClawMarkCoreRelease copyWith({
-    String? localArchivePath,
-    int? downloadedAt,
-  }) {
+  ClawMarkCoreRelease copyWith({String? localArchivePath, int? downloadedAt}) {
     return ClawMarkCoreRelease(
       version: version,
       platform: platform,
@@ -196,7 +193,8 @@ class DesktopBootstrapViewState {
 
   Map<String, dynamic> get coreSection => asMap(hostStatus["core"]);
   Map<String, dynamic> get runtimeSection => asMap(hostStatus["runtime"]);
-  Map<String, dynamic> get directoriesSection => asMap(hostStatus["directories"]);
+  Map<String, dynamic> get directoriesSection =>
+      asMap(hostStatus["directories"]);
   Map<String, dynamic> get connectionSection => asMap(hostStatus["connection"]);
 
   bool get isReady => phase == "ready";
@@ -207,7 +205,8 @@ class DesktopBootstrapViewState {
       phase == "starting_runtime";
 
   bool get hasInstalledCore =>
-      asBool(coreSection["installed"]) || asBool(coreSection["bundledAvailable"]);
+      asBool(coreSection["installed"]) ||
+      asBool(coreSection["bundledAvailable"]);
 
   bool get hasBundledFallback => asBool(coreSection["bundledAvailable"]);
 
@@ -223,8 +222,10 @@ class DesktopBootstrapViewState {
   );
 
   String get currentSource => asString(coreSection["source"], "missing");
-  String get platform => asString(hostStatus["platform"], Platform.operatingSystem);
-  String get arch => _normalizeArch(asString(hostStatus["arch"], Platform.version));
+  String get platform =>
+      asString(hostStatus["platform"], Platform.operatingSystem);
+  String get arch =>
+      _normalizeArch(asString(hostStatus["arch"], Platform.version));
   String get downloadsRoot => asString(directoriesSection["downloadsRoot"]);
   String get currentRoot => asString(directoriesSection["currentRoot"]);
   String get stagedRoot => asString(directoriesSection["stagedRoot"]);
@@ -250,7 +251,9 @@ class DesktopBootstrapViewState {
       releaseStatus: releaseStatus ?? this.releaseStatus,
       lastCheckedAt: lastCheckedAt ?? this.lastCheckedAt,
       progress:
-          identical(progress, _copySentinel) ? this.progress : progress as double?,
+          identical(progress, _copySentinel)
+              ? this.progress
+              : progress as double?,
       statusMessage:
           identical(statusMessage, _copySentinel)
               ? this.statusMessage
@@ -292,7 +295,8 @@ final bootstrapControllerProvider = AsyncNotifierProvider<
   DesktopBootstrapViewState
 >(DesktopBootstrapController.new);
 
-class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState> {
+class DesktopBootstrapController
+    extends AsyncNotifier<DesktopBootstrapViewState> {
   bool _disposed = false;
 
   DesktopBridge get _bridge => ref.read(desktopBridgeProvider);
@@ -361,7 +365,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
         CachedReleaseState(
           lastCheckedAt: DateTime.now().millisecondsSinceEpoch,
           releaseStatus: "available",
-          releaseStatusMessage: "已找到可安装的 ClawMarkCore 版本。",
+          releaseStatusMessage: "已找到可安装的 ClawMark 核心版本。",
           release: latestRelease,
         ),
       );
@@ -372,9 +376,8 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
           latestRelease: latestRelease,
           releaseStatus: "available",
           lastCheckedAt: DateTime.now().millisecondsSinceEpoch,
-          releaseStatusMessage: "已找到可安装的 ClawMarkCore 版本。",
-          statusMessage:
-              "最新 ClawMarkCore 版本：${latestRelease.version}。",
+          releaseStatusMessage: "已找到可安装的 ClawMark 核心版本。",
+          statusMessage: "最新 ClawMark 核心版本：${latestRelease.version}。",
           errorMessage: null,
         ),
       );
@@ -452,7 +455,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
           phase: "downloading",
           progress: 0.0,
           errorMessage: null,
-          statusMessage: "正在准备下载 ClawMarkCore...",
+          statusMessage: "正在准备下载 ClawMark 核心...",
         ),
       );
       release = current.latestRelease ?? await _fetchLatestRelease(current);
@@ -462,7 +465,10 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
       }
       final downloadDirectory = Directory(downloadsRoot);
       await downloadDirectory.create(recursive: true);
-      final partialPath = path.join(downloadDirectory.path, "${release.assetName}.part");
+      final partialPath = path.join(
+        downloadDirectory.path,
+        "${release.assetName}.part",
+      );
       final finalPath = path.join(downloadDirectory.path, release.assetName);
       partialFile = File(partialPath);
       finalFile = File(finalPath);
@@ -476,7 +482,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
           phase: "downloading",
           progress: 0.0,
           errorMessage: null,
-          statusMessage: "正在下载 ClawMarkCore ${release.version}...",
+          statusMessage: "正在下载 ClawMark 核心 ${release.version}...",
         ),
       );
       await _downloadReleaseAsset(
@@ -499,7 +505,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
         state.requireValue.copyWith(
           phase: "verifying",
           progress: null,
-          statusMessage: "正在校验已下载的 ClawMarkCore 包...",
+          statusMessage: "正在校验已下载的 ClawMark 核心包...",
         ),
       );
       final digest = await _sha256OfFile(finalFile);
@@ -518,7 +524,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
         CachedReleaseState(
           lastCheckedAt: DateTime.now().millisecondsSinceEpoch,
           releaseStatus: "available",
-          releaseStatusMessage: "已找到可安装的 ClawMarkCore 版本。",
+          releaseStatusMessage: "已找到可安装的 ClawMark 核心版本。",
           release: downloadedRelease,
         ),
       );
@@ -527,7 +533,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
         state.requireValue.copyWith(
           phase: "installing",
           latestRelease: downloadedRelease,
-          statusMessage: "正在把 ClawMarkCore 安装到桌面运行时槽位...",
+          statusMessage: "正在把 ClawMark 核心安装到桌面核心槽位...",
         ),
       );
       final installedStatus = await _bridge.installCoreArchive(finalFile.path);
@@ -537,7 +543,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
           installedStatus,
           latestRelease: downloadedRelease,
           phase: "starting_runtime",
-          statusMessage: "正在启动刚安装好的 ClawMarkCore 运行时...",
+          statusMessage: "正在启动刚安装好的 ClawMark 桌面核心...",
         ),
       );
       final readyStatus = await _waitForReady(downloadedRelease);
@@ -546,7 +552,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
           readyStatus,
           latestRelease: downloadedRelease,
           statusMessage:
-              "ClawMarkCore ${downloadedRelease.version} 已安装完成，运行时已经就绪。",
+              "ClawMark 核心 ${downloadedRelease.version} 已安装完成，桌面已就绪。",
           errorMessage: null,
         ),
       );
@@ -557,7 +563,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
       await _setBootstrapFailureState(
         baseline: current,
         latestRelease: release,
-        statusMessage: "ClawMarkCore 下载或安装失败，请查看错误后重试。",
+        statusMessage: "ClawMark 核心下载或安装失败，请查看错误后重试。",
         error: error,
       );
     }
@@ -574,24 +580,24 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
           phase: "starting_runtime",
           progress: null,
           errorMessage: null,
-          statusMessage: "正在启动本地 ClawMark 运行时...",
+          statusMessage: "正在启动本地 ClawMark 桌面核心...",
         ),
       );
       await _bridge.restartRuntime();
       final readyStatus = await _waitForReady(current.latestRelease);
       state = AsyncData(
-          _compose(
-            readyStatus,
-            latestRelease: current.latestRelease,
-            statusMessage: "本地运行时已经就绪。",
-            errorMessage: null,
-          ),
-        );
+        _compose(
+          readyStatus,
+          latestRelease: current.latestRelease,
+          statusMessage: "桌面核心已经就绪。",
+          errorMessage: null,
+        ),
+      );
     } catch (error) {
       await _setBootstrapFailureState(
         baseline: current,
         latestRelease: current.latestRelease,
-        statusMessage: "本地运行时启动失败，请查看错误后重试。",
+        statusMessage: "桌面核心启动失败，请查看错误后重试。",
         error: error,
       );
     }
@@ -660,13 +666,18 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
   }) {
     final hostState = asString(hostStatus["state"], "failed");
     final coreSection = asMap(hostStatus["core"]);
-    final installed = asBool(coreSection["installed"]) || asBool(coreSection["bundledAvailable"]);
+    final installed =
+        asBool(coreSection["installed"]) ||
+        asBool(coreSection["bundledAvailable"]);
     final resolvedReleaseStatus =
         releaseStatus ??
         (latestRelease != null
             ? "available"
-            : (asInt(coreSection["lastCheckedAt"]) > 0 ? "checked" : "unknown"));
-    final resolvedLastCheckedAt = lastCheckedAt ?? asInt(coreSection["lastCheckedAt"]);
+            : (asInt(coreSection["lastCheckedAt"]) > 0
+                ? "checked"
+                : "unknown"));
+    final resolvedLastCheckedAt =
+        lastCheckedAt ?? asInt(coreSection["lastCheckedAt"]);
     final resolvedPhase =
         phase ??
         switch (hostState) {
@@ -680,7 +691,9 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
                     ? "release_missing"
                     : "core_missing"),
           "failed" =>
-            (!installed && latestRelease != null) ? "download_available" : "failed",
+            (!installed && latestRelease != null)
+                ? "download_available"
+                : "failed",
           _ =>
             (!installed && latestRelease != null)
                 ? "download_available"
@@ -715,7 +728,9 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
     return elapsed >= const Duration(hours: 24).inMilliseconds;
   }
 
-  Future<Map<String, dynamic>> _waitForReady(ClawMarkCoreRelease? release) async {
+  Future<Map<String, dynamic>> _waitForReady(
+    ClawMarkCoreRelease? release,
+  ) async {
     Map<String, dynamic> lastStatus = const <String, dynamic>{};
     for (var attempt = 0; attempt < 40; attempt += 1) {
       await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -737,7 +752,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
       }
     }
     throw StateError(
-      "ClawMark 运行时未能在预期时间内完成启动。最后状态：${asString(lastStatus["state"], "unknown")}。",
+      "ClawMark 运行时未能在预期时间内完成启动。最后状态：${asString(lastStatus["state"], "未知")}。",
     );
   }
 
@@ -750,7 +765,8 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
     }
     try {
       final decoded =
-          jsonDecode(await releaseStateFile.readAsString()) as Map<String, dynamic>;
+          jsonDecode(await releaseStateFile.readAsString())
+              as Map<String, dynamic>;
       final lastCheckedAt =
           decoded["lastCheckedAt"] is num
               ? (decoded["lastCheckedAt"] as num).toInt()
@@ -760,7 +776,9 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
         coreSection["lastCheckedAt"] = lastCheckedAt;
       }
       final releaseStatus = asString(decoded["releaseStatus"], "available");
-      final releaseStatusMessage = _nullableString(decoded["releaseStatusMessage"]);
+      final releaseStatusMessage = _nullableString(
+        decoded["releaseStatusMessage"],
+      );
       final releasePayload =
           decoded["release"] is Map
               ? Map<String, dynamic>.from(decoded["release"] as Map)
@@ -803,7 +821,9 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
   }
 
   File? _releaseStateFile(Map<String, dynamic> hostStatus) {
-    final downloadsRoot = asString(asMap(hostStatus["directories"])["downloadsRoot"]);
+    final downloadsRoot = asString(
+      asMap(hostStatus["directories"])["downloadsRoot"],
+    );
     if (downloadsRoot.isEmpty) {
       return null;
     }
@@ -813,10 +833,13 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
   Future<ClawMarkCoreRelease> _fetchLatestRelease(
     DesktopBootstrapViewState state,
   ) async {
-    final client = HttpClient()..userAgent = "ClawMarkDesktopConsole/1.0";
+    final client = HttpClient()..userAgent = "ClawMark/1.0";
     try {
       final request = await client.getUrl(Uri.parse(_githubLatestReleaseUrl));
-      request.headers.set(HttpHeaders.acceptHeader, "application/vnd.github+json");
+      request.headers.set(
+        HttpHeaders.acceptHeader,
+        "application/vnd.github+json",
+      );
       final response = await request.close();
       if (response.statusCode == 404) {
         throw const NoPublishedClawMarkCoreRelease();
@@ -829,12 +852,16 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
       }
       final decoded = jsonDecode(await utf8.decoder.bind(response).join());
       final releaseJson = asMap(decoded);
-      final version = asString(releaseJson["tag_name"]).replaceFirst(RegExp(r"^v"), "");
+      final version = asString(
+        releaseJson["tag_name"],
+      ).replaceFirst(RegExp(r"^v"), "");
       final publishedAt = asString(releaseJson["published_at"]);
       final assets = asMapList(releaseJson["assets"]);
       final manifestAsset = _firstWhereOrNull(
         assets,
-        (entry) => asString(entry["name"]).toLowerCase() == "clawmark-core-manifest.json",
+        (entry) =>
+            asString(entry["name"]).toLowerCase() ==
+            "clawmark-core-manifest.json",
       );
       if (manifestAsset != null) {
         final manifest = await _fetchReleaseManifest(
@@ -880,8 +907,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
         assetName: asString(asset["name"]),
         archiveFormat: state.platform == "windows" ? "zip" : "tar.gz",
         sha256: asString(asMap(asset["digest"])["sha256"]),
-        sizeBytes:
-            asset["size"] is num ? (asset["size"] as num).toInt() : 0,
+        sizeBytes: asset["size"] is num ? (asset["size"] as num).toInt() : 0,
         downloadUrl: asString(asset["browser_download_url"]),
         publishedAt: publishedAt,
       );
@@ -898,7 +924,9 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
     request.headers.set(HttpHeaders.acceptHeader, "application/json");
     final response = await request.close();
     if (response.statusCode != 200) {
-      throw HttpException("Failed to fetch ClawMarkCore manifest (${response.statusCode})");
+      throw HttpException(
+        "Failed to fetch ClawMarkCore manifest (${response.statusCode})",
+      );
     }
     final decoded = jsonDecode(await utf8.decoder.bind(response).join());
     return asMap(decoded);
@@ -911,7 +939,8 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
   }) {
     final assets = asMapList(manifest["assets"]);
     final asset = _firstWhereOrNull(assets, (entry) {
-      return _normalizePlatform(asString(entry["platform"])) == _normalizePlatform(platform) &&
+      return _normalizePlatform(asString(entry["platform"])) ==
+              _normalizePlatform(platform) &&
           _normalizeArch(asString(entry["arch"])) == _normalizeArch(arch);
     });
     if (asset == null) {
@@ -935,7 +964,7 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
     File destination, {
     required void Function(double? fraction) onProgress,
   }) async {
-    final client = HttpClient()..userAgent = "ClawMarkDesktopConsole/1.0";
+    final client = HttpClient()..userAgent = "ClawMark/1.0";
     try {
       final request = await client.getUrl(Uri.parse(release.downloadUrl));
       final response = await request.close();
@@ -945,7 +974,8 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
           uri: Uri.parse(release.downloadUrl),
         );
       }
-      final totalBytes = response.contentLength > 0 ? response.contentLength : null;
+      final totalBytes =
+          response.contentLength > 0 ? response.contentLength : null;
       var receivedBytes = 0;
       final sink = destination.openWrite();
       try {
@@ -987,16 +1017,14 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
         return;
       }
       state = AsyncData(
-          _compose(
-            hostStatus,
-            latestRelease: release ?? current.latestRelease,
-            phase: phase,
-            statusMessage:
-                phase == "ready"
-                    ? "本地运行时已经就绪。"
-                    : "正在等待桌面宿主完成本地运行时启动...",
-          ),
-        );
+        _compose(
+          hostStatus,
+          latestRelease: release ?? current.latestRelease,
+          phase: phase,
+          statusMessage:
+              phase == "ready" ? "本地运行时已经就绪。" : "正在等待桌面宿主完成本地运行时启动...",
+        ),
+      );
       if (phase == "ready" || phase != "starting_runtime") {
         return;
       }
@@ -1006,10 +1034,10 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
 
 String _describeReleaseFetchError(Object error) {
   if (error is HttpException) {
-    return "检查 GitHub Releases 失败：${error.message}。";
+    return "检查 GitHub 发布页失败：${error.message}。";
   }
   if (error is SocketException) {
-    return "当前网络不可用，无法连接 GitHub Releases。";
+    return "当前网络不可用，无法连接 GitHub 发布页。";
   }
   return error.toString();
 }
@@ -1038,7 +1066,8 @@ String _failurePhaseForState(
     if (latestRelease != null) {
       return "download_available";
     }
-    if (baseline.releaseStatus == "missing" || baseline.releaseStatus == "incompatible") {
+    if (baseline.releaseStatus == "missing" ||
+        baseline.releaseStatus == "incompatible") {
       return "release_missing";
     }
     return "core_missing";

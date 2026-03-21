@@ -1,19 +1,19 @@
 ---
-summary: "Gateway web surfaces: Control UI, bind modes, and security"
+summary: "Gateway web surfaces: User Console, bind modes, and security"
 read_when:
   - You want to access the Gateway over Tailscale
-  - You want the browser Control UI and config editing
+  - You want the browser User Console and config editing
 title: "Web"
 ---
 
-# Web (Gateway)
+# Web (Gateway + User Console)
 
-The Gateway serves a small **browser Control UI** (Vite + Lit) from the same port as the Gateway WebSocket:
+The Gateway serves a small **browser User Console** (Vite + Lit) from the same port as the Gateway WebSocket:
 
 - default: `http://<host>:18789/`
 - optional prefix: set `gateway.controlUi.basePath` (e.g. `/openclaw`)
 
-Capabilities live in [Control UI](/web/control-ui).
+Capabilities live in [User Console](/web/control-ui).
 This page focuses on bind modes, security, and web-facing surfaces.
 
 ## Webhooks
@@ -23,7 +23,7 @@ See [Gateway configuration](/gateway/configuration) → `hooks` for auth + paylo
 
 ## Config (default-on)
 
-The Control UI is **enabled by default** when assets are present (`dist/control-ui`).
+The User Console is **enabled by default** when assets are present (`dist/control-ui`).
 You can control it via config:
 
 ```json5
@@ -99,11 +99,11 @@ Open:
 - Non-loopback binds still **require** a shared token/password (`gateway.auth` or env).
 - The wizard generates a gateway token by default (even on loopback).
 - The UI sends `connect.params.auth.token` or `connect.params.auth.password`.
-- For non-loopback Control UI deployments, set `gateway.controlUi.allowedOrigins`
+- For non-loopback User Console deployments, set `gateway.controlUi.allowedOrigins`
   explicitly (full origins). Without it, gateway startup is refused by default.
 - `gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true` enables
   Host-header origin fallback mode, but is a dangerous security downgrade.
-- With Serve, Tailscale identity headers can satisfy Control UI/WebSocket auth
+- With Serve, Tailscale identity headers can satisfy User Console/WebSocket auth
   when `gateway.auth.allowTailscale` is `true` (no token/password required).
   HTTP API endpoints still require token/password. Set
   `gateway.auth.allowTailscale: false` to require explicit credentials. See

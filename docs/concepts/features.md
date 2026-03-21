@@ -1,7 +1,7 @@
 ---
-summary: "OpenClaw capabilities across channels, routing, media, and UX."
+summary: "ClawMark capabilities across channels, routing, media, and UX."
 read_when:
-  - You want a full list of what OpenClaw supports
+  - You want a full list of what ClawMark supports
 title: "Features"
 ---
 
@@ -21,7 +21,7 @@ title: "Features"
     Images, audio, and documents in and out.
   </Card>
   <Card title="Apps and UI" icon="monitor">
-    Web Control UI and macOS companion app.
+    Web User Console and macOS companion app.
   </Card>
   <Card title="Mobile nodes" icon="smartphone">
     iOS and Android nodes with pairing, voice/chat, and rich device commands.

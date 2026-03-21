@@ -92,11 +92,13 @@ function normalizePromptForRetrieval(prompt) {
 }
 
 function normalizeSegment(value) {
-  return String(value || "")
-    .replace(/\.[^.]+$/, "")
-    .replace(/[^A-Za-z0-9._-]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 80) || "item";
+  return (
+    String(value || "")
+      .replace(/\.[^.]+$/, "")
+      .replace(/[^A-Za-z0-9._-]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 80) || "item"
+  );
 }
 
 function isFileUri(uri) {
@@ -131,7 +133,8 @@ function extractKeywordTerms(prompt) {
   };
 
   add(raw);
-  const tokenMatches = raw.match(/\d+[A-Za-z\u4e00-\u9fff]{1,6}|[A-Za-z0-9._/-]{3,}|[\u4e00-\u9fff]{2,}/g) || [];
+  const tokenMatches =
+    raw.match(/\d+[A-Za-z\u4e00-\u9fff]{1,6}|[A-Za-z0-9._/-]{3,}|[\u4e00-\u9fff]{2,}/g) || [];
   for (const token of tokenMatches) add(token);
 
   const cjkRuns = raw.match(/[\u4e00-\u9fff]{4,}/g) || [];
@@ -166,7 +169,7 @@ function buildSemanticQueries(prompt) {
 
   const meaningful = terms
     .filter((term) => term !== full)
-    .filter((term) => /[\u4e00-\u9fff]/.test(term) ? term.length >= 2 : term.length >= 3)
+    .filter((term) => (/[\u4e00-\u9fff]/.test(term) ? term.length >= 2 : term.length >= 3))
     .slice(0, 5);
 
   for (const term of meaningful) add(term);
@@ -220,13 +223,9 @@ async function listTopLevelMarkdown(dirPath) {
 }
 
 async function collectWatchedFiles(workspaceDir) {
-  const fixed = [
-    "HEARTBEAT.md",
-    "IDENTITY.md",
-    "MEMORY.md",
-    "OPENCLAW_RUNBOOK.md",
-    "TOOLS.md",
-  ].map((name) => path.join(workspaceDir, name));
+  const fixed = ["HEARTBEAT.md", "IDENTITY.md", "MEMORY.md", "OPENCLAW_RUNBOOK.md", "TOOLS.md"].map(
+    (name) => path.join(workspaceDir, name),
+  );
 
   const candidates = [];
   for (const filePath of fixed) {
@@ -344,12 +343,14 @@ async function runSemanticSearch(api, config, prompt) {
       }),
     });
     const resources = Array.isArray(data?.result?.resources) ? data.result.resources : [];
-    return resources.map((item) => ({
-      uri: String(item.uri || ""),
-      level: Number.isFinite(item.level) ? item.level : null,
-      abstract: sanitizeText(item.abstract || "", config.excerptChars),
-      overview: sanitizeText(item.overview || "", config.excerptChars),
-    })).filter((item) => item.uri);
+    return resources
+      .map((item) => ({
+        uri: String(item.uri || ""),
+        level: Number.isFinite(item.level) ? item.level : null,
+        abstract: sanitizeText(item.abstract || "", config.excerptChars),
+        overview: sanitizeText(item.overview || "", config.excerptChars),
+      }))
+      .filter((item) => item.uri);
   } catch (err) {
     api.logger.warn(`openviking-context-bridge: semantic search failed: ${String(err)}`);
     return [];
@@ -390,7 +391,9 @@ async function resolveReadableUri(config, uri) {
     }).toString()}`;
     const data = await fetchJson(config, route, { method: "GET", headers: {} });
     const results = Array.isArray(data?.result) ? data.result : [];
-    const firstFile = results.find((entry) => entry && !entry.isDir && typeof entry.uri === "string");
+    const firstFile = results.find(
+      (entry) => entry && !entry.isDir && typeof entry.uri === "string",
+    );
     return firstFile?.uri || null;
   } catch {
     return null;
@@ -426,11 +429,11 @@ async function runKeywordSearch(api, prompt, files, limit) {
   if (existingFiles.length === 0) return hits;
 
   const filePriority = (filePath) => {
-    const normalized = String(filePath || '').replace(/\\/g, '/');
+    const normalized = String(filePath || "").replace(/\\/g, "/");
     if (/\/memory\/\d{4}-\d{2}-\d{2}\.md$/i.test(normalized)) {
-      const name = normalized.split('/').pop() || '';
-      if (name === '2026-03-12.md') return 0;
-      if (name === '2026-03-11.md') return 1;
+      const name = normalized.split("/").pop() || "";
+      if (name === "2026-03-12.md") return 0;
+      if (name === "2026-03-11.md") return 1;
       return 2;
     }
     if (/\/openviking\/.*\.md$/i.test(normalized)) return 3;
@@ -441,7 +444,9 @@ async function runKeywordSearch(api, prompt, files, limit) {
     return 9;
   };
 
-  const rgBinary = RG_CANDIDATES.find((candidate) => candidate === "rg" || fs.existsSync(candidate));
+  const rgBinary = RG_CANDIDATES.find(
+    (candidate) => candidate === "rg" || fs.existsSync(candidate),
+  );
   if (!rgBinary) {
     api.logger.warn("openviking-context-bridge: no rg binary found; keyword fallback disabled");
     return hits;
@@ -450,17 +455,13 @@ async function runKeywordSearch(api, prompt, files, limit) {
   for (const term of terms) {
     if (hits.length >= limit) break;
     try {
-      const { stdout } = await execFileAsync(rgBinary, [
-        "--json",
-        "-n",
-        "-F",
-        "--max-count",
-        "2",
-        term,
-        ...existingFiles,
-      ], {
-        maxBuffer: 1024 * 1024,
-      });
+      const { stdout } = await execFileAsync(
+        rgBinary,
+        ["--json", "-n", "-F", "--max-count", "2", term, ...existingFiles],
+        {
+          maxBuffer: 1024 * 1024,
+        },
+      );
 
       for (const line of stdout.split("\n")) {
         if (!line.trim()) continue;
@@ -491,11 +492,18 @@ async function runKeywordSearch(api, prompt, files, limit) {
         continue;
       }
       if (String(err).includes("code 1")) continue;
-      api.logger.warn(`openviking-context-bridge: keyword search failed for "${term}": ${String(err)}`);
+      api.logger.warn(
+        `openviking-context-bridge: keyword search failed for "${term}": ${String(err)}`,
+      );
     }
   }
 
-  hits.sort((a, b) => (a.priority - b.priority) || (a.filePath || "").localeCompare(b.filePath || "") || (a.lineNumber - b.lineNumber));
+  hits.sort(
+    (a, b) =>
+      a.priority - b.priority ||
+      (a.filePath || "").localeCompare(b.filePath || "") ||
+      a.lineNumber - b.lineNumber,
+  );
   return hits.slice(0, limit);
 }
 
@@ -519,7 +527,12 @@ async function buildContextBlock(api, config, prompt, workspaceDir, state) {
   const semanticProbe = await runSemanticSearchVariants(api, config, retrievalPrompt);
   const semanticHits = semanticProbe.results;
   const keywordTerms = extractKeywordTerms(retrievalPrompt);
-  const keywordHits = await runKeywordSearch(api, retrievalPrompt, state.watchedFiles || [], config.keywordTopK);
+  const keywordHits = await runKeywordSearch(
+    api,
+    retrievalPrompt,
+    state.watchedFiles || [],
+    config.keywordTopK,
+  );
   state.lastSemanticCount = semanticHits.length;
   state.lastKeywordCount = keywordHits.length;
   state.lastSemanticQueries = semanticProbe.queries;
@@ -570,7 +583,9 @@ async function buildContextBlock(api, config, prompt, workspaceDir, state) {
     detailedSections.push(`### ${detail.uri}\n${detail.text}`);
   }
 
-  state.lastDetailSources = detailedSections.map((section) => section.split("\n", 1)[0].replace(/^###\s+/, ""));
+  state.lastDetailSources = detailedSections.map((section) =>
+    section.split("\n", 1)[0].replace(/^###\s+/, ""),
+  );
 
   if (detailedSections.length > 0) {
     lines.push("", "## On-Demand Detail (L2)", ...detailedSections);
@@ -611,50 +626,57 @@ module.exports = {
       match: "exact",
       handler(_req, res) {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({
-          ok: true,
-          config,
-          watchedFiles: state.watchedFiles,
-          syncedFileCount: state.syncedFiles.size,
-          stateFile: state.stateFile,
-          lastBuiltAt: state.lastBuiltAt,
-          lastSemanticCount: state.lastSemanticCount,
-          lastKeywordCount: state.lastKeywordCount,
-          lastSemanticQueries: state.lastSemanticQueries,
-          lastKeywordTerms: state.lastKeywordTerms || [],
-          lastDetailSources: state.lastDetailSources || [],
-          lastTrimmed: state.lastTrimmed || false,
-          lastError: state.lastError,
-          lastContextPreview: state.lastContextPreview,
-        }));
+        res.end(
+          JSON.stringify({
+            ok: true,
+            config,
+            watchedFiles: state.watchedFiles,
+            syncedFileCount: state.syncedFiles.size,
+            stateFile: state.stateFile,
+            lastBuiltAt: state.lastBuiltAt,
+            lastSemanticCount: state.lastSemanticCount,
+            lastKeywordCount: state.lastKeywordCount,
+            lastSemanticQueries: state.lastSemanticQueries,
+            lastKeywordTerms: state.lastKeywordTerms || [],
+            lastDetailSources: state.lastDetailSources || [],
+            lastTrimmed: state.lastTrimmed || false,
+            lastError: state.lastError,
+            lastContextPreview: state.lastContextPreview,
+          }),
+        );
         return true;
       },
     });
 
-    api.on("before_prompt_build", async (event, ctx) => {
-      const prompt = String(event?.prompt || "");
-      if (shouldSkipPrompt(prompt)) return;
+    api.on(
+      "before_prompt_build",
+      async (event, ctx) => {
+        const prompt = String(event?.prompt || "");
+        if (shouldSkipPrompt(prompt)) return;
 
-      const workspaceDir = typeof ctx?.workspaceDir === "string" && ctx.workspaceDir
-        ? ctx.workspaceDir
-        : api.resolvePath(".");
+        const workspaceDir =
+          typeof ctx?.workspaceDir === "string" && ctx.workspaceDir
+            ? ctx.workspaceDir
+            : api.resolvePath(".");
 
-      try {
-        const block = await buildContextBlock(api, config, prompt, workspaceDir, state);
-        if (!block) return;
-        state.lastBuiltAt = new Date().toISOString();
-        state.lastContextPreview = block.slice(0, 600);
-        state.lastError = null;
-        return { prependContext: block };
-      } catch (err) {
-        state.lastError = String(err);
-        api.logger.warn(`openviking-context-bridge: prompt injection failed: ${String(err)}`);
-        return;
-      }
-    }, { priority: 20 });
+        try {
+          const block = await buildContextBlock(api, config, prompt, workspaceDir, state);
+          if (!block) return;
+          state.lastBuiltAt = new Date().toISOString();
+          state.lastContextPreview = block.slice(0, 600);
+          state.lastError = null;
+          return { prependContext: block };
+        } catch (err) {
+          state.lastError = String(err);
+          api.logger.warn(`openviking-context-bridge: prompt injection failed: ${String(err)}`);
+          return;
+        }
+      },
+      { priority: 20 },
+    );
 
     api.logger.info(
-      `openviking-context-bridge: registered (server=${config.serverUrl}, target=${config.targetUri})`
+      `openviking-context-bridge: registered (server=${config.serverUrl}, target=${config.targetUri})`,
     );
   },
 };

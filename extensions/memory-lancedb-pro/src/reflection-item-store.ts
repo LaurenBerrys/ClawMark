@@ -76,7 +76,9 @@ export function getReflectionItemDecayDefaults(itemKind: ReflectionItemKind): {
   };
 }
 
-export function buildReflectionItemPayloads(params: BuildReflectionItemPayloadsParams): ReflectionItemPayload[] {
+export function buildReflectionItemPayloads(
+  params: BuildReflectionItemPayloadsParams,
+): ReflectionItemPayload[] {
   return params.items.map((item) => {
     const defaults = getReflectionItemDecayDefaults(item.itemKind);
     const metadata: ReflectionItemMetadata = {

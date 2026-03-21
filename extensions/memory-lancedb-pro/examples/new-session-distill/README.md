@@ -9,11 +9,13 @@ This example shows a **non-blocking /new distillation pipeline**:
 - Notify: send a notification message (optional)
 
 Files included:
+
 - `hook/enqueue-lesson-extract/` — OpenClaw workspace hook
 - `worker/lesson-extract-worker.mjs` — Map-Reduce extractor + importer + notifier
 - `worker/systemd/lesson-extract-worker.service` — user systemd unit
 
 You must provide:
+
 - `GEMINI_API_KEY` in an env file loaded by systemd
 
 Install steps are documented in the main repo README.

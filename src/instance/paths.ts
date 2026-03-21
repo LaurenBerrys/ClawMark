@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-
 import type {
   InstanceManifest as RuntimeInstanceManifest,
   InstancePathKey,
@@ -33,7 +32,9 @@ export type ResolveInstancePathsOptions = {
 
 function resolveProfileSuffix(profile?: string): string {
   const trimmed = profile?.trim();
-  if (!trimmed || trimmed.toLowerCase() === "default") return "";
+  if (!trimmed || trimmed.toLowerCase() === "default") {
+    return "";
+  }
   return `-${trimmed}`;
 }
 
@@ -55,13 +56,17 @@ function resolveOverridePath(
   homeDir?: string,
 ): string {
   const trimmed = value?.trim();
-  if (!trimmed) return fallback;
+  if (!trimmed) {
+    return fallback;
+  }
   return resolvePathWithHome(trimmed, { homeDir });
 }
 
 function pickFirstDefined(values: Array<string | undefined>): string | undefined {
   for (const value of values) {
-    if (value?.trim()) return value;
+    if (value?.trim()) {
+      return value;
+    }
   }
   return undefined;
 }
@@ -71,7 +76,9 @@ export function resolveHomeDirFromEnv(
   homedir: () => string = os.homedir,
 ): string | undefined {
   const envHome = env.OPENCLAW_HOME?.trim() || env.HOME?.trim() || env.USERPROFILE?.trim();
-  if (envHome) return envHome;
+  if (envHome) {
+    return envHome;
+  }
   try {
     const fallback = homedir();
     return fallback?.trim() ? fallback : undefined;
@@ -87,10 +94,14 @@ export function resolvePathWithHome(
   },
 ): string {
   const trimmed = input.trim();
-  if (!trimmed) return trimmed;
+  if (!trimmed) {
+    return trimmed;
+  }
   if (trimmed.startsWith("~")) {
     const homeDir = opts?.homeDir?.trim();
-    if (!homeDir) throw new Error("Missing HOME");
+    if (!homeDir) {
+      throw new Error("Missing HOME");
+    }
     const expanded = trimmed.replace(/^~(?=$|[\\/])/, homeDir);
     return path.resolve(expanded);
   }
@@ -123,7 +134,9 @@ export function resolveInstanceManifest(opts: ResolveInstancePathsOptions = {}):
   if (stateOverride) {
     stateRoot = resolvePathWithHome(stateOverride, { homeDir });
   } else {
-    if (!homeDir) throw new Error("Missing HOME");
+    if (!homeDir) {
+      throw new Error("Missing HOME");
+    }
     const suffix = opts.profileAwareStateDir ? resolveProfileSuffix(profile) : "";
     const defaultStateRoot = joinResolvedPath(homeDir, `${DEFAULT_STATE_DIRNAME}${suffix}`);
     if (suffix) {

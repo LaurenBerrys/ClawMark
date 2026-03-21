@@ -117,9 +117,7 @@ function elevateRiskLevel(
 
 function matchesRiskySkill(skillId: string): boolean {
   const normalized = skillId.toLowerCase();
-  return /(^|[-_])(browser|deploy|exec|gateway|mcp|remote|shell|terminal)([-_]|$)/.test(
-    normalized,
-  );
+  return /(^|[-_])(browser|deploy|exec|gateway|mcp|remote|shell|terminal)([-_]|$)/.test(normalized);
 }
 
 export function buildRuntimeEvolutionRiskReview(
@@ -177,11 +175,19 @@ export function buildRuntimeEvolutionRiskReview(
     signals.push("Includes higher-impact runtime skills that should stay operator-reviewed.");
   }
 
-  if (candidate.candidateType === "route_default_lane" && lane === "system1" && signals.length === 0) {
+  if (
+    candidate.candidateType === "route_default_lane" &&
+    lane === "system1" &&
+    signals.length === 0
+  ) {
     signals.push("Stable route-default lane recommendation with no elevated signals.");
   }
 
-  if (candidate.candidateType === "route_skill_bundle" && skillIds.length > 0 && signals.length === 0) {
+  if (
+    candidate.candidateType === "route_skill_bundle" &&
+    skillIds.length > 0 &&
+    signals.length === 0
+  ) {
     signals.push("Small route-native skill bundle with no elevated execution signals.");
   }
 
@@ -293,7 +299,9 @@ export function buildRuntimeEvolutionVerificationReview(params: {
     severeSignals.push(`Observed ${metrics.blockedCount} blocked live runs after adoption.`);
   }
   if (metrics.successRate < 0.45) {
-    severeSignals.push(`Post-adoption success rate ${Math.round(metrics.successRate * 100)}% is below 45%.`);
+    severeSignals.push(
+      `Post-adoption success rate ${Math.round(metrics.successRate * 100)}% is below 45%.`,
+    );
   }
   if (metrics.averageCompletionScore < 60) {
     severeSignals.push(
@@ -310,10 +318,14 @@ export function buildRuntimeEvolutionVerificationReview(params: {
     watchSignals.push(`Observed ${metrics.waitingUserCount} waiting-user runs after adoption.`);
   }
   if (metrics.observationCount < 2) {
-    watchSignals.push(`Need at least 2 post-adoption observations; have ${metrics.observationCount}.`);
+    watchSignals.push(
+      `Need at least 2 post-adoption observations; have ${metrics.observationCount}.`,
+    );
   }
   if (metrics.successRate < 0.72) {
-    watchSignals.push(`Post-adoption success rate ${Math.round(metrics.successRate * 100)}% is below 72%.`);
+    watchSignals.push(
+      `Post-adoption success rate ${Math.round(metrics.successRate * 100)}% is below 72%.`,
+    );
   }
   if (metrics.averageCompletionScore < 78) {
     watchSignals.push(
@@ -346,8 +358,7 @@ export function buildRuntimeEvolutionVerificationReview(params: {
       state: "revert_recommended",
       revertRecommended: true,
       summary:
-        severeSignals[0] ||
-        "Post-adoption telemetry regressed. Revert or rework the optimization.",
+        severeSignals[0] || "Post-adoption telemetry regressed. Revert or rework the optimization.",
       signals: uniqueStrings([...severeSignals, ...watchSignals]),
     };
   }

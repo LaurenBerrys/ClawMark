@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import http from "node:http";
-
 import jitiFactory from "jiti";
 
 const jiti = jitiFactory(import.meta.url, { interopDefault: true });

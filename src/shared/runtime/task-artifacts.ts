@@ -559,8 +559,7 @@ export function buildTaskLifecycleArtifacts(
   const shareableReview = taskReview
     ? buildShareableReviewEnvelope(taskReview, input.shareableReview || undefined)
     : undefined;
-  const keepActiveRunId =
-    taskRecord.status === "planning" || taskRecord.status === "running";
+  const keepActiveRunId = taskRecord.status === "planning" || taskRecord.status === "running";
 
   return {
     taskRecord: {

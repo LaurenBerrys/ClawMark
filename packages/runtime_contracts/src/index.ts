@@ -1,0 +1,50 @@
+export type {
+  DesktopBootstrapState,
+  DesktopGatewayDescriptor,
+  DesktopInitializeInstanceResult,
+  DesktopOpenLogsResult,
+  DesktopRuntimeProcessState,
+  DesktopRuntimeShellSnapshot,
+  DesktopSettingsSnapshot,
+  RuntimeHealthSnapshot,
+  RuntimeTaskDetailSnapshot,
+} from "../../../src/shared/runtime/desktop-control.js";
+export type {
+  FederationRuntimeSnapshot,
+  RuntimeCapabilitiesStatus,
+  RuntimeDashboardSnapshot,
+  RuntimeEvolutionStatus,
+  RuntimeIntelStatus,
+  RuntimeMemoryListResult,
+  RuntimeTasksListResult,
+  RuntimeUserConsoleActionItem,
+} from "../../../src/shared/runtime/runtime-dashboard.js";
+
+export const DESKTOP_RUNTIME_METHODS = {
+  bootstrap: [
+    "desktop.getBootstrapState",
+    "desktop.initializeInstance",
+    "desktop.restartRuntime",
+    "desktop.getRuntimeProcessState",
+    "desktop.openLogs",
+  ],
+  runtime: [
+    "runtime.getDashboard",
+    "runtime.getHealth",
+    "runtime.tasks.list",
+    "runtime.getTask",
+    "runtime.listMemories",
+    "runtime.listStrategies",
+    "runtime.getGovernanceState",
+    "runtime.listEvolutionCandidates",
+    "runtime.getFederationState",
+    "runtime.getSettings",
+    "runtime.task.retry",
+    "runtime.task.cancel",
+    "runtime.task.waiting_user.respond",
+    "runtime.evolution.adopt",
+    "runtime.evolution.reject",
+    "runtime.evolution.revert",
+    "runtime.federation.sync",
+  ],
+} as const;

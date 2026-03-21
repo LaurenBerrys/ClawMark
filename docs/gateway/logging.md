@@ -8,9 +8,9 @@ title: "Logging"
 
 # Logging
 
-For a user-facing overview (CLI + Control UI + config), see [/logging](/logging).
+For a user-facing overview (CLI + User Console + config), see [/logging](/logging).
 
-OpenClaw has two log “surfaces”:
+ClawMark has two log “surfaces”:
 
 - **Console output** (what you see in the terminal / Debug UI).
 - **File logs** (JSON lines) written by the gateway logger.
@@ -25,7 +25,7 @@ OpenClaw has two log “surfaces”:
 
 The file format is one JSON object per line.
 
-The Control UI Logs tab tails this file via the gateway (`logs.tail`).
+The User Console Logs tab tails this file via the gateway (`logs.tail`).
 CLI can do the same:
 
 ```bash

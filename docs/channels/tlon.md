@@ -7,7 +7,7 @@ title: "Tlon"
 
 # Tlon (plugin)
 
-Tlon is a decentralized messenger built on Urbit. OpenClaw connects to your Urbit ship and can
+Tlon is a decentralized messenger built on Urbit. ClawMark connects to your Urbit ship and can
 respond to DMs and group chat messages. Group replies require an @ mention by default and can
 be further restricted via allowlists.
 
@@ -58,7 +58,7 @@ Minimal config (single account):
 
 ## Private/LAN ships
 
-By default, OpenClaw blocks private/internal hostnames and IP ranges for SSRF protection.
+By default, ClawMark blocks private/internal hostnames and IP ranges for SSRF protection.
 If your ship is running on a private network (localhost, LAN IP, or internal hostname),
 you must explicitly opt in:
 
@@ -271,6 +271,6 @@ Provider options:
 ## Notes
 
 - Group replies require a mention (e.g. `~your-bot-ship`) to respond.
-- Thread replies: if the inbound message is in a thread, OpenClaw replies in-thread.
+- Thread replies: if the inbound message is in a thread, ClawMark replies in-thread.
 - Rich text: Markdown formatting (bold, italic, code, headers, lists) is converted to Tlon's native format.
 - Images: URLs are uploaded to Tlon storage and embedded as image blocks.

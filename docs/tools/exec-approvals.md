@@ -32,7 +32,7 @@ Trust model note:
 - Exec approvals reduce accidental execution risk, but are not a per-user auth boundary.
 - Approved node-host runs bind canonical execution context: canonical cwd, exact argv, env
   binding when present, and pinned executable path when applicable.
-- For shell scripts and direct interpreter/runtime file invocations, OpenClaw also tries to bind
+- For shell scripts and direct interpreter/runtime file invocations, ClawMark also tries to bind
   one concrete local file operand. If that bound file changes after approval but before execution,
   the run is denied instead of executing drifted content.
 - This file binding is intentionally best-effort, not a complete semantic model of every
@@ -216,7 +216,7 @@ Configuration location:
 - `safeBins` comes from config (`tools.exec.safeBins` or per-agent `agents.list[].tools.exec.safeBins`).
 - `safeBinTrustedDirs` comes from config (`tools.exec.safeBinTrustedDirs` or per-agent `agents.list[].tools.exec.safeBinTrustedDirs`).
 - `safeBinProfiles` comes from config (`tools.exec.safeBinProfiles` or per-agent `agents.list[].tools.exec.safeBinProfiles`). Per-agent profile keys override global keys.
-- allowlist entries live in host-local `~/.openclaw/exec-approvals.json` under `agents.<id>.allowlist` (or via Control UI / `openclaw approvals allowlist ...`).
+- allowlist entries live in host-local `~/.openclaw/exec-approvals.json` under `agents.<id>.allowlist` (or via User Console / `openclaw approvals allowlist ...`).
 - `openclaw security audit` warns with `tools.exec.safe_bins_interpreter_unprofiled` when interpreter/runtime bins appear in `safeBins` without explicit profiles.
 - `openclaw doctor --fix` can scaffold missing custom `safeBinProfiles.<bin>` entries as `{}` (review and tighten afterward). Interpreter/runtime bins are not auto-scaffolded.
 
@@ -240,9 +240,9 @@ Custom profile example:
 }
 ```
 
-## Control UI editing
+## User Console editing
 
-Use the **Control UI → Nodes → Exec approvals** card to edit defaults, per‑agent
+Use the **User Console → Nodes → Exec approvals** card to edit defaults, per‑agent
 overrides, and allowlists. Pick a scope (Defaults or an agent), tweak the policy,
 add/remove allowlist patterns, then **Save**. The UI shows **last used** metadata
 per pattern so you can keep the list tidy.
@@ -257,7 +257,7 @@ CLI: `openclaw approvals` supports gateway or node editing (see [Approvals CLI](
 ## Approval flow
 
 When a prompt is required, the gateway broadcasts `exec.approval.requested` to operator clients.
-The Control UI and macOS app resolve it via `exec.approval.resolve`, then the gateway forwards the
+The User Console and macOS app resolve it via `exec.approval.resolve`, then the gateway forwards the
 approved request to the node host.
 
 For `host=node`, approval requests include a canonical `systemRunPlan` payload. The gateway uses
@@ -271,7 +271,7 @@ Approval-backed interpreter/runtime runs are intentionally conservative:
 - Exact argv/cwd/env context is always bound.
 - Direct shell script and direct runtime file forms are best-effort bound to one concrete local
   file snapshot.
-- If OpenClaw cannot identify exactly one concrete local file for an interpreter/runtime command
+- If ClawMark cannot identify exactly one concrete local file for an interpreter/runtime command
   (for example package scripts, eval forms, runtime-specific loader chains, or ambiguous multi-file
   forms), approval-backed execution is denied instead of claiming semantic coverage it does not
   have.
@@ -335,7 +335,7 @@ Discord and Telegram can also act as explicit exec approval clients with channel
 - Discord: `channels.discord.execApprovals.*`
 - Telegram: `channels.telegram.execApprovals.*`
 
-These clients are opt-in. If a channel does not have exec approvals enabled, OpenClaw does not treat
+These clients are opt-in. If a channel does not have exec approvals enabled, ClawMark does not treat
 that channel as an approval surface just because the conversation happened there.
 
 Shared behavior:
@@ -347,7 +347,7 @@ Shared behavior:
 
 Telegram defaults to approver DMs (`target: "dm"`). You can switch to `channel` or `both` when you
 want approval prompts to appear in the originating Telegram chat/topic as well. For Telegram forum
-topics, OpenClaw preserves the topic for the approval prompt and the post-approval follow-up.
+topics, ClawMark preserves the topic for the approval prompt and the post-approval follow-up.
 
 See:
 

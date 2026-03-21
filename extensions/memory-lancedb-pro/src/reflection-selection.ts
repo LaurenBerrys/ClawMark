@@ -10,15 +10,15 @@ interface ReflectionSelectionOptions {
 
 export function buildReflectionShortlist(
   groups: ReflectionGroup[],
-  shortlistTarget: number = DERIVED_FOCUS_V2_SHORTLIST_TARGET
+  shortlistTarget: number = DERIVED_FOCUS_V2_SHORTLIST_TARGET,
 ): ReflectionGroup[] {
   const target = normalizeLimit(shortlistTarget, DERIVED_FOCUS_V2_SHORTLIST_TARGET);
-  return [...groups]
-    .sort(compareGroups)
-    .slice(0, target);
+  return [...groups].sort(compareGroups).slice(0, target);
 }
 
-export function buildDiversityAwareReflectionOrder(shortlist: ReflectionGroup[]): ReflectionGroup[] {
+export function buildDiversityAwareReflectionOrder(
+  shortlist: ReflectionGroup[],
+): ReflectionGroup[] {
   const ranked = [...shortlist].sort(compareGroups);
   const order: ReflectionGroup[] = [];
   const selectedSoftKeys = new Set<string>();
@@ -44,7 +44,7 @@ export function buildDiversityAwareReflectionOrder(shortlist: ReflectionGroup[])
 
 export function selectDiversityAwareReflectionGroups(
   groups: ReflectionGroup[],
-  options?: ReflectionSelectionOptions
+  options?: ReflectionSelectionOptions,
 ): ReflectionGroup[] {
   const shortlist = buildReflectionShortlist(groups, options?.shortlistTarget);
   const diversityOrdered = buildDiversityAwareReflectionOrder(shortlist);
@@ -55,7 +55,7 @@ export function selectDiversityAwareReflectionGroups(
 function adjustedDiversityScore(
   candidate: ReflectionGroup,
   selected: ReflectionGroup[],
-  selectedSoftKeys: Set<string>
+  selectedSoftKeys: Set<string>,
 ): number {
   if (selected.length === 0) return candidate.finalScore;
 
@@ -70,7 +70,7 @@ function adjustedDiversityScore(
   }
 
   if (maxOverlap >= 0.85) multiplier *= 0.12;
-  else if (maxOverlap >= 0.70) multiplier *= 0.35;
+  else if (maxOverlap >= 0.7) multiplier *= 0.35;
   else if (maxOverlap >= 0.55) multiplier *= 0.7;
 
   return candidate.finalScore * multiplier;

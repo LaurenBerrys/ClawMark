@@ -1,8 +1,5 @@
 import type { RuntimeIntelStore, RuntimeMetadata } from "./contracts.js";
-import {
-  DEFAULT_RUNTIME_INFO_DOMAINS,
-  normalizeRuntimeInfoDomain,
-} from "./intel-domains.js";
+import { DEFAULT_RUNTIME_INFO_DOMAINS, normalizeRuntimeInfoDomain } from "./intel-domains.js";
 import {
   runRuntimeIntelPipeline,
   type IntelDomain,
@@ -510,7 +507,9 @@ export function resolveRuntimeIntelPanelConfig(
     ),
     instantPushTargetIds: uniqueStrings(
       Array.isArray(metadata?.instantPushTargetIds)
-        ? metadata.instantPushTargetIds.filter((value): value is string => typeof value === "string")
+        ? metadata.instantPushTargetIds.filter(
+            (value): value is string => typeof value === "string",
+          )
         : ["runtime-user"],
     ),
     candidateLimitPerDomain: clampInteger(store.candidateLimitPerDomain, 20, 1, 100),
@@ -551,7 +550,9 @@ export function configureRuntimeIntelPanel(
     now,
   });
   const current = resolveRuntimeIntelPanelConfig(store);
-  const knownSourceIds = new Set(listRuntimeIntelResolvedSourceDefinitions(store).map((source) => source.id));
+  const knownSourceIds = new Set(
+    listRuntimeIntelResolvedSourceDefinitions(store).map((source) => source.id),
+  );
   const selectedSourceIds =
     input.selectedSourceIds == null
       ? current.selectedSourceIds
@@ -698,7 +699,9 @@ export function upsertRuntimeIntelSource(
     throw new Error("source id is invalid");
   }
   const domain = normalizeDomainId(input.domain);
-  const customSources = readCustomSourceDefinitions(store.metadata).filter((source) => source.id !== id);
+  const customSources = readCustomSourceDefinitions(store.metadata).filter(
+    (source) => source.id !== id,
+  );
   customSources.push({
     id,
     domain,
@@ -1128,13 +1131,14 @@ export function buildRuntimeIntelRefreshAudit(
         : null;
     const stale =
       enabled && enabledSourceCount > 0 ? nextRefreshAt == null || now >= nextRefreshAt : false;
-    const status = !enabled || enabledSourceCount === 0
-      ? "paused"
-      : lastError
-        ? "error"
-        : stale
-          ? "stale"
-          : "healthy";
+    const status =
+      !enabled || enabledSourceCount === 0
+        ? "paused"
+        : lastError
+          ? "error"
+          : stale
+            ? "stale"
+            : "healthy";
     return {
       domain: domain.id,
       enabled,
@@ -1145,7 +1149,8 @@ export function buildRuntimeIntelRefreshAudit(
       lastSuccessfulRefreshAt,
       lastFetchedAt,
       lastFetchedCount:
-        typeof domainMetadata.fetchedCount === "number" && Number.isFinite(domainMetadata.fetchedCount)
+        typeof domainMetadata.fetchedCount === "number" &&
+        Number.isFinite(domainMetadata.fetchedCount)
           ? Math.max(0, Math.trunc(domainMetadata.fetchedCount))
           : 0,
       lastError,
@@ -1157,11 +1162,10 @@ export function buildRuntimeIntelRefreshAudit(
   const enabledDomains = domains.filter((entry) => entry.enabled && entry.enabledSourceCount > 0);
   const staleDomainCount = enabledDomains.filter((entry) => entry.stale).length;
   const errorDomainCount = enabledDomains.filter((entry) => entry.status === "error").length;
-  const nextRefreshAt =
-    enabledDomains
-      .map((entry) => entry.nextRefreshAt)
-      .filter((entry): entry is number => Number.isFinite(entry))
-      .reduce((earliest, entry) => Math.min(earliest, entry), Number.POSITIVE_INFINITY);
+  const nextRefreshAt = enabledDomains
+    .map((entry) => entry.nextRefreshAt)
+    .filter((entry): entry is number => Number.isFinite(entry))
+    .reduce((earliest, entry) => Math.min(earliest, entry), Number.POSITIVE_INFINITY);
   const modulePausedReason = store.enabled
     ? enabledDomains.length === 0
       ? "No enabled domains or sources."
@@ -1393,7 +1397,10 @@ export async function refreshRuntimeIntelPipeline(
   if (!intelStore.enabled) {
     const existingDigestCountByDomain = new Map<IntelDomain, number>();
     for (const item of intelStore.digestItems) {
-      existingDigestCountByDomain.set(item.domain, (existingDigestCountByDomain.get(item.domain) ?? 0) + 1);
+      existingDigestCountByDomain.set(
+        item.domain,
+        (existingDigestCountByDomain.get(item.domain) ?? 0) + 1,
+      );
     }
     const requestedDomainIds = (
       opts.domains?.length
@@ -1583,7 +1590,9 @@ export async function refreshRuntimeIntelPipeline(
         : readNullableTimestamp(nextMetadata?.lastSuccessfulRefreshAt),
     lastRefreshErrorCount: attemptedResults.reduce((sum, entry) => sum + entry.errors.length, 0),
     lastRefreshAttemptedDomains: attemptedResults.map((entry) => entry.domain),
-    lastRefreshSkippedDomains: results.filter((entry) => entry.skipped).map((entry) => entry.domain),
+    lastRefreshSkippedDomains: results
+      .filter((entry) => entry.skipped)
+      .map((entry) => entry.domain),
   };
   saveRuntimeIntelStore(nextStore, {
     ...opts,

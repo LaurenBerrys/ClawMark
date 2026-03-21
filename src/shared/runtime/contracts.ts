@@ -282,6 +282,12 @@ export type TaskStep = {
   metadata?: RuntimeMetadata;
 };
 
+export type ArchivedTaskStep = TaskStep & {
+  archivedAt: number;
+  archiveReason: "goal_state_compaction";
+  updatedAt: number;
+};
+
 export type TaskReview = {
   id: string;
   taskId: string;
@@ -874,11 +880,7 @@ export type TeamKnowledgeEnvelope = {
   metadata?: RuntimeMetadata;
 };
 
-export type FederationTaskAssignmentState =
-  | "pending"
-  | "materialized"
-  | "blocked"
-  | "applied";
+export type FederationTaskAssignmentState = "pending" | "materialized" | "blocked" | "applied";
 
 export type FederationTaskAssignment = {
   schemaVersion: "v1";
@@ -1018,9 +1020,7 @@ export type InvalidFederationPackageEnvelope = {
   metadata?: RuntimeMetadata;
 };
 
-export type FederationInboxPackage =
-  | FederationInboundPackage
-  | InvalidFederationPackageEnvelope;
+export type FederationInboxPackage = FederationInboundPackage | InvalidFederationPackageEnvelope;
 
 export type FederationPackageRiskLevel = "low" | "medium" | "high";
 
@@ -1103,6 +1103,7 @@ export type RuntimeTaskDefaults = {
   defaultRetrievalMode: RetrievalMode;
   maxInputTokensPerTurn: number;
   maxContextChars: number;
+  compactionWatermark: number;
   maxRemoteCallsPerTask: number;
   leaseDurationMs: number;
   maxConcurrentRunsPerWorker: number;
@@ -1115,6 +1116,7 @@ export type RuntimeTaskStore = {
   tasks: TaskRecord[];
   runs: TaskRun[];
   steps: TaskStep[];
+  archivedSteps: ArchivedTaskStep[];
   reviews: TaskReview[];
   reports: TaskReportRecord[];
   lastImportedAt?: number;

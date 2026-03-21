@@ -9,7 +9,7 @@ function normalizeReflectionConservativeBase(line: string): string {
   return String(line)
     .replace(/\r?\n+/g, " ")
     .replace(DASH_VARIANTS_RE, "-")
-    .replace(DOUBLE_QUOTE_VARIANTS_RE, "\"")
+    .replace(DOUBLE_QUOTE_VARIANTS_RE, '"')
     .replace(SINGLE_QUOTE_VARIANTS_RE, "'")
     .trim()
     .replace(LEADING_BULLET_RE, "")

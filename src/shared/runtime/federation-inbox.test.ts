@@ -12,7 +12,6 @@ import {
   transitionRuntimeFederationPackage,
 } from "./federation-inbox.js";
 import { buildFederationRuntimeSnapshot } from "./runtime-dashboard.js";
-import { adoptRuntimeRoleOptimizationCandidate } from "./user-console.js";
 import {
   buildRuntimeRetrievalSourceSet,
   loadRuntimeTaskStore,
@@ -21,6 +20,7 @@ import {
   saveRuntimeFederationStore,
   saveRuntimeUserConsoleStore,
 } from "./store.js";
+import { adoptRuntimeRoleOptimizationCandidate } from "./user-console.js";
 
 async function withTempRoot(
   prefix: string,
@@ -146,9 +146,7 @@ describe("runtime federation inbox", () => {
         localLandingLabel: "invalid-package",
       });
       expect(snapshot.inbox.latestPackages[0]?.payloadPreview).toEqual(
-        expect.arrayContaining([
-          "file broken.json",
-        ]),
+        expect.arrayContaining(["file broken.json"]),
       );
       expect(snapshot.inbox.latestPackages[0]?.reviewSignals).toEqual([]);
     });
@@ -455,9 +453,7 @@ describe("runtime federation inbox", () => {
           },
           {
             env,
-            now:
-              1_700_000_566_100 +
-              ["validated", "shadowed", "recommended"].indexOf(targetState),
+            now: 1_700_000_566_100 + ["validated", "shadowed", "recommended"].indexOf(targetState),
           },
         );
       }
@@ -495,11 +491,13 @@ describe("runtime federation inbox", () => {
       });
       const appliedOverlay = (
         federationStore.metadata?.appliedPolicyOverlays as Record<string, unknown> | undefined
-      )?.[record!.id] as {
-        route?: string;
-        policy?: Record<string, unknown>;
-        review?: { riskLevel?: string; autoAdoptEligible?: boolean };
-      } | undefined;
+      )?.[record!.id] as
+        | {
+            route?: string;
+            policy?: Record<string, unknown>;
+            review?: { riskLevel?: string; autoAdoptEligible?: boolean };
+          }
+        | undefined;
       const capabilityPolicy = resolveRuntimeCapabilityPolicy(null, {
         env,
         now: 1_700_000_566_210,
@@ -771,7 +769,9 @@ describe("runtime federation inbox", () => {
       );
       expect(revertedCandidate?.state).toBe("reverted");
       expect(
-        revertedUserConsole.surfaceRoleOverlays.find((entry) => entry.surfaceId === "surface-sales"),
+        revertedUserConsole.surfaceRoleOverlays.find(
+          (entry) => entry.surfaceId === "surface-sales",
+        ),
       ).toBeUndefined();
     });
   });
@@ -872,193 +872,196 @@ describe("runtime federation inbox", () => {
   });
 
   it("materializes adopted coordinator suggestions into local queued tasks without foreign lineage", async () => {
-    await withTempRoot("openclaw-runtime-federation-coordinator-materialize-", async (root, env) => {
-      const inboxRoot = path.join(root, "instance", "data", "federation", "inbox");
-      await fs.mkdir(path.join(inboxRoot, "packages"), { recursive: true });
+    await withTempRoot(
+      "openclaw-runtime-federation-coordinator-materialize-",
+      async (root, env) => {
+        const inboxRoot = path.join(root, "instance", "data", "federation", "inbox");
+        await fs.mkdir(path.join(inboxRoot, "packages"), { recursive: true });
 
-      await fs.writeFile(
-        path.join(inboxRoot, "packages", "coordinator-suggestion.json"),
-        JSON.stringify(
-          {
-            schemaVersion: "v1",
-            type: "coordinator-suggestion",
-            sourceRuntimeId: "brain-os-runtime",
-            generatedAt: 1_700_000_710_000,
-            payload: {
-              id: "coord-suggest-materialize",
-              title: "Coordinate partner follow-up",
-              summary: "Queue a local follow-up without inheriting the remote root task id.",
-              taskId: "remote-root-task",
-              metadata: {
-                route: "sales",
-                surfaceId: "surface-sales",
-                worker: "reviewer",
-                skillIds: ["crm"],
-                tags: ["partner", "follow-up"],
-                priority: "high",
+        await fs.writeFile(
+          path.join(inboxRoot, "packages", "coordinator-suggestion.json"),
+          JSON.stringify(
+            {
+              schemaVersion: "v1",
+              type: "coordinator-suggestion",
+              sourceRuntimeId: "brain-os-runtime",
+              generatedAt: 1_700_000_710_000,
+              payload: {
+                id: "coord-suggest-materialize",
+                title: "Coordinate partner follow-up",
+                summary: "Queue a local follow-up without inheriting the remote root task id.",
+                taskId: "remote-root-task",
+                metadata: {
+                  route: "sales",
+                  surfaceId: "surface-sales",
+                  worker: "reviewer",
+                  skillIds: ["crm"],
+                  tags: ["partner", "follow-up"],
+                  priority: "high",
+                },
               },
             },
-          },
-          null,
-          2,
-        ),
-        "utf8",
-      );
+            null,
+            2,
+          ),
+          "utf8",
+        );
 
-      const userConsoleStore = loadRuntimeUserConsoleStore({
-        env,
-        now: 1_700_000_710_020,
-      });
-      saveRuntimeUserConsoleStore(
-        {
-          ...userConsoleStore,
-          surfaces: [
-            {
-              id: "surface-sales",
-              channel: "wechat",
-              accountId: "wechat-sales-001",
-              label: "WeChat Sales",
-              ownerKind: "agent",
-              ownerId: "agent-sales",
-              active: true,
-              createdAt: 1_700_000_709_000,
-              updatedAt: 1_700_000_709_000,
-            },
-          ],
-          agents: [
-            {
-              id: "agent-sales",
-              name: "Sales Agent",
-              roleBase: "lead-closer",
-              memoryNamespace: "agent-sales",
-              skillIds: ["crm"],
-              active: true,
-              createdAt: 1_700_000_709_000,
-              updatedAt: 1_700_000_709_000,
-            },
-          ],
-          surfaceRoleOverlays: [
-            {
-              id: "surface-role-sales",
-              surfaceId: "surface-sales",
-              role: "sales_closer",
-              reportTarget: "runtime-user",
-              allowedTopics: [],
-              restrictedTopics: [],
-              localBusinessPolicy: {
-                runtimeCoreBinding: "forbidden",
-                formalMemoryWrite: false,
-                userModelWrite: false,
-                surfaceRoleWrite: false,
-                taskCreation: "recommend_only",
-                escalationTarget: "surface-owner",
-                privacyBoundary: "agent-local",
-                roleScope: "sales-queue",
-              },
-              createdAt: 1_700_000_709_000,
-              updatedAt: 1_700_000_709_000,
-            },
-          ],
-        },
-        {
+        const userConsoleStore = loadRuntimeUserConsoleStore({
           env,
           now: 1_700_000_710_020,
-        },
-      );
-
-      syncRuntimeFederationInbox({
-        env,
-        now: 1_700_000_710_050,
-      });
-      const suggestionRecord = listRuntimeFederationInbox({
-        env,
-        now: 1_700_000_710_050,
-      }).find((entry) => entry.packageType === "coordinator-suggestion");
-
-      expect(suggestionRecord).toBeDefined();
-
-      for (const targetState of ["validated", "shadowed", "recommended", "adopted"] as const) {
-        transitionRuntimeFederationPackage(
+        });
+        saveRuntimeUserConsoleStore(
           {
-            id: suggestionRecord!.id,
-            state: targetState,
+            ...userConsoleStore,
+            surfaces: [
+              {
+                id: "surface-sales",
+                channel: "wechat",
+                accountId: "wechat-sales-001",
+                label: "WeChat Sales",
+                ownerKind: "agent",
+                ownerId: "agent-sales",
+                active: true,
+                createdAt: 1_700_000_709_000,
+                updatedAt: 1_700_000_709_000,
+              },
+            ],
+            agents: [
+              {
+                id: "agent-sales",
+                name: "Sales Agent",
+                roleBase: "lead-closer",
+                memoryNamespace: "agent-sales",
+                skillIds: ["crm"],
+                active: true,
+                createdAt: 1_700_000_709_000,
+                updatedAt: 1_700_000_709_000,
+              },
+            ],
+            surfaceRoleOverlays: [
+              {
+                id: "surface-role-sales",
+                surfaceId: "surface-sales",
+                role: "sales_closer",
+                reportTarget: "runtime-user",
+                allowedTopics: [],
+                restrictedTopics: [],
+                localBusinessPolicy: {
+                  runtimeCoreBinding: "forbidden",
+                  formalMemoryWrite: false,
+                  userModelWrite: false,
+                  surfaceRoleWrite: false,
+                  taskCreation: "recommend_only",
+                  escalationTarget: "surface-owner",
+                  privacyBoundary: "agent-local",
+                  roleScope: "sales-queue",
+                },
+                createdAt: 1_700_000_709_000,
+                updatedAt: 1_700_000_709_000,
+              },
+            ],
           },
           {
             env,
-            now:
-              1_700_000_710_100 +
-              ["validated", "shadowed", "recommended", "adopted"].indexOf(targetState),
+            now: 1_700_000_710_020,
           },
         );
-      }
 
-      const first = materializeRuntimeCoordinatorSuggestionTask("coord-suggest-materialize", {
-        env,
-        now: 1_700_000_710_200,
-      });
-      const second = materializeRuntimeCoordinatorSuggestionTask("coord-suggest-materialize", {
-        env,
-        now: 1_700_000_710_300,
-      });
-      const taskStore = loadRuntimeTaskStore({
-        env,
-        now: 1_700_000_710_300,
-      });
-      const federationStore = loadRuntimeFederationStore({
-        env,
-        now: 1_700_000_710_300,
-      });
+        syncRuntimeFederationInbox({
+          env,
+          now: 1_700_000_710_050,
+        });
+        const suggestionRecord = listRuntimeFederationInbox({
+          env,
+          now: 1_700_000_710_050,
+        }).find((entry) => entry.packageType === "coordinator-suggestion");
 
-      expect(first.created).toBe(true);
-      expect(second.created).toBe(false);
-      expect(second.task.id).toBe(first.task.id);
-      expect(taskStore.tasks).toHaveLength(1);
-      expect(taskStore.tasks[0]).toMatchObject({
-        id: first.task.id,
-        title: "Coordinate partner follow-up",
-        goal: "Queue a local follow-up without inheriting the remote root task id.",
-        route: "sales",
-        worker: "reviewer",
-        priority: "high",
-        rootTaskId: first.task.id,
-      });
-      expect(taskStore.tasks[0]?.parentTaskId).toBeUndefined();
-      expect(taskStore.tasks[0]?.artifactRefs).toEqual(
-        expect.arrayContaining([
-          `federation-package:${suggestionRecord!.id}`,
-          "federation-coordinator-suggestion:coord-suggest-materialize",
-          "federation-source-task:remote-root-task",
-        ]),
-      );
-      expect(taskStore.tasks[0]?.metadata).toMatchObject({
-        federation: {
-          sourceRuntimeId: "brain-os-runtime",
-          coordinatorSuggestionId: "coord-suggest-materialize",
-          sourceTaskId: "remote-root-task",
-        },
-        surface: {
-          surfaceId: "surface-sales",
-          label: "WeChat Sales",
-          channel: "wechat",
-          ownerKind: "agent",
-          ownerId: "agent-sales",
-          effectiveRole: "sales_closer",
-          reportTarget: "runtime-user",
-          taskCreationPolicy: "recommend_only",
-          escalationTarget: "surface-owner",
-          roleScope: "sales-queue",
-        },
-      });
-      expect(federationStore.coordinatorSuggestions[0]).toMatchObject({
-        id: "coord-suggest-materialize",
-        localTaskId: first.task.id,
-        localTaskStatus: "queued",
-        materializedAt: 1_700_000_710_200,
-        lifecycleSyncedAt: 1_700_000_710_200,
-        lastMaterializedLocalTaskId: first.task.id,
-        lastMaterializedAt: 1_700_000_710_200,
-      });
-    });
+        expect(suggestionRecord).toBeDefined();
+
+        for (const targetState of ["validated", "shadowed", "recommended", "adopted"] as const) {
+          transitionRuntimeFederationPackage(
+            {
+              id: suggestionRecord!.id,
+              state: targetState,
+            },
+            {
+              env,
+              now:
+                1_700_000_710_100 +
+                ["validated", "shadowed", "recommended", "adopted"].indexOf(targetState),
+            },
+          );
+        }
+
+        const first = materializeRuntimeCoordinatorSuggestionTask("coord-suggest-materialize", {
+          env,
+          now: 1_700_000_710_200,
+        });
+        const second = materializeRuntimeCoordinatorSuggestionTask("coord-suggest-materialize", {
+          env,
+          now: 1_700_000_710_300,
+        });
+        const taskStore = loadRuntimeTaskStore({
+          env,
+          now: 1_700_000_710_300,
+        });
+        const federationStore = loadRuntimeFederationStore({
+          env,
+          now: 1_700_000_710_300,
+        });
+
+        expect(first.created).toBe(true);
+        expect(second.created).toBe(false);
+        expect(second.task.id).toBe(first.task.id);
+        expect(taskStore.tasks).toHaveLength(1);
+        expect(taskStore.tasks[0]).toMatchObject({
+          id: first.task.id,
+          title: "Coordinate partner follow-up",
+          goal: "Queue a local follow-up without inheriting the remote root task id.",
+          route: "sales",
+          worker: "reviewer",
+          priority: "high",
+          rootTaskId: first.task.id,
+        });
+        expect(taskStore.tasks[0]?.parentTaskId).toBeUndefined();
+        expect(taskStore.tasks[0]?.artifactRefs).toEqual(
+          expect.arrayContaining([
+            `federation-package:${suggestionRecord!.id}`,
+            "federation-coordinator-suggestion:coord-suggest-materialize",
+            "federation-source-task:remote-root-task",
+          ]),
+        );
+        expect(taskStore.tasks[0]?.metadata).toMatchObject({
+          federation: {
+            sourceRuntimeId: "brain-os-runtime",
+            coordinatorSuggestionId: "coord-suggest-materialize",
+            sourceTaskId: "remote-root-task",
+          },
+          surface: {
+            surfaceId: "surface-sales",
+            label: "WeChat Sales",
+            channel: "wechat",
+            ownerKind: "agent",
+            ownerId: "agent-sales",
+            effectiveRole: "sales_closer",
+            reportTarget: "runtime-user",
+            taskCreationPolicy: "recommend_only",
+            escalationTarget: "surface-owner",
+            roleScope: "sales-queue",
+          },
+        });
+        expect(federationStore.coordinatorSuggestions[0]).toMatchObject({
+          id: "coord-suggest-materialize",
+          localTaskId: first.task.id,
+          localTaskStatus: "queued",
+          materializedAt: 1_700_000_710_200,
+          lifecycleSyncedAt: 1_700_000_710_200,
+          lastMaterializedLocalTaskId: first.task.id,
+          lastMaterializedAt: 1_700_000_710_200,
+        });
+      },
+    );
   });
 
   it("blocks coordinator suggestion materialization when the bound surface disables local task creation", async () => {
@@ -1077,7 +1080,8 @@ describe("runtime federation inbox", () => {
             payload: {
               id: "coord-suggest-blocked",
               title: "Queue a surface-owned sales follow-up",
-              summary: "This should stay in review because the sales surface blocks local task creation.",
+              summary:
+                "This should stay in review because the sales surface blocks local task creation.",
               taskId: "remote-root-task",
               metadata: {
                 route: "sales",
@@ -1166,7 +1170,7 @@ describe("runtime federation inbox", () => {
         materializeRuntimeCoordinatorSuggestionTask("coord-suggest-blocked", {
           env,
           now: 1_700_000_720_200,
-        })
+        }),
       ).toThrow(/blocks local task creation/i);
       expect(loadRuntimeTaskStore({ env, now: 1_700_000_720_200 }).tasks).toHaveLength(0);
     });

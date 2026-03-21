@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'desktop_design.dart';
 import 'desktop_host.dart';
 import 'gateway.dart';
 import 'models.dart';
@@ -88,12 +89,12 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
             .firstOrNull;
     final targetPage = switch (action?.kind) {
       "user_model_mirror_import" ||
-      "user_model_optimization" => DesktopPage.settings,
-      "role_optimization" => DesktopPage.governance,
+      "user_model_optimization" => DesktopPage.config,
+      "role_optimization" => DesktopPage.execApprovals,
       "evolution_candidate_review" ||
-      "evolution_revert_recommendation" => DesktopPage.governance,
+      "evolution_revert_recommendation" => DesktopPage.execApprovals,
       "federation_package" ||
-      "coordinator_suggestion" => DesktopPage.federation,
+      "coordinator_suggestion" => DesktopPage.execApprovals,
       _ => current.page,
     };
     final taskId =
@@ -133,7 +134,7 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
             "respondedBy": "desktop-console",
           },
         ),
-        successMessage: "Response sent to the waiting task.",
+        successMessage: "已将回复发送给等待中的任务。",
         selectedTaskId: taskId,
       );
       return;
@@ -161,9 +162,7 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         },
       },
     );
-    await refresh(
-      statusMessage: "Queued a new runtime task from the desktop console.",
-    );
+    await refresh(statusMessage: "已从桌面控制台加入新的运行时任务。");
     final taskId = asString(created["id"]);
     if (taskId.isNotEmpty) {
       await focusTask(taskId);
@@ -176,7 +175,7 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "taskId": taskId,
         "requestedBy": "desktop-console",
       }),
-      successMessage: "Queued the task for another run.",
+      successMessage: "已将任务加入再次运行队列。",
       selectedTaskId: taskId,
     );
   }
@@ -187,7 +186,7 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "taskId": taskId,
         "summary": "Cancelled from Desktop Console",
       }),
-      successMessage: "Cancelled the active task.",
+      successMessage: "已取消当前任务。",
       selectedTaskId: taskId,
     );
   }
@@ -198,8 +197,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "id": candidateId,
         "reason": "Adopted from Desktop Console",
       }),
-      successMessage: "Adopted the evolution candidate.",
-      page: DesktopPage.governance,
+      successMessage: "已采纳演化候选项。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -209,8 +208,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "id": candidateId,
         "reason": "Rejected from Desktop Console",
       }),
-      successMessage: "Rejected the evolution candidate.",
-      page: DesktopPage.governance,
+      successMessage: "已拒绝演化候选项。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -220,17 +219,16 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "id": candidateId,
         "reason": "Reverted from Desktop Console",
       }),
-      successMessage: "Reverted the evolution candidate.",
-      page: DesktopPage.governance,
+      successMessage: "已回退演化候选项。",
+      page: DesktopPage.execApprovals,
     );
   }
 
   Future<void> importUserModelMirror() async {
     await _runCommand(
       () => _client.request("runtime.user.mirror.import"),
-      successMessage:
-          "Imported the pending USER.md edits into the runtime user model.",
-      page: DesktopPage.settings,
+      successMessage: "已将待处理的 USER.md 修改导入运行时用户模型。",
+      page: DesktopPage.config,
     );
   }
 
@@ -239,9 +237,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
       () => _client.request("runtime.user.mirror.sync", const <String, Object?>{
         "force": true,
       }),
-      successMessage:
-          "Discarded pending USER.md edits and resynced the mirror from runtime truth.",
-      page: DesktopPage.settings,
+      successMessage: "已丢弃待处理的 USER.md 修改，并按运行时真相重新同步镜像。",
+      page: DesktopPage.config,
     );
   }
 
@@ -251,8 +248,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "runtime.user.model.optimization.adopt",
         <String, Object?>{"id": candidateId},
       ),
-      successMessage: "Applied the long-term user-model optimization.",
-      page: DesktopPage.settings,
+      successMessage: "已应用长期用户模型优化。",
+      page: DesktopPage.config,
     );
   }
 
@@ -265,8 +262,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
           "reason": "Rejected from Desktop Console",
         },
       ),
-      successMessage: "Rejected the long-term user-model optimization.",
-      page: DesktopPage.settings,
+      successMessage: "已拒绝长期用户模型优化。",
+      page: DesktopPage.config,
     );
   }
 
@@ -276,8 +273,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "runtime.role.optimization.adopt",
         <String, Object?>{"id": candidateId},
       ),
-      successMessage: "Applied the surface-role optimization.",
-      page: DesktopPage.governance,
+      successMessage: "已应用表面角色优化。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -288,8 +285,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
             "id": candidateId,
             "reason": "Rejected from Desktop Console",
           }),
-      successMessage: "Rejected the surface-role optimization.",
-      page: DesktopPage.governance,
+      successMessage: "已拒绝表面角色优化。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -310,16 +307,16 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "confirmationBoundary": confirmationBoundary,
         "reportPolicy": reportPolicy,
       }),
-      successMessage: "Updated the runtime user model.",
-      page: DesktopPage.settings,
+      successMessage: "已更新运行时用户模型。",
+      page: DesktopPage.config,
     );
   }
 
   Future<void> syncCapabilities() async {
     await _runCommand(
       () => _client.request("runtime.capabilities.sync"),
-      successMessage: "Synced the runtime capability registry.",
-      page: DesktopPage.governance,
+      successMessage: "已同步运行时能力注册表。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -337,8 +334,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "state": stateValue,
         "reason": "Updated from Desktop Console",
       }),
-      successMessage: "Updated the capability governance state.",
-      page: DesktopPage.governance,
+      successMessage: "已更新能力治理状态。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -357,8 +354,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
             "state": stateValue,
             "reason": "Updated from Desktop Console",
           }),
-      successMessage: "Updated the MCP grant posture.",
-      page: DesktopPage.governance,
+      successMessage: "已更新 MCP 授权姿态。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -369,8 +366,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "reason": "Reinforced from Desktop Console",
         if ((sourceTaskId ?? "").isNotEmpty) "sourceTaskId": sourceTaskId,
       }),
-      successMessage: "Reinforced the formal memory lineage.",
-      page: DesktopPage.memory,
+      successMessage: "已强化正式记忆链路。",
+      page: DesktopPage.debug,
     );
   }
 
@@ -379,8 +376,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
       () => _client.request("runtime.memory.invalidate", <String, Object?>{
         "memoryIds": [memoryId],
       }),
-      successMessage: "Invalidated the selected memory lineage.",
-      page: DesktopPage.memory,
+      successMessage: "已标记所选记忆链路为失效。",
+      page: DesktopPage.debug,
     );
   }
 
@@ -389,16 +386,16 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
       () => _client.request("runtime.memory.rollback", <String, Object?>{
         "invalidationEventId": invalidationEventId,
       }),
-      successMessage: "Rolled back the selected invalidation event.",
-      page: DesktopPage.memory,
+      successMessage: "已回滚所选失效事件。",
+      page: DesktopPage.debug,
     );
   }
 
   Future<void> reviewMemoryLifecycle() async {
     await _runCommand(
       () => _client.request("runtime.memory.review"),
-      successMessage: "Ran a memory lifecycle review.",
-      page: DesktopPage.memory,
+      successMessage: "已执行记忆生命周期复审。",
+      page: DesktopPage.debug,
     );
   }
 
@@ -408,8 +405,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "intelId": intelId,
         "promotedBy": "desktop-console",
       }),
-      successMessage: "Promoted the intel item into knowledge memory.",
-      page: DesktopPage.memory,
+      successMessage: "已将该情报提升为知识记忆。",
+      page: DesktopPage.debug,
     );
   }
 
@@ -446,8 +443,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "active": active,
         if (overlay.isNotEmpty) "overlay": overlay,
       }),
-      successMessage: "Saved the runtime agent profile.",
-      page: DesktopPage.governance,
+      successMessage: "已保存运行时智能体档案。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -456,8 +453,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
       () => _client.request("runtime.agent.delete", <String, Object?>{
         "id": agentId,
       }),
-      successMessage: "Removed the runtime agent.",
-      page: DesktopPage.governance,
+      successMessage: "已移除运行时智能体。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -477,11 +474,12 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "accountId": accountId,
         "label": label,
         "ownerKind": ownerKind,
-        if (ownerKind == "agent" && (ownerId ?? "").isNotEmpty) "ownerId": ownerId,
+        if (ownerKind == "agent" && (ownerId ?? "").isNotEmpty)
+          "ownerId": ownerId,
         "active": active,
       }),
-      successMessage: "Saved the surface binding.",
-      page: DesktopPage.governance,
+      successMessage: "已保存表面绑定。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -516,8 +514,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
           "roleScope": roleScope,
         },
       }),
-      successMessage: "Saved the surface role overlay.",
-      page: DesktopPage.governance,
+      successMessage: "已保存表面角色覆层。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -528,8 +526,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "state": "adopted",
         "reason": "Adopted from Desktop Console",
       }),
-      successMessage: "Adopted the federation package locally.",
-      page: DesktopPage.federation,
+      successMessage: "已在本地采纳联邦包。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -540,8 +538,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "state": "rejected",
         "reason": "Rejected from Desktop Console",
       }),
-      successMessage: "Rejected the federation package locally.",
-      page: DesktopPage.federation,
+      successMessage: "已在本地拒绝联邦包。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -552,8 +550,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "state": "reverted",
         "reason": "Reverted from Desktop Console",
       }),
-      successMessage: "Reverted the adopted federation package locally.",
-      page: DesktopPage.federation,
+      successMessage: "已在本地回退已采纳的联邦包。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -570,13 +568,10 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
     final created = asBool(result["created"]);
     state = await AsyncValue.guard(
       () => _load(
-        page: DesktopPage.federation,
+        page: DesktopPage.execApprovals,
         selectedTaskId: taskId.isNotEmpty ? taskId : current?.selectedTaskId,
         selectedActionId: current?.selectedActionId,
-        statusMessage:
-            created
-                ? "Materialized the coordinator suggestion into a local runtime task."
-                : "Opened the existing local task for this coordinator suggestion.",
+        statusMessage: created ? "已将协调建议实体化为本地运行时任务。" : "已打开该协调建议对应的本地任务。",
       ),
     );
   }
@@ -594,13 +589,10 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
     final created = asBool(result["created"]);
     state = await AsyncValue.guard(
       () => _load(
-        page: DesktopPage.federation,
+        page: DesktopPage.execApprovals,
         selectedTaskId: taskId.isNotEmpty ? taskId : current?.selectedTaskId,
         selectedActionId: current?.selectedActionId,
-        statusMessage:
-            created
-                ? "Materialized the federation assignment into a local runtime task."
-                : "Opened the existing local task for this federation assignment.",
+        statusMessage: created ? "已将联邦指派实体化为本地运行时任务。" : "已打开该联邦指派对应的本地任务。",
       ),
     );
   }
@@ -613,8 +605,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
             "state": "blocked",
             "reason": "Blocked from Desktop Console",
           }),
-      successMessage: "Blocked the federation assignment locally.",
-      page: DesktopPage.federation,
+      successMessage: "已在本地阻止该联邦指派。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -626,8 +618,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
             "state": "pending",
             "reason": "Reset from Desktop Console",
           }),
-      successMessage: "Reset the federation assignment back to pending.",
-      page: DesktopPage.federation,
+      successMessage: "已将联邦指派重置为待处理。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -639,8 +631,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
             "state": "applied",
             "reason": "Marked applied from Desktop Console",
           }),
-      successMessage: "Marked the federation assignment as applied.",
-      page: DesktopPage.federation,
+      successMessage: "已将联邦指派标记为已应用。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -661,8 +653,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "compactionWatermark": compactionWatermark,
         "maxRemoteCallsPerTask": maxRemoteCallsPerTask,
       }),
-      successMessage: "Updated the runtime task-loop defaults.",
-      page: DesktopPage.settings,
+      successMessage: "已更新运行时任务循环默认值。",
+      page: DesktopPage.config,
     );
   }
 
@@ -679,16 +671,16 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "autoCanaryEvolution": autoCanaryEvolution,
         "reviewIntervalHours": reviewIntervalHours,
       }),
-      successMessage: "Updated local evolution governance controls.",
-      page: DesktopPage.settings,
+      successMessage: "已更新本地演化治理控制项。",
+      page: DesktopPage.config,
     );
   }
 
   Future<void> runEvolutionReview() async {
     await _runCommand(
       () => _client.request("runtime.evolution.run"),
-      successMessage: "Ran an on-demand evolution review.",
-      page: DesktopPage.settings,
+      successMessage: "已执行一次按需演化复审。",
+      page: DesktopPage.config,
     );
   }
 
@@ -717,8 +709,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
         "instantPushEnabled": instantPushEnabled,
         "instantPushMinScore": instantPushMinScore,
       }),
-      successMessage: "Updated the runtime intel panel controls.",
-      page: DesktopPage.settings,
+      successMessage: "已更新运行时情报面板控制项。",
+      page: DesktopPage.config,
     );
   }
 
@@ -727,24 +719,24 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
       () => _client.request("runtime.intel.refresh", <String, Object?>{
         "force": true,
       }),
-      successMessage: "Triggered a manual intel refresh.",
-      page: DesktopPage.settings,
+      successMessage: "已触发一次手动情报刷新。",
+      page: DesktopPage.config,
     );
   }
 
   Future<void> dispatchIntelDeliveries() async {
     await _runCommand(
       () => _client.request("runtime.intel.delivery.dispatch"),
-      successMessage: "Dispatched pending intel deliveries.",
-      page: DesktopPage.settings,
+      successMessage: "已派发待处理的情报投递。",
+      page: DesktopPage.config,
     );
   }
 
   Future<void> syncFederation() async {
     await _runCommand(
       () => _client.request("runtime.federation.sync"),
-      successMessage: "Triggered a manual federation sync.",
-      page: DesktopPage.federation,
+      successMessage: "已触发一次手动联邦同步。",
+      page: DesktopPage.execApprovals,
     );
   }
 
@@ -758,7 +750,7 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
     final createdConfig = asBool(result["createdConfig"]);
     await refresh(
       statusMessage:
-          "Initialized desktop instance roots (${createdCount.toString()} paths${createdConfig ? ", config created" : ""}).",
+          "已初始化桌面实例根目录（${createdCount.toString()} 条路径${createdConfig ? "，并已创建配置" : ""}）。",
     );
   }
 
@@ -768,8 +760,7 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
       state = AsyncData(current.copyWith(isRefreshing: true));
     }
     await _desktopBridge.restartRuntime();
-    final message =
-        "Requested a local runtime restart. Reconnecting through the desktop bootstrap session...";
+    final message = "已请求重启本地运行时，正在通过桌面引导会话重新连接……";
     if (current != null) {
       state = AsyncData(
         current.copyWith(isRefreshing: true, lastStatusMessage: message),
@@ -784,7 +775,7 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
   Future<void> tickRuntime() async {
     await _runCommand(
       () => _client.request("runtime.tick"),
-      successMessage: "Ticked the runtime task loop.",
+      successMessage: "已触发一次运行时任务循环。",
     );
   }
 
@@ -793,8 +784,8 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
     await refresh(
       statusMessage:
           asBool(result["opened"])
-              ? "Opened logs at ${asString(result["logRoot"], "the runtime log root")}."
-              : "Logs are available at ${asString(result["logRoot"], "the runtime log root")}.",
+              ? "已打开日志目录：${asString(result["logRoot"], "运行时日志根目录")}。"
+              : "日志位于：${asString(result["logRoot"], "运行时日志根目录")}。",
     );
   }
 
@@ -849,7 +840,9 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
     final dashboard = asMap(shellSnapshot["dashboard"]);
     final settings = asMap(shellSnapshot["settings"]);
     try {
-      dashboard["runtimeHealth"] = asMap(await _client.request("runtime.getHealth"));
+      dashboard["runtimeHealth"] = asMap(
+        await _client.request("runtime.getHealth"),
+      );
     } catch (_) {
       dashboard["runtimeHealth"] = const <String, dynamic>{};
     }
@@ -907,7 +900,7 @@ class DesktopShellController extends AsyncNotifier<DesktopShellState> {
     }
 
     return DesktopShellState.fromPayloads(
-      page: page ?? current?.page ?? DesktopPage.home,
+      page: page ?? current?.page ?? DesktopPage.chat,
       bootstrap: bootstrap,
       dashboard: dashboard,
       settings: settings,
@@ -928,17 +921,34 @@ class ConsoleShell extends ConsumerStatefulWidget {
 
 class _ConsoleShellState extends ConsumerState<ConsoleShell> {
   late final TextEditingController _composerController;
+  late final TextEditingController _searchController;
+  String _searchQuery = "";
 
   @override
   void initState() {
     super.initState();
     _composerController = TextEditingController();
+    _searchController = TextEditingController();
+    _searchController.addListener(_handleSearchChanged);
   }
 
   @override
   void dispose() {
+    _searchController
+      ..removeListener(_handleSearchChanged)
+      ..dispose();
     _composerController.dispose();
     super.dispose();
+  }
+
+  void _handleSearchChanged() {
+    final next = _searchController.text.trim();
+    if (next == _searchQuery) {
+      return;
+    }
+    setState(() {
+      _searchQuery = next;
+    });
   }
 
   @override
@@ -952,35 +962,62 @@ class _ConsoleShellState extends ConsumerState<ConsoleShell> {
             loading: () => const _LoadingState(),
             error: (error, _) => _ErrorState(error: error),
             data:
-                (shell) => Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    children: [
-                      _TopBar(shell: shell),
-                      const SizedBox(height: 14),
-                      Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            SizedBox(
-                              width: 256,
-                              child: _LeftNavigation(shell: shell),
-                            ),
-                            const SizedBox(width: 14),
-                            SizedBox(
-                              width: 420,
-                              child: _CenterInteractionPane(
-                                shell: shell,
-                                controller: _composerController,
+                (shell) => LayoutBuilder(
+                  builder: (context, constraints) {
+                    final layout = _ShellLayoutSpec.fromWidth(
+                      constraints.maxWidth,
+                    );
+                    return Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            width: layout.leftRailWidth,
+                            child: _LeftNavigation(shell: shell),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: DesktopSurfaceCard(
+                              padding: EdgeInsets.zero,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      18,
+                                      18,
+                                      18,
+                                      14,
+                                    ),
+                                    child: _TopBar(
+                                      shell: shell,
+                                      searchController: _searchController,
+                                      stackControls: layout.stackTopBarControls,
+                                    ),
+                                  ),
+                                  Container(
+                                    height: 1,
+                                    color: DesktopTokens.border,
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(18),
+                                      child: _WorkspaceBody(
+                                        shell: shell,
+                                        composerController: _composerController,
+                                        searchQuery: _searchQuery,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 14),
-                            Expanded(child: _RightWorkboard(shell: shell)),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
           ),
         ),
@@ -1005,12 +1042,12 @@ class _LoadingState extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            "正在把桌面控制台连接到本地运行时...",
+            "正在把桌面控制台连接到桌面核心...",
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: 8),
           Text(
-            "桌面应用正在等待原生启动宿主提供一个可用的本地运行时会话。",
+            "桌面应用正在等待原生启动宿主提供一个可用的桌面连接会话。",
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
@@ -1032,47 +1069,43 @@ class _ErrorState extends ConsumerWidget {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  bootstrapRequired
-                      ? "ClawMark Core 需要处理"
-                      : "桌面控制台尚未连接",
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  error.toString(),
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  bootstrapRequired
-                      ? "原生桌面宿主还没有上报一个已就绪的本地运行时会话。请回到启动工作台检查、下载或重启 ClawMark Core。"
-                      : "Flutter 壳启动前，我们期望本地运行时网关已经可用并完成鉴权。",
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                  onPressed: () {
-                    ref.invalidate(bootstrapControllerProvider);
-                    ref.invalidate(gatewayClientProvider);
-                    ref.invalidate(shellControllerProvider);
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: Text(
-                    bootstrapRequired
-                        ? "打开启动工作台"
-                        : "重试连接",
-                  ),
-                ),
-              ],
-            ),
+        child: DesktopSurfaceCard(
+          padding: const EdgeInsets.all(28),
+          tone:
+              bootstrapRequired
+                  ? DesktopSurfaceTone.warning
+                  : DesktopSurfaceTone.base,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                bootstrapRequired ? "ClawMark 核心需要处理" : "桌面控制台尚未连接",
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 12),
+              SelectableText(
+                error.toString(),
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                bootstrapRequired
+                    ? "原生桌面宿主还没有上报一个已就绪的桌面连接会话。请回到启动工作台检查、下载或重启 ClawMark 核心。"
+                    : "桌面界面启动前，我们期望桌面核心已经可用，并且当前会话已经完成鉴权。",
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: () {
+                  ref.invalidate(bootstrapControllerProvider);
+                  ref.invalidate(gatewayClientProvider);
+                  ref.invalidate(shellControllerProvider);
+                },
+                icon: const Icon(Icons.refresh),
+                label: Text(bootstrapRequired ? "打开启动工作台" : "重试连接"),
+              ),
+            ],
           ),
         ),
       ),
@@ -1081,81 +1114,223 @@ class _ErrorState extends ConsumerWidget {
 }
 
 class _TopBar extends ConsumerWidget {
-  const _TopBar({required this.shell});
+  const _TopBar({
+    required this.shell,
+    required this.searchController,
+    required this.stackControls,
+  });
 
   final DesktopShellState shell;
+  final TextEditingController searchController;
+  final bool stackControls;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(shellControllerProvider.notifier);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "ClawMark 桌面控制台",
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    "一个本地运行时，一个操作工作台，不依赖浏览器。",
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
+    final controls = Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _TopShortcutButton(
+          icon: Icons.language_rounded,
+          tooltip: "频道",
+          active: shell.page == DesktopPage.channels,
+          onPressed:
+              shell.isRefreshing
+                  ? null
+                  : () => controller.setPage(DesktopPage.channels),
+        ),
+        _TopShortcutButton(
+          icon: Icons.bar_chart_rounded,
+          tooltip: "概览",
+          active: shell.page == DesktopPage.overview,
+          onPressed:
+              shell.isRefreshing
+                  ? null
+                  : () => controller.setPage(DesktopPage.overview),
+        ),
+        _TopShortcutButton(
+          icon: Icons.account_circle_outlined,
+          tooltip: "代理",
+          active: shell.page == DesktopPage.agents,
+          onPressed:
+              shell.isRefreshing
+                  ? null
+                  : () => controller.setPage(DesktopPage.agents),
+        ),
+        OutlinedButton(
+          onPressed:
+              shell.isRefreshing
+                  ? null
+                  : () => controller.setPage(DesktopPage.update),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+            backgroundColor: DesktopTokens.accentSurface,
+            side: const BorderSide(color: DesktopTokens.borderStrong),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              alignment: WrapAlignment.end,
-              children: [
-                _MetricPill(
-                  icon: Icons.memory,
-                  label: "运行时",
-                  value: shell.runtimeVersion,
-                ),
-                _MetricPill(
-                  icon: Icons.play_circle_outline,
-                  label: "任务",
-                  value: shell.totalTaskCount.toString(),
-                ),
-                _MetricPill(
-                  icon: Icons.pending_actions_outlined,
-                  label: "待处理",
-                  value: shell.pendingActionCount.toString(),
-                ),
-                _MetricPill(
-                  icon: Icons.mark_chat_unread_outlined,
-                  label: "等待用户",
-                  value: shell.waitingUserCount.toString(),
-                ),
-                _MetricPill(
-                  icon: Icons.outbox_outlined,
-                  label: "外发队列",
-                  value: shell.outboxPendingCount.toString(),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            IconButton(
-              tooltip: "刷新",
-              onPressed: shell.isRefreshing ? null : () => controller.refresh(),
-              icon: const Icon(Icons.sync),
-            ),
-            IconButton(
-              tooltip: "触发运行时轮询",
-              onPressed:
-                  shell.isRefreshing ? null : () => controller.tickRuntime(),
-              icon: const Icon(Icons.play_arrow_rounded),
-            ),
-          ],
+          ),
+          child: const Text("部署"),
+        ),
+      ],
+    );
+    final searchField = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 60),
+      child: TextField(
+        controller: searchController,
+        decoration: const InputDecoration(
+          hintText: "检索神经模块...",
+          prefixIcon: Icon(Icons.search_rounded),
         ),
       ),
+    );
+    return stackControls
+        ? Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [searchField, const SizedBox(height: 14), controls],
+        )
+        : Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: searchField),
+            const SizedBox(width: 16),
+            SizedBox(width: 320, child: controls),
+          ],
+        );
+  }
+}
+
+class _TopShortcutButton extends StatelessWidget {
+  const _TopShortcutButton({
+    required this.icon,
+    required this.tooltip,
+    required this.active,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final bool active;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: active ? DesktopTokens.accentSurface : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: active ? DesktopTokens.borderStrong : DesktopTokens.border,
+          ),
+        ),
+        child: IconButton(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 26),
+          color: active ? DesktopTokens.accent : DesktopTokens.textSecondary,
+          splashRadius: 24,
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceBody extends StatelessWidget {
+  const _WorkspaceBody({
+    required this.shell,
+    required this.composerController,
+    required this.searchQuery,
+  });
+
+  final DesktopShellState shell;
+  final TextEditingController composerController;
+  final String searchQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (shell.page) {
+      DesktopPage.chat => _ChatWorkspace(
+        shell: shell,
+        composerController: composerController,
+        searchQuery: searchQuery,
+      ),
+      DesktopPage.overview => _OverviewWorkboard(
+        shell: shell,
+        searchQuery: searchQuery,
+      ),
+      DesktopPage.runtime => _MemoryWorkboard(
+        shell: shell,
+        searchQuery: searchQuery,
+      ),
+      DesktopPage.channels => _ChannelsWorkboard(shell: shell),
+      DesktopPage.instances => _InstancesWorkboard(shell: shell),
+      DesktopPage.sessions => _SessionsWorkboard(
+        shell: shell,
+        searchQuery: searchQuery,
+      ),
+      DesktopPage.cronJobs => _CronJobsWorkboard(shell: shell),
+      DesktopPage.agents => _GovernanceWorkboard(
+        shell: shell,
+        searchQuery: searchQuery,
+      ),
+      DesktopPage.skills => _SkillsWorkboard(shell: shell),
+      DesktopPage.nodes => _NodesWorkboard(shell: shell),
+      DesktopPage.config => _SettingsWorkboard(
+        shell: shell,
+        searchQuery: searchQuery,
+      ),
+      DesktopPage.debug => _DebugWorkboard(shell: shell),
+      DesktopPage.logs => _LogsWorkboard(shell: shell),
+      DesktopPage.execApprovals => _ExecApprovalsWorkboard(shell: shell),
+      DesktopPage.update => const _UpdateWorkboard(),
+    };
+  }
+}
+
+class _ChatWorkspace extends StatelessWidget {
+  const _ChatWorkspace({
+    required this.shell,
+    required this.composerController,
+    required this.searchQuery,
+  });
+
+  final DesktopShellState shell;
+  final TextEditingController composerController;
+  final String searchQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ChatCenterPane(
+      shell: shell,
+      controller: composerController,
+      searchQuery: searchQuery,
+    );
+  }
+}
+
+class _ShellLayoutSpec {
+  const _ShellLayoutSpec({
+    required this.leftRailWidth,
+    required this.stackTopBarControls,
+  });
+
+  final double leftRailWidth;
+  final bool stackTopBarControls;
+
+  factory _ShellLayoutSpec.fromWidth(double width) {
+    var left = (width * 0.19).clamp(220.0, 320.0).toDouble();
+    final available = width - 14;
+    if (left > available * 0.32) {
+      left = (available * 0.32).clamp(200.0, 320.0).toDouble();
+    }
+    return _ShellLayoutSpec(
+      leftRailWidth: left,
+      stackTopBarControls: width < 1500,
     );
   }
 }
@@ -1168,102 +1343,157 @@ class _LeftNavigation extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(shellControllerProvider.notifier);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: const Color(0xFF1E1D19),
-                  ),
-                  child: const Icon(Icons.hub_rounded, color: Colors.white),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
+    final displayName = asString(shell.userModel["displayName"], "当前操作员");
+    final operatorStatus = shell.warnings.isEmpty ? "桌面已连接" : "请先处理系统提示";
+    return DesktopSurfaceCard(
+      padding: EdgeInsets.zero,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: DesktopTokens.sidebar,
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+        ),
+        child: Scrollbar(
+          child: CustomScrollView(
+            primary: true,
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(18, 22, 18, 0),
+                sliver: SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "操作面",
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      Text(
-                        asString(
-                          shell.productSection["layout"],
-                          "desktop_console",
+                        "ClawMark",
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineMedium?.copyWith(
+                          fontFamily: DesktopTokens.bodyFont,
+                          color: DesktopTokens.accent,
+                          fontWeight: FontWeight.w700,
                         ),
-                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Desktop Console",
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: 24),
+                      ...primaryDesktopNavGroups.map(
+                        (group) => Padding(
+                          padding: const EdgeInsets.only(bottom: 18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                group.label,
+                                style: Theme.of(context).textTheme.labelLarge,
+                              ),
+                              const SizedBox(height: 8),
+                              ...group.pages.map(
+                                (page) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: _NavButton(
+                                    selected: shell.page == page,
+                                    icon: page.icon,
+                                    label: page.label,
+                                    onTap: () => controller.setPage(page),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            ...DesktopPage.values.map(
-              (page) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _NavButton(
-                  selected: shell.page == page,
-                  icon: page.icon,
-                  label: page.label,
-                  subtitle: page.description,
-                  onTap: () => controller.setPage(page),
-                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            Text("对象", style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 10),
-            Expanded(
-              child: ListView.separated(
-                itemCount: shell.tasks.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final task = shell.tasks[index];
-                  return _ObjectTile(
-                    title: task.title,
-                    subtitle: "${task.route} · ${task.worker}",
-                    badge: task.status,
-                    highlighted: shell.selectedTaskId == task.id,
-                    onTap: () => controller.focusTask(task.id),
-                  );
-                },
-              ),
-            ),
-            if (shell.warnings.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                "运行时告警",
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              ...shell.warnings
-                  .take(2)
-                  .map(
-                    (warning) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text(
-                        "• $warning",
-                        style: Theme.of(context).textTheme.bodyMedium,
+              if (shell.warnings.isNotEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: DesktopSurfaceCard(
+                      padding: const EdgeInsets.all(14),
+                      tone: DesktopSurfaceTone.warning,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "系统提示",
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          ...shell.warnings
+                              .take(2)
+                              .map(
+                                (warning) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: Text(
+                                    warning,
+                                    style:
+                                        Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ),
+                              ),
+                        ],
                       ),
                     ),
                   ),
+                ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 22),
+                sliver: SliverToBoxAdapter(
+                  child: DesktopSurfaceCard(
+                    padding: const EdgeInsets.all(14),
+                    tone: DesktopSurfaceTone.muted,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: DesktopTokens.surfaceElevated,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            displayName.characters.firstOrNull?.toUpperCase() ??
+                                "O",
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(color: DesktopTokens.accent),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                displayName,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                operatorStatus,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
+// ignore: unused_element
 class _CenterInteractionPane extends ConsumerWidget {
   const _CenterInteractionPane({required this.shell, required this.controller});
 
@@ -1272,282 +1502,113 @@ class _CenterInteractionPane extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    return DesktopSurfaceCard(
+      padding: const EdgeInsets.all(16),
+      child: switch (shell.page) {
+        DesktopPage.chat => _ChatCenterPane(
+          shell: shell,
+          controller: controller,
+          searchQuery: "",
+        ),
+        DesktopPage.overview => const SizedBox.shrink(),
+        DesktopPage.runtime => const SizedBox.shrink(),
+        DesktopPage.channels => _ChannelsCenterPane(shell: shell),
+        DesktopPage.instances => _InstancesCenterPane(shell: shell),
+        DesktopPage.sessions => _SessionsCenterPane(shell: shell),
+        DesktopPage.cronJobs => _CronJobsCenterPane(shell: shell),
+        DesktopPage.agents => const SizedBox.shrink(),
+        DesktopPage.skills => _SkillsCenterPane(shell: shell),
+        DesktopPage.nodes => _NodesCenterPane(shell: shell),
+        DesktopPage.config => _ConfigCenterPane(shell: shell),
+        DesktopPage.debug => _DebugCenterPane(shell: shell),
+        DesktopPage.logs => _LogsCenterPane(shell: shell),
+        DesktopPage.execApprovals => _ExecApprovalsCenterPane(shell: shell),
+        DesktopPage.update => const _UpdateCenterPane(),
+      },
+    );
+  }
+}
+
+class _ChatCenterPane extends ConsumerWidget {
+  const _ChatCenterPane({
+    required this.shell,
+    required this.controller,
+    required this.searchQuery,
+  });
+
+  final DesktopShellState shell;
+  final TextEditingController controller;
+  final String searchQuery;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final runtime = ref.read(shellControllerProvider.notifier);
     final selectedAction = shell.selectedAction;
-    final runtimeHealth = shell.runtimeHealth;
-    final runtimeHealthProcess = asMap(runtimeHealth["process"]);
-    final runtimeHealthWarnings = asStringList(runtimeHealth["warnings"]);
-    final runtimeSection = shell.runtimeSection;
-    final gatewaySection = shell.gatewaySection;
-    final instanceSection = shell.instanceSection;
     final composerLabel =
-        selectedAction?.isWaitingUserTask == true
-            ? "回复等待中的任务"
-            : "给 ClawMark 一个新目标";
+        selectedAction?.isWaitingUserTask == true ? "回复" : "发送消息";
     final composerHint =
         selectedAction?.isWaitingUserTask == true
-            ? "补充上下文、回复运行时，或批准下一步..."
-            : "描述接下来要做什么，运行时会把它落成任务或工作流。";
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              shell.page.headline,
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              shell.page.description,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 18),
-            _SectionCard(
-              title: composerLabel,
-              subtitle: composerHint,
+            ? "补充上下文、回复当前流程，或批准下一步..."
+            : "输入消息或目标，ClawMark 会按当前控制台流程进入执行。";
+    final task = shell.defaultTaskFocus;
+    final visibleActions = shell.actionQueue
+        .where(
+          (item) => _matchesSearch(searchQuery, [
+            item.title,
+            item.summary,
+            item.priority,
+          ]),
+        )
+        .take(3)
+        .toList(growable: false);
+    return LayoutBuilder(
+      builder:
+          (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: Column(
-                children: [
-                  if (selectedAction != null)
-                    Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F2EA),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            selectedAction.title,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            selectedAction.summary,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          if ((selectedAction.estimatedImpact ?? "")
-                              .isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              "预估影响：${selectedAction.estimatedImpact}",
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  TextField(
-                    controller: controller,
-                    minLines: 6,
-                    maxLines: 10,
-                    decoration: InputDecoration(hintText: composerHint),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed:
-                              shell.isRefreshing
-                                  ? null
-                                  : () async {
-                                    final input = controller.text;
-                                    controller.clear();
-                                    await runtime.submitComposer(input);
-                                  },
-                          icon: const Icon(Icons.send_rounded),
-                          label: Text(
-                            selectedAction?.isWaitingUserTask == true
-                                ? "发送回复"
-                                : "加入目标队列",
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      OutlinedButton.icon(
-                        onPressed:
-                            shell.isRefreshing
-                                ? null
-                                : () {
-                                  controller.clear();
-                                },
-                        icon: const Icon(Icons.layers_clear_outlined),
-                        label: const Text("清空"),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            Expanded(
-              child: ListView(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _SectionCard(
-                    title: "一体化安装就绪度",
-                    subtitle:
-                        "在首次开始控制前，桌面壳、运行时宿主、本地网关和实例根目录都应该清晰可见。",
+                    title: "对话输入",
+                    subtitle: "沿用 OpenClaw 的 chat-first 入口，先从对话和 composer 开始。",
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _FactGrid(
-                          items: [
-                            (
-                              "内置宿主",
-                              asBool(
-                                    runtimeSection["bundledHostReady"],
-                                    true,
-                                  )
-                                  ? "就绪"
-                                  : "未就绪",
-                            ),
-                            (
-                              "网关传输",
-                              asString(
-                                gatewaySection["transport"],
-                                "websocket-rpc",
-                              ),
-                            ),
-                            (
-                              "仅 loopback",
-                              asBool(gatewaySection["localOnly"], true)
-                                  ? "是"
-                                  : "否",
-                            ),
-                            (
-                              "鉴权模式",
-                              asString(gatewaySection["authMode"], "token"),
-                            ),
-                            (
-                              "实例根目录",
-                              asString(instanceSection["instanceRoot"], "n/a"),
-                            ),
-                            (
-                              "工作区根目录",
-                              asString(
-                                instanceSection["workspaceRoot"],
-                                "n/a",
-                              ),
-                            ),
-                            (
-                              "运行时 PID",
-                              asString(
-                                runtimeHealthProcess["pid"],
-                                asString(runtimeSection["pid"], "n/a"),
-                              ),
-                            ),
-                            (
-                              "运行时长",
-                              _formatDuration(
-                                asInt(
-                                  runtimeHealthProcess["uptimeMs"],
-                                  asInt(runtimeSection["uptimeMs"]),
-                                ),
-                              ),
-                            ),
-                            (
-                              "RSS",
-                              _formatBytes(
-                                asInt(runtimeHealthProcess["rssBytes"]),
-                              ),
-                            ),
-                            (
-                              "堆内存占用",
-                              _formatBytes(
-                                asInt(runtimeHealthProcess["heapUsedBytes"]),
-                              ),
-                            ),
-                          ],
+                        TextField(
+                          controller: controller,
+                          minLines: 4,
+                          maxLines: 7,
+                          decoration: InputDecoration(hintText: composerHint),
                         ),
                         const SizedBox(height: 12),
-                        Column(
+                        Row(
                           children: [
-                            _ReadinessRow(
-                              ready: asBool(
-                                runtimeSection["bundledHostReady"],
-                                true,
-                              ),
-                              title: "内置桌面运行时宿主",
-                              summary:
-                                  "操作端应用应该自带本地控制链路。",
-                            ),
-                            _ReadinessRow(
-                              ready: asBool(gatewaySection["localOnly"], true),
-                              title: "仅使用本地网关",
-                              summary:
-                                  "桌面控制应该停留在 loopback，不依赖浏览器控制台。",
-                            ),
-                            _ReadinessRow(
-                              ready: shell.warnings.isEmpty,
-                              title: "启动告警已清空",
-                              summary:
-                                  shell.warnings.isEmpty
-                                      ? "当前没有看到启动告警。"
-                                      : shell.warnings.first,
-                            ),
-                            _ReadinessRow(
-                              ready: runtimeHealthWarnings.isEmpty,
-                              title: "运行时健康告警",
-                              summary:
-                                  runtimeHealthWarnings.isEmpty
-                                  ? "当前运行时健康快照是干净的。"
-                                  : runtimeHealthWarnings.join("  "),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed:
-                                  shell.isRefreshing
-                                      ? null
-                                      : () => runtime.openLogs(),
-                              icon: const Icon(Icons.folder_open_outlined),
-                              label: const Text("打开日志"),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed:
-                                  shell.isRefreshing
-                                      ? null
-                                      : () => runtime.initializeInstance(),
-                              icon: const Icon(Icons.inventory_2_outlined),
-                              label: const Text("初始化实例"),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed:
-                                  shell.isRefreshing
-                                      ? null
-                                      : () => runtime.restartRuntime(),
-                              icon: const Icon(Icons.restart_alt_outlined),
-                              label: const Text("重启运行时"),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed:
-                                  shell.isRefreshing
-                                      ? null
-                                      : () => runtime.setPage(
-                                        DesktopPage.settings,
-                                      ),
-                              icon: const Icon(Icons.settings_outlined),
-                              label: const Text("打开设置"),
-                            ),
-                            if (shell.warnings.isNotEmpty)
-                              OutlinedButton.icon(
+                            Expanded(
+                              child: FilledButton.icon(
                                 onPressed:
                                     shell.isRefreshing
                                         ? null
-                                        : () => runtime.refresh(),
-                                icon: const Icon(Icons.sync_problem_outlined),
-                                label: const Text("重新检查启动状态"),
+                                        : () async {
+                                          final input = controller.text;
+                                          controller.clear();
+                                          await runtime.submitComposer(input);
+                                        },
+                                icon: const Icon(Icons.send_rounded),
+                                label: Text(composerLabel),
                               ),
+                            ),
+                            const SizedBox(width: 12),
+                            OutlinedButton.icon(
+                              onPressed:
+                                  shell.isRefreshing
+                                      ? null
+                                      : () {
+                                        controller.clear();
+                                      },
+                              icon: const Icon(Icons.layers_clear_outlined),
+                              label: const Text("清空"),
+                            ),
                           ],
                         ),
                       ],
@@ -1555,98 +1616,36 @@ class _CenterInteractionPane extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                   _SectionCard(
-                    title: "审批与快捷动作",
-                    subtitle:
-                        "中间栏用于承载当前审批、打断请求和操作快捷入口。",
-                    child: Column(
-                      children: [
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed:
-                                  shell.isRefreshing
-                                      ? null
-                                      : () => runtime.refresh(),
-                              icon: const Icon(Icons.sync),
-                              label: const Text("刷新"),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed:
-                                  shell.isRefreshing
-                                      ? null
-                                      : () => runtime.tickRuntime(),
-                              icon: const Icon(Icons.bolt_outlined),
-                              label: const Text("触发运行时轮询"),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed:
-                                  shell.isRefreshing
-                                      ? null
-                                      : () => runtime.syncFederation(),
-                              icon: const Icon(Icons.hub_outlined),
-                              label: const Text("同步联邦"),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed:
-                                  shell.isRefreshing
-                                      ? null
-                                      : () => runtime.openLogs(),
-                              icon: const Icon(Icons.folder_open_outlined),
-                              label: const Text("打开日志"),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed:
-                                  shell.isRefreshing
-                                      ? null
-                                      : () => runtime.initializeInstance(),
-                              icon: const Icon(Icons.inventory_2_outlined),
-                              label: const Text("初始化实例"),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed:
-                                  shell.isRefreshing
-                                      ? null
-                                      : () => runtime.restartRuntime(),
-                              icon: const Icon(Icons.restart_alt_outlined),
-                              label: const Text("重启运行时"),
-                            ),
-                          ],
+                    title: "当前执行上下文",
+                    subtitle: "保留 OpenClaw 首页需要看到的当前任务、等待确认和连接状态。",
+                    child: _FactGrid(
+                      items: [
+                        ("当前任务", task?.title ?? "暂无"),
+                        (
+                          "任务状态",
+                          task == null
+                              ? "暂无"
+                              : _localizedStatusLabel(task.status),
                         ),
-                        if ((shell.lastStatusMessage ?? "").isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF7F2EA),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Text(
-                              shell.lastStatusMessage!,
+                        ("待处理审批", shell.pendingActionCount.toString()),
+                        ("等待用户", shell.waitingUserCount.toString()),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _SectionCard(
+                    title: "执行审批",
+                    subtitle: "当前对话相关的待确认动作直接收在首页，不再拆出内部产品概念。",
+                    child:
+                        visibleActions.isEmpty
+                            ? Text(
+                              searchQuery.isEmpty
+                                  ? "当前没有和对话直接相关的待确认动作。"
+                                  : "当前搜索词下没有匹配的待确认动作。",
                               style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SectionCard(
-                    title: "审批队列",
-                    subtitle:
-                        "需要人工参与的动作会明确显示在这里，而不是藏在后台守护进程后面。",
-                    child: Column(
-                      children:
-                          shell.actionQueue.isEmpty
-                              ? [
-                                Text(
-                                  "当前没有待处理动作，运行时可以继续推进。",
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ]
-                              : shell.actionQueue
+                            )
+                            : Column(
+                              children: visibleActions
                                   .map(
                                     (item) => Padding(
                                       padding: const EdgeInsets.only(
@@ -1659,14 +1658,630 @@ class _CenterInteractionPane extends ConsumerWidget {
                                     ),
                                   )
                                   .toList(growable: false),
+                            ),
+                  ),
+                  const SizedBox(height: 14),
+                  _SectionCard(
+                    title: "最近会话与摘要",
+                    subtitle: "会话视图里的核心摘要在首页保留一个轻量入口。",
+                    child: _FactGrid(
+                      items: [
+                        ("活动任务", shell.totalTaskCount.toString()),
+                        ("最近复盘", shell.reviewCount.toString()),
+                        ("正式记忆", shell.memoryCount.toString()),
+                        ("核心版本", shell.runtimeVersion),
+                      ],
                     ),
+                  ),
+                  if ((shell.lastStatusMessage ?? "").isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    DesktopSurfaceCard(
+                      padding: const EdgeInsets.all(12),
+                      tone: DesktopSurfaceTone.muted,
+                      child: Text(
+                        shell.lastStatusMessage!,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+}
+
+class _SessionsWorkboard extends ConsumerWidget {
+  const _SessionsWorkboard({required this.shell, required this.searchQuery});
+
+  final DesktopShellState shell;
+  final String searchQuery;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(shellControllerProvider.notifier);
+    final selectedTask = shell.selectedTask;
+    final task = asMap(selectedTask?["task"]);
+    final runs = asMapList(selectedTask?["runs"]);
+    final reviews = asMapList(selectedTask?["reviews"]);
+    final visibleTasks = shell.tasks
+        .where(
+          (entry) => _matchesSearch(searchQuery, [
+            entry.title,
+            entry.status,
+            entry.route,
+            entry.worker,
+          ]),
+        )
+        .toList(growable: false);
+    final visibleRuns = runs
+        .where(
+          (run) => _matchesSearch(searchQuery, [
+            run["id"],
+            run["status"],
+            run["thinkingLane"],
+            run["summary"],
+          ]),
+        )
+        .toList(growable: false);
+    final visibleReviews = reviews
+        .where(
+          (review) => _matchesSearch(searchQuery, [
+            review["summary"],
+            review["outcome"],
+          ]),
+        )
+        .toList(growable: false);
+    return ListView(
+      children: [
+        _SectionCard(
+          title: "会话列表",
+          subtitle: "当前桌面快照还没有独立 sessions 数据面时，先用活动任务承接会话列表。",
+          child:
+              visibleTasks.isEmpty
+                  ? Text(
+                    searchQuery.isEmpty ? "当前没有活动会话。" : "没有匹配当前搜索词的会话。",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  )
+                  : Column(
+                    children: visibleTasks
+                        .take(8)
+                        .map(
+                          (entry) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _ObjectTile(
+                              title: entry.title,
+                              subtitle:
+                                  "${_localizedStatusLabel(entry.status)} · ${_localizedOptionLabel(entry.route)}",
+                              badge: entry.status,
+                              highlighted: shell.selectedTaskId == entry.id,
+                              onTap: () => controller.focusTask(entry.id),
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+        ),
+        const SizedBox(height: 14),
+        _SectionCard(
+          title: "当前会话详情",
+          subtitle: "聚焦当前会话关联的运行、复盘和最近一步。",
+          child: _FactGrid(
+            items: [
+              ("当前会话", asString(task["title"], "未选择")),
+              ("状态", _localizedStatusLabel(asString(task["status"], "queued"))),
+              ("下一步", asString(task["nextAction"], "暂未排入下一动作")),
+              ("更新时间", _formatTimestamp(asInt(task["updatedAt"]))),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _SectionCard(
+          title: "最近运行与复盘",
+          subtitle: "保持 OpenClaw 会话页的上下文感，但不额外暴露内部 runtime 模型。",
+          child: Column(
+            children: [
+              if (visibleRuns.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    searchQuery.isEmpty ? "当前会话还没有运行记录。" : "没有匹配当前搜索词的运行记录。",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ...visibleRuns
+                  .take(4)
+                  .map(
+                    (run) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _TimelineTile(
+                        title: asString(run["id"], "运行记录"),
+                        subtitle:
+                            "${_localizedStatusLabel(asString(run["status"], "queued"))} · ${_localizedOptionLabel(asString(run["thinkingLane"], "system1"))}",
+                        trailing: _formatTimestamp(asInt(run["updatedAt"])),
+                      ),
+                    ),
+                  ),
+              if (visibleReviews.isNotEmpty) ...[
+                const Divider(height: 28),
+                ...visibleReviews
+                    .take(3)
+                    .map(
+                      (review) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _TimelineTile(
+                          title: asString(review["summary"], "复盘记录"),
+                          subtitle: asString(review["outcome"], "已记录"),
+                          trailing: _formatTimestamp(
+                            asInt(review["createdAt"]),
+                          ),
+                        ),
+                      ),
+                    ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChannelsCenterPane extends StatelessWidget {
+  const _ChannelsCenterPane({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PageIntroCard(
+      title: "渠道",
+      subtitle: "按 OpenClaw 的渠道入口组织。桌面版当前用本地表面绑定来承接可见内容。",
+      child: _FactGrid(
+        items: [
+          ("渠道绑定", shell.surfaces.length.toString()),
+          (
+            "活动表面",
+            shell.surfaces
+                .where((entry) => asBool(entry["active"]))
+                .length
+                .toString(),
+          ),
+          ("待处理审批", shell.pendingActionCount.toString()),
+          (
+            "本地模式",
+            asBool(shell.gatewaySection["localOnly"], true) ? "仅本地回环" : "已放开",
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InstancesCenterPane extends ConsumerWidget {
+  const _InstancesCenterPane({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final runtime = ref.read(shellControllerProvider.notifier);
+    return _PageIntroCard(
+      title: "实例",
+      subtitle: "本地实例、宿主和运行时状态都在这一页查看。",
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _FactGrid(
+            items: [
+              ("实例根目录", asString(shell.instanceSection["instanceRoot"], "n/a")),
+              (
+                "工作区根目录",
+                asString(shell.instanceSection["workspaceRoot"], "n/a"),
+              ),
+              ("运行时版本", shell.runtimeVersion),
+              (
+                "告警",
+                shell.warnings.isEmpty ? "无" : shell.warnings.length.toString(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed:
+                    shell.isRefreshing
+                        ? null
+                        : () => runtime.initializeInstance(),
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: const Text("初始化实例"),
+              ),
+              OutlinedButton.icon(
+                onPressed:
+                    shell.isRefreshing ? null : () => runtime.restartRuntime(),
+                icon: const Icon(Icons.restart_alt_outlined),
+                label: const Text("重启运行时"),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionsCenterPane extends ConsumerWidget {
+  const _SessionsCenterPane({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(shellControllerProvider.notifier);
+    return _PageIntroCard(
+      title: "会话",
+      subtitle: "当前桌面快照未暴露独立会话列表时，这里优先展示活动执行上下文。",
+      child: Column(
+        children: [
+          if (shell.tasks.isEmpty)
+            Text("当前没有活动会话。", style: Theme.of(context).textTheme.bodyMedium)
+          else
+            ...shell.tasks
+                .take(6)
+                .map(
+                  (task) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _ObjectTile(
+                      title: task.title,
+                      subtitle:
+                          "${_localizedStatusLabel(task.status)} · ${_localizedOptionLabel(task.route)}",
+                      badge: task.status,
+                      highlighted: shell.selectedTaskId == task.id,
+                      onTap: () => controller.focusTask(task.id),
+                    ),
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CronJobsCenterPane extends StatelessWidget {
+  const _CronJobsCenterPane({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PageIntroCard(
+      title: "定时任务",
+      subtitle: "保留 OpenClaw 的 cron jobs 页面入口。当前桌面快照未携带独立定时任务清单。",
+      child: _FactGrid(
+        items: [
+          ("活动任务", shell.totalTaskCount.toString()),
+          ("待用户处理", shell.waitingUserCount.toString()),
+          ("最近复盘", shell.reviewCount.toString()),
+          ("状态", "等待接入独立 cron 快照"),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkillsCenterPane extends StatelessWidget {
+  const _SkillsCenterPane({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeAgents = shell.agents
+        .where((entry) => asBool(entry["active"]))
+        .toList(growable: false);
+    return _PageIntroCard(
+      title: "技能",
+      subtitle: "保留 OpenClaw 的 skills 页面入口，当前用技能包与能力姿态的本地快照承接。",
+      child: _FactGrid(
+        items: [
+          ("活动代理", activeAgents.length.toString()),
+          ("受控条目", shell.governanceEntries.length.toString()),
+          ("MCP 授权", shell.capabilityMcpGrants.length.toString()),
+          ("近期活动", shell.capabilityRecentActivity.length.toString()),
+        ],
+      ),
+    );
+  }
+}
+
+class _NodesCenterPane extends StatelessWidget {
+  const _NodesCenterPane({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PageIntroCard(
+      title: "节点",
+      subtitle: "当前桌面端默认只有一个本地节点：桌面宿主拉起的本地运行时。",
+      child: _FactGrid(
+        items: [
+          ("本地节点", "1"),
+          ("运行时版本", shell.runtimeVersion),
+          ("活动代理", shell.agents.length.toString()),
+          ("表面数", shell.surfaces.length.toString()),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExecApprovalsCenterPane extends StatelessWidget {
+  const _ExecApprovalsCenterPane({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PageIntroCard(
+          title: "执行审批",
+          subtitle: "所有需要人工确认的动作都收口到这里，而不是拆成治理、联邦、用户模型等内部页面。",
+          child: _FactGrid(
+            items: [
+              ("待处理总数", shell.pendingActionCount.toString()),
+              ("等待用户", shell.waitingUserCount.toString()),
+              (
+                "用户模型建议",
+                shell.recommendedUserModelOptimizationCount.toString(),
+              ),
+              ("角色建议", shell.recommendedRoleOptimizationCount.toString()),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Expanded(
+          child: ListView(
+            children:
+                shell.actionQueue.isEmpty
+                    ? [
+                      Text(
+                        "当前没有待处理审批。",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ]
+                    : shell.actionQueue
+                        .map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _ActionQueueTile(shell: shell, item: item),
+                          ),
+                        )
+                        .toList(growable: false),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ConfigCenterPane extends StatelessWidget {
+  const _ConfigCenterPane({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PageIntroCard(
+      title: "配置",
+      subtitle: "按 OpenClaw 的 config 页面组织，当前展示桌面端已可见的本地配置入口。",
+      child: _FactGrid(
+        items: [
+          ("显示名称", asString(shell.userModel["displayName"], "未设置")),
+          ("沟通风格", asString(shell.userModel["communicationStyle"], "未设置")),
+          ("实例根目录", shell.instanceRoot),
+          ("网关地址", shell.runtimeWsUrl.isEmpty ? "未上报" : shell.runtimeWsUrl),
+        ],
+      ),
+    );
+  }
+}
+
+class _DebugCenterPane extends StatelessWidget {
+  const _DebugCenterPane({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    final process = asMap(shell.runtimeHealth["process"]);
+    return _PageIntroCard(
+      title: "调试",
+      subtitle: "这里保留本地运行时诊断、告警和快照统计。",
+      child: _FactGrid(
+        items: [
+          ("PID", asString(process["pid"], "n/a")),
+          ("运行时长", _formatDuration(asInt(process["uptimeMs"]))),
+          ("RSS", _formatBytes(asInt(process["rssBytes"]))),
+          (
+            "告警",
+            shell.warnings.isEmpty ? "无" : shell.warnings.length.toString(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogsCenterPane extends ConsumerWidget {
+  const _LogsCenterPane({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(shellControllerProvider.notifier);
+    return _PageIntroCard(
+      title: "日志",
+      subtitle: "日志入口保持独立，不和首页混在一起。",
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _FactGrid(
+            items: [
+              ("日志目录", asString(shell.instanceSection["logRoot"], "n/a")),
+              ("当前告警", shell.warnings.isEmpty ? "无" : shell.warnings.first),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed:
+                    shell.isRefreshing ? null : () => controller.openLogs(),
+                icon: const Icon(Icons.folder_open_outlined),
+                label: const Text("打开日志"),
+              ),
+              OutlinedButton.icon(
+                onPressed:
+                    shell.isRefreshing ? null : () => controller.refresh(),
+                icon: const Icon(Icons.sync),
+                label: const Text("刷新状态"),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UpdateCenterPane extends ConsumerWidget {
+  const _UpdateCenterPane();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bootstrapAsync = ref.watch(bootstrapControllerProvider);
+    final controller = ref.read(bootstrapControllerProvider.notifier);
+    return bootstrapAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error:
+          (error, _) => _PageIntroCard(
+            title: "更新",
+            subtitle: "更新页依赖原生宿主的启动状态。",
+            child: Text(
+              error.toString(),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+      data:
+          (bootstrap) => _PageIntroCard(
+            title: "更新",
+            subtitle: "按 OpenClaw 的 update 页面入口组织，当前对接 ClawMark Core 发布流。",
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _FactGrid(
+                  items: [
+                    (
+                      "当前版本",
+                      bootstrap.currentVersion.isEmpty
+                          ? "未安装"
+                          : bootstrap.currentVersion,
+                    ),
+                    (
+                      "可用版本",
+                      bootstrap.latestRelease == null
+                          ? "未检查"
+                          : bootstrap.latestRelease!.version,
+                    ),
+                    (
+                      "发布状态",
+                      bootstrap.releaseStatusMessage ?? bootstrap.releaseStatus,
+                    ),
+                    ("平台", "${bootstrap.platform} / ${bootstrap.arch}"),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed:
+                          bootstrap.isBusy
+                              ? null
+                              : () => controller.checkForUpdates(force: true),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text("检查更新"),
+                    ),
+                    FilledButton.icon(
+                      onPressed:
+                          bootstrap.isBusy ||
+                                  bootstrap.latestRelease == null ||
+                                  bootstrap.updateAvailable == false &&
+                                      bootstrap.currentVersion.isNotEmpty
+                              ? null
+                              : () => controller.downloadCore(),
+                      icon: const Icon(Icons.download_rounded),
+                      label: Text(
+                        bootstrap.currentVersion.isEmpty ? "下载核心" : "安装最新版本",
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+    );
+  }
+}
+
+class _PageIntroCard extends StatelessWidget {
+  const _PageIntroCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder:
+          (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+                  const SizedBox(height: 18),
+                  DesktopSurfaceCard(
+                    padding: const EdgeInsets.all(18),
+                    tone: DesktopSurfaceTone.base,
+                    child: child,
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 }
@@ -1681,12 +2296,9 @@ class _ActionQueueTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(shellControllerProvider.notifier);
     final isSelected = shell.selectedActionId == item.id;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: isSelected ? const Color(0xFF1E1D19) : const Color(0xFFF9F5EF),
-      ),
+    return DesktopSurfaceCard(
+      padding: const EdgeInsets.all(16),
+      tone: isSelected ? DesktopSurfaceTone.accent : DesktopSurfaceTone.muted,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1698,7 +2310,7 @@ class _ActionQueueTile extends ConsumerWidget {
                 child: Text(
                   item.title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: isSelected ? Colors.white : null,
+                    color: isSelected ? DesktopTokens.textPrimary : null,
                   ),
                 ),
               ),
@@ -1708,16 +2320,19 @@ class _ActionQueueTile extends ConsumerWidget {
           Text(
             item.summary,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: isSelected ? Colors.white70 : null,
+              color:
+                  isSelected
+                      ? DesktopTokens.textSecondary
+                      : DesktopTokens.textSecondary,
             ),
           ),
           if ((item.actionBlockedReason ?? "").isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               item.actionBlockedReason!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isSelected ? Colors.white70 : const Color(0xFFA24634),
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: DesktopTokens.warning),
             ),
           ],
           const SizedBox(height: 12),
@@ -1727,7 +2342,7 @@ class _ActionQueueTile extends ConsumerWidget {
             children: [
               OutlinedButton(
                 onPressed: () => controller.focusAction(item.id),
-                child: const Text("Focus"),
+                child: const Text("聚焦"),
               ),
               if (item.isEvolutionReview && (item.candidateId ?? "").isNotEmpty)
                 FilledButton(
@@ -1735,7 +2350,7 @@ class _ActionQueueTile extends ConsumerWidget {
                       shell.isRefreshing
                           ? null
                           : () => controller.adoptEvolution(item.candidateId!),
-                  child: const Text("Adopt"),
+                  child: const Text("采纳"),
                 ),
               if (item.isEvolutionReview && (item.candidateId ?? "").isNotEmpty)
                 OutlinedButton(
@@ -1743,7 +2358,7 @@ class _ActionQueueTile extends ConsumerWidget {
                       shell.isRefreshing
                           ? null
                           : () => controller.rejectEvolution(item.candidateId!),
-                  child: const Text("Reject"),
+                  child: const Text("拒绝"),
                 ),
               if (item.isUserModelOptimization &&
                   (item.candidateId ?? "").isNotEmpty)
@@ -1754,7 +2369,7 @@ class _ActionQueueTile extends ConsumerWidget {
                           : () => controller.adoptUserModelOptimization(
                             item.candidateId!,
                           ),
-                  child: const Text("Apply to runtime user model"),
+                  child: const Text("应用到用户模型"),
                 ),
               if (item.isUserModelOptimization &&
                   (item.candidateId ?? "").isNotEmpty)
@@ -1765,7 +2380,7 @@ class _ActionQueueTile extends ConsumerWidget {
                           : () => controller.rejectUserModelOptimization(
                             item.candidateId!,
                           ),
-                  child: const Text("Keep current user model"),
+                  child: const Text("保持当前用户模型"),
                 ),
               if (item.isRoleOptimization &&
                   (item.candidateId ?? "").isNotEmpty)
@@ -1776,7 +2391,7 @@ class _ActionQueueTile extends ConsumerWidget {
                           : () => controller.adoptRoleOptimization(
                             item.candidateId!,
                           ),
-                  child: const Text("Apply to surface role"),
+                  child: const Text("应用到表面角色"),
                 ),
               if (item.isRoleOptimization &&
                   (item.candidateId ?? "").isNotEmpty)
@@ -1787,7 +2402,7 @@ class _ActionQueueTile extends ConsumerWidget {
                           : () => controller.rejectRoleOptimization(
                             item.candidateId!,
                           ),
-                  child: const Text("Keep current role"),
+                  child: const Text("保持当前角色"),
                 ),
               if (item.isUserModelMirrorImport)
                 FilledButton(
@@ -1795,7 +2410,7 @@ class _ActionQueueTile extends ConsumerWidget {
                       shell.isRefreshing
                           ? null
                           : () => controller.importUserModelMirror(),
-                  child: const Text("Import edits"),
+                  child: const Text("导入镜像编辑"),
                 ),
               if (item.isUserModelMirrorImport)
                 OutlinedButton(
@@ -1803,7 +2418,7 @@ class _ActionQueueTile extends ConsumerWidget {
                       shell.isRefreshing
                           ? null
                           : () => controller.discardPendingUserModelMirror(),
-                  child: const Text("Discard mirror edits"),
+                  child: const Text("丢弃镜像编辑"),
                 ),
               if (item.isWaitingUserTask)
                 OutlinedButton.icon(
@@ -1812,7 +2427,7 @@ class _ActionQueueTile extends ConsumerWidget {
                           ? null
                           : () => controller.focusAction(item.id),
                   icon: const Icon(Icons.chat_bubble_outline),
-                  label: const Text("Reply in center"),
+                  label: const Text("去中栏回复"),
                 ),
               if (item.isFederationPackage && (item.packageId ?? "").isNotEmpty)
                 FilledButton(
@@ -1822,7 +2437,7 @@ class _ActionQueueTile extends ConsumerWidget {
                           : () => controller.adoptFederationPackage(
                             item.packageId!,
                           ),
-                  child: const Text("Adopt package"),
+                  child: const Text("采纳包"),
                 ),
               if (item.isFederationPackage && (item.packageId ?? "").isNotEmpty)
                 OutlinedButton(
@@ -1832,15 +2447,15 @@ class _ActionQueueTile extends ConsumerWidget {
                           : () => controller.rejectFederationPackage(
                             item.packageId!,
                           ),
-                  child: const Text("Reject package"),
+                  child: const Text("拒绝包"),
                 ),
               if (item.isFederationPackage)
                 OutlinedButton(
                   onPressed:
                       shell.isRefreshing
                           ? null
-                          : () => controller.setPage(DesktopPage.federation),
-                  child: const Text("Open federation"),
+                          : () => controller.setPage(DesktopPage.execApprovals),
+                  child: const Text("打开审批页"),
                 ),
               if (item.isCoordinatorSuggestion)
                 FilledButton(
@@ -1853,8 +2468,8 @@ class _ActionQueueTile extends ConsumerWidget {
                           ),
                   child: Text(
                     item.canMaterializeCoordinatorSuggestion
-                        ? "Materialize task"
-                        : "Materialize blocked",
+                        ? "生成本地任务"
+                        : "当前不可生成",
                   ),
                 ),
               if (item.isCoordinatorSuggestion)
@@ -1862,8 +2477,8 @@ class _ActionQueueTile extends ConsumerWidget {
                   onPressed:
                       shell.isRefreshing
                           ? null
-                          : () => controller.setPage(DesktopPage.federation),
-                  child: const Text("Open federation"),
+                          : () => controller.setPage(DesktopPage.execApprovals),
+                  child: const Text("打开审批页"),
                 ),
             ],
           ),
@@ -1873,6 +2488,7 @@ class _ActionQueueTile extends ConsumerWidget {
   }
 }
 
+// ignore: unused_element
 class _RightWorkboard extends StatelessWidget {
   const _RightWorkboard({required this.shell});
 
@@ -1880,25 +2496,708 @@ class _RightWorkboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: switch (shell.page) {
-          DesktopPage.home || DesktopPage.tasks => _TaskWorkboard(shell: shell),
-          DesktopPage.memory => _MemoryWorkboard(shell: shell),
-          DesktopPage.governance => _GovernanceWorkboard(shell: shell),
-          DesktopPage.federation => _FederationWorkboard(shell: shell),
-          DesktopPage.settings => _SettingsWorkboard(shell: shell),
-        },
-      ),
+    return DesktopSurfaceCard(
+      padding: const EdgeInsets.all(18),
+      child: switch (shell.page) {
+        DesktopPage.chat => _TaskWorkboard(
+          shell: shell,
+          searchQuery: "",
+          title: "当前执行",
+          subtitle: "当前对话关联的任务、步骤和复盘会在这里展开。",
+        ),
+        DesktopPage.overview => _OverviewWorkboard(
+          shell: shell,
+          searchQuery: "",
+        ),
+        DesktopPage.runtime => _MemoryWorkboard(shell: shell, searchQuery: ""),
+        DesktopPage.channels => _ChannelsWorkboard(shell: shell),
+        DesktopPage.instances => _InstancesWorkboard(shell: shell),
+        DesktopPage.sessions => _TaskWorkboard(
+          shell: shell,
+          searchQuery: "",
+          title: "会话详情",
+          subtitle: "当前会话关联的执行上下文和最近运行记录。",
+        ),
+        DesktopPage.cronJobs => _CronJobsWorkboard(shell: shell),
+        DesktopPage.agents => _GovernanceWorkboard(
+          shell: shell,
+          searchQuery: "",
+        ),
+        DesktopPage.skills => _SkillsWorkboard(shell: shell),
+        DesktopPage.nodes => _NodesWorkboard(shell: shell),
+        DesktopPage.config => _SettingsWorkboard(shell: shell, searchQuery: ""),
+        DesktopPage.debug => _DebugWorkboard(shell: shell),
+        DesktopPage.logs => _LogsWorkboard(shell: shell),
+        DesktopPage.execApprovals => _ExecApprovalsWorkboard(shell: shell),
+        DesktopPage.update => const _UpdateWorkboard(),
+      },
+    );
+  }
+}
+
+class _OverviewWorkboard extends ConsumerWidget {
+  const _OverviewWorkboard({required this.shell, required this.searchQuery});
+
+  final DesktopShellState shell;
+  final String searchQuery;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(shellControllerProvider.notifier);
+    final focusedTask = shell.defaultTaskFocus;
+    final visibleActions = shell.actionQueue
+        .where(
+          (item) => _matchesSearch(searchQuery, [
+            item.title,
+            item.summary,
+            item.priority,
+          ]),
+        )
+        .take(4)
+        .toList(growable: false);
+    return ListView(
+      children: [
+        Text("Overview", style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 8),
+        Text(
+          "把 OpenClaw 第一屏真正需要看到的状态、入口动作和待处理项收回到产品层表达，不再把内部运行时术语顶在最上面。",
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 18),
+        _SectionCard(
+          title: "当前状态",
+          subtitle: "这里先看任务、确认项和记忆规模，不直接暴露内部宿主细节。",
+          child: _FactGrid(
+            items: [
+              ("活动任务", shell.totalTaskCount.toString()),
+              ("待确认", shell.pendingActionCount.toString()),
+              ("等待用户", shell.waitingUserCount.toString()),
+              ("正式记忆", shell.memoryCount.toString()),
+              ("策略", shell.strategyCount.toString()),
+              ("联邦待同步", shell.outboxPendingCount.toString()),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _SectionCard(
+          title: "快速入口",
+          subtitle: "把最常用的页面跳转和部署动作放在第一屏。",
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              OutlinedButton.icon(
+                onPressed:
+                    shell.isRefreshing
+                        ? null
+                        : () => controller.setPage(DesktopPage.chat),
+                icon: const Icon(Icons.chat_bubble_outline_rounded),
+                label: const Text("打开聊天"),
+              ),
+              OutlinedButton.icon(
+                onPressed:
+                    shell.isRefreshing
+                        ? null
+                        : () => controller.setPage(DesktopPage.sessions),
+                icon: const Icon(Icons.history_rounded),
+                label: const Text("查看会话"),
+              ),
+              OutlinedButton.icon(
+                onPressed:
+                    shell.isRefreshing
+                        ? null
+                        : () => controller.setPage(DesktopPage.logs),
+                icon: const Icon(Icons.receipt_long_outlined),
+                label: const Text("打开日志"),
+              ),
+              FilledButton.icon(
+                onPressed:
+                    shell.isRefreshing
+                        ? null
+                        : () => controller.setPage(DesktopPage.update),
+                icon: const Icon(Icons.rocket_launch_outlined),
+                label: const Text("部署"),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _SectionCard(
+          title: "当前关注任务",
+          subtitle: "当前任务焦点仍然保留，但只作为工作摘要而不是产品身份。",
+          child:
+              focusedTask == null
+                  ? Text(
+                    "当前没有处于焦点中的任务。",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  )
+                  : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _FactGrid(
+                        items: [
+                          ("任务", focusedTask.title),
+                          ("状态", _localizedStatusLabel(focusedTask.status)),
+                          ("路由", _localizedOptionLabel(focusedTask.route)),
+                          (
+                            "下一步",
+                            focusedTask.nextAction.isEmpty
+                                ? "未提供"
+                                : focusedTask.nextAction,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed:
+                            shell.isRefreshing
+                                ? null
+                                : () => controller.focusTask(focusedTask.id),
+                        icon: const Icon(Icons.open_in_new_rounded),
+                        label: const Text("打开任务详情"),
+                      ),
+                    ],
+                  ),
+        ),
+        const SizedBox(height: 14),
+        _SectionCard(
+          title: "待处理动作",
+          subtitle: "审批仍然存在，但不再占据顶部主标题。",
+          child:
+              visibleActions.isEmpty
+                  ? Text(
+                    searchQuery.isEmpty ? "当前没有需要立刻处理的动作。" : "没有匹配当前搜索词的待处理动作。",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  )
+                  : Column(
+                    children: visibleActions
+                        .map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _ActionQueueTile(shell: shell, item: item),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChannelsWorkboard extends StatelessWidget {
+  const _ChannelsWorkboard({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        _SectionCard(
+          title: "渠道状态",
+          subtitle: "对齐 OpenClaw 的 Channels 页面，先展示当前可见绑定的在线状态和归属关系。",
+          child: Column(
+            children:
+                shell.surfaces.isEmpty
+                    ? [
+                      Text(
+                        "当前没有可见渠道绑定。",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ]
+                    : shell.surfaces
+                        .take(8)
+                        .map(
+                          (surface) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _TimelineTile(
+                              title: asString(surface["label"], "未命名渠道"),
+                              subtitle:
+                                  "${asString(surface["channel"], "unknown")} · ${asString(surface["ownerLabel"], "未绑定")}",
+                              trailing: asBool(surface["active"]) ? "在线" : "停用",
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+          ),
+        ),
+        const SizedBox(height: 14),
+        DesktopSurfaceCard(
+          padding: const EdgeInsets.all(16),
+          tone: DesktopSurfaceTone.muted,
+          child: Text(
+            "当前桌面快照没有独立的渠道登录、二维码接入和渠道配置写入口，因此这里只保留 OpenClaw 的页面骨架和现有状态映射。",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InstancesWorkboard extends ConsumerWidget {
+  const _InstancesWorkboard({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final process = asMap(shell.runtimeHealth["process"]);
+    final controller = ref.read(shellControllerProvider.notifier);
+    return ListView(
+      children: [
+        _SectionCard(
+          title: "本地实例",
+          subtitle: "按 OpenClaw 的 Instances 页面展示当前实例、宿主和连接姿态。",
+          child: _FactGrid(
+            items: [
+              ("实例根目录", asString(shell.instanceSection["instanceRoot"], "n/a")),
+              (
+                "工作区根目录",
+                asString(shell.instanceSection["workspaceRoot"], "n/a"),
+              ),
+              ("PID", asString(process["pid"], "n/a")),
+              ("运行时长", _formatDuration(asInt(process["uptimeMs"]))),
+              ("网关地址", shell.runtimeWsUrl.isEmpty ? "未上报" : shell.runtimeWsUrl),
+              (
+                "传输",
+                asString(shell.gatewaySection["transport"], "websocket-rpc"),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _SectionCard(
+          title: "宿主操作",
+          subtitle: "实例页承接本地初始化、刷新和重启操作。",
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              OutlinedButton.icon(
+                onPressed:
+                    shell.isRefreshing ? null : () => controller.refresh(),
+                icon: const Icon(Icons.sync_rounded),
+                label: const Text("刷新状态"),
+              ),
+              OutlinedButton.icon(
+                onPressed:
+                    shell.isRefreshing
+                        ? null
+                        : () => controller.initializeInstance(),
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: const Text("初始化实例"),
+              ),
+              OutlinedButton.icon(
+                onPressed:
+                    shell.isRefreshing
+                        ? null
+                        : () => controller.restartRuntime(),
+                icon: const Icon(Icons.restart_alt_outlined),
+                label: const Text("重启运行时"),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CronJobsWorkboard extends StatelessWidget {
+  const _CronJobsWorkboard({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        _SectionCard(
+          title: "Cron Jobs",
+          subtitle: "保留 OpenClaw 的计划任务页面职责；当前只展示现有数据面里最接近自动运行的信号。",
+          child: _FactGrid(
+            items: [
+              ("活动任务", shell.totalTaskCount.toString()),
+              ("待处理审批", shell.pendingActionCount.toString()),
+              ("待用户处理", shell.waitingUserCount.toString()),
+              ("状态", "等待独立 cron 快照"),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        DesktopSurfaceCard(
+          padding: const EdgeInsets.all(16),
+          tone: DesktopSurfaceTone.muted,
+          child: Text(
+            "当前桌面快照未暴露独立 cron 列表、启停和手动触发入口，这一版先不通过 UI 反推新的服务接口。",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SkillsWorkboard extends StatelessWidget {
+  const _SkillsWorkboard({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleAgents = shell.agents.take(8).toList(growable: false);
+    return ListView(
+      children: [
+        _SectionCard(
+          title: "技能状态",
+          subtitle: "对齐 OpenClaw 的 Skills 页面，先承接当前可见的技能承载对象和启用状态。",
+          child: Column(
+            children:
+                visibleAgents.isEmpty
+                    ? [
+                      Text(
+                        "当前没有可见技能包。",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ]
+                    : visibleAgents
+                        .map(
+                          (agent) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _TimelineTile(
+                              title: asString(agent["name"], "未命名代理"),
+                              subtitle:
+                                  "技能 ${asString(agent["skillCount"], "0")} · 表面 ${asString(agent["surfaceCount"], "0")}",
+                              trailing: asBool(agent["active"]) ? "活动中" : "停用",
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+          ),
+        ),
+        const SizedBox(height: 14),
+        DesktopSurfaceCard(
+          padding: const EdgeInsets.all(16),
+          tone: DesktopSurfaceTone.muted,
+          child: Text(
+            "安装新技能、更新 API Key 和更细的技能开关仍需要独立的数据面；这一版不在 UI 层伪造这些动作。",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NodesWorkboard extends StatelessWidget {
+  const _NodesWorkboard({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        _SectionCard(
+          title: "节点列表",
+          subtitle: "按 OpenClaw 的 Nodes 页面展示本地节点、能力和当前承载对象。",
+          child: _FactGrid(
+            items: [
+              ("节点类型", "本地运行时"),
+              ("运行时版本", shell.runtimeVersion),
+              ("活动代理", shell.agents.length.toString()),
+              ("渠道绑定", shell.surfaces.length.toString()),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _SectionCard(
+          title: "节点能力",
+          subtitle: "节点级别的受控能力和当前运行姿态。",
+          child: _FactGrid(
+            items: [
+              (
+                "能力预设",
+                _localizedOptionLabel(
+                  asString(shell.capabilitySection["preset"], "managed_high"),
+                ),
+              ),
+              ("MCP 授权", shell.capabilityMcpGrants.length.toString()),
+              ("受控条目", shell.governanceEntries.length.toString()),
+              ("近期活动", shell.capabilityRecentActivity.length.toString()),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExecApprovalsWorkboard extends StatelessWidget {
+  const _ExecApprovalsWorkboard({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        _SectionCard(
+          title: "Ask Policy",
+          subtitle: "执行审批页先对齐 OpenClaw 的 ask policy 语义，而不是暴露内部审批模型。",
+          child: _FactGrid(
+            items: [
+              ("网关侧 ask policy", "等待独立 exec.approvals 快照"),
+              ("节点数", "1"),
+              ("本地网关", shell.runtimeWsUrl.isEmpty ? "未上报" : shell.runtimeWsUrl),
+              ("待人工确认", shell.pendingActionCount.toString()),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _SectionCard(
+          title: "Node Allowlist",
+          subtitle: "当前版本先保留页面骨架；待独立数据面接入后再还原更细的节点授权配置。",
+          child: _FactGrid(
+            items: [
+              ("允许节点", "1"),
+              ("默认节点", "本地运行时"),
+              ("待确认请求", shell.pendingActionCount.toString()),
+              (
+                "最近动作",
+                shell.actionQueue.isEmpty ? "无" : shell.actionQueue.first.title,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ConfigWorkboard extends StatelessWidget {
+  const _ConfigWorkboard({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    final capabilitySection = shell.capabilitySection;
+    return ListView(
+      children: [
+        _SectionCard(
+          title: "当前配置",
+          subtitle: "按 OpenClaw 的 Config 页面展示当前本地配置真相和目录路径。",
+          child: _FactGrid(
+            items: [
+              (
+                "工作区根目录",
+                asString(shell.instanceSection["workspaceRoot"], "n/a"),
+              ),
+              ("实例根目录", shell.instanceRoot),
+              ("网关地址", shell.runtimeWsUrl.isEmpty ? "未上报" : shell.runtimeWsUrl),
+              (
+                "传输",
+                asString(shell.gatewaySection["transport"], "websocket-rpc"),
+              ),
+              (
+                "能力预设",
+                _localizedOptionLabel(
+                  asString(capabilitySection["preset"], "managed_high"),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        DesktopSurfaceCard(
+          padding: const EdgeInsets.all(16),
+          tone: DesktopSurfaceTone.muted,
+          child: Text(
+            "当前桌面端还没有独立的 config 读写提交接口，这一版只做配置展示，不在 UI 层伪造写入能力。",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DebugWorkboard extends StatelessWidget {
+  const _DebugWorkboard({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    final process = asMap(shell.runtimeHealth["process"]);
+    return ListView(
+      children: [
+        _SectionCard(
+          title: "Status & Health",
+          subtitle: "按 OpenClaw 的 Debug 页面保留进程状态、健康和调试计数。",
+          child: _FactGrid(
+            items: [
+              ("PID", asString(process["pid"], "n/a")),
+              ("RSS", _formatBytes(asInt(process["rssBytes"]))),
+              ("记忆", shell.memoryCount.toString()),
+              ("策略", shell.strategyCount.toString()),
+              ("联邦出站", shell.outboxPendingCount.toString()),
+              ("演化候选", shell.evolutionCandidates.length.toString()),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _SectionCard(
+          title: "调试快照",
+          subtitle: "展示当前桌面已经拿到的调试上下文，而不扩展新的服务接口。",
+          child: _FactGrid(
+            items: [
+              ("待处理审批", shell.pendingActionCount.toString()),
+              ("当前告警", shell.warnings.isEmpty ? "无" : shell.warnings.first),
+              ("最近状态", shell.lastStatusMessage ?? "无"),
+              ("网关地址", shell.runtimeWsUrl.isEmpty ? "未上报" : shell.runtimeWsUrl),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LogsWorkboard extends StatelessWidget {
+  const _LogsWorkboard({required this.shell});
+
+  final DesktopShellState shell;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        _SectionCard(
+          title: "日志状态",
+          subtitle: "按 OpenClaw 的 Logs 页面收口日志目录、告警和常用日志动作。",
+          child: _FactGrid(
+            items: [
+              ("日志目录", asString(shell.instanceSection["logRoot"], "n/a")),
+              ("当前告警", shell.warnings.isEmpty ? "无" : shell.warnings.first),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Consumer(
+          builder: (context, ref, _) {
+            final controller = ref.read(shellControllerProvider.notifier);
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                OutlinedButton.icon(
+                  onPressed:
+                      shell.isRefreshing ? null : () => controller.openLogs(),
+                  icon: const Icon(Icons.folder_open_outlined),
+                  label: const Text("打开日志"),
+                ),
+                OutlinedButton.icon(
+                  onPressed:
+                      shell.isRefreshing ? null : () => controller.refresh(),
+                  icon: const Icon(Icons.sync),
+                  label: const Text("刷新状态"),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _UpdateWorkboard extends ConsumerWidget {
+  const _UpdateWorkboard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bootstrapAsync = ref.watch(bootstrapControllerProvider);
+    return bootstrapAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Text(error.toString()),
+      data:
+          (bootstrap) => ListView(
+            children: [
+              _SectionCard(
+                title: "当前版本",
+                subtitle: "按 OpenClaw 的 Update 页面展示当前版本和可用更新。",
+                child: _FactGrid(
+                  items: [
+                    (
+                      "当前版本",
+                      bootstrap.currentVersion.isEmpty
+                          ? "未安装"
+                          : bootstrap.currentVersion,
+                    ),
+                    (
+                      "可用版本",
+                      bootstrap.latestRelease == null
+                          ? "未检查"
+                          : bootstrap.latestRelease!.version,
+                    ),
+                    (
+                      "发布状态",
+                      bootstrap.releaseStatusMessage ?? bootstrap.releaseStatus,
+                    ),
+                    ("下载目录", bootstrap.downloadsRoot),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed:
+                        bootstrap.isBusy
+                            ? null
+                            : () => ref
+                                .read(bootstrapControllerProvider.notifier)
+                                .checkForUpdates(force: true),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text("检查更新"),
+                  ),
+                  FilledButton.icon(
+                    onPressed:
+                        bootstrap.isBusy || bootstrap.latestRelease == null
+                            ? null
+                            : () =>
+                                ref
+                                    .read(bootstrapControllerProvider.notifier)
+                                    .downloadCore(),
+                    icon: const Icon(Icons.download_rounded),
+                    label: const Text("下载核心"),
+                  ),
+                ],
+              ),
+            ],
+          ),
     );
   }
 }
 
 class _TaskWorkboard extends ConsumerWidget {
-  const _TaskWorkboard({required this.shell});
+  const _TaskWorkboard({
+    required this.shell,
+    required this.searchQuery,
+    this.title = "任务执行工作台",
+    this.subtitle = "这里承载运行中的任务详情、步骤、检查点与复盘时间线，是桌面端的正式执行视图。",
+  });
 
   final DesktopShellState shell;
+  final String searchQuery;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1909,63 +3208,148 @@ class _TaskWorkboard extends ConsumerWidget {
     final reviews = asMapList(selectedTask?["reviews"]);
     final activeSteps = asMapList(selectedTask?["activeSteps"]);
     final archivedSteps = asMapList(selectedTask?["archivedSteps"]);
+    final taskMatches = _matchesSearch(searchQuery, [
+      task["title"],
+      task["status"],
+      task["route"],
+      task["worker"],
+      task["goal"],
+      task["nextAction"],
+    ]);
+    final visibleRuns = runs
+        .where(
+          (run) => _matchesSearch(searchQuery, [
+            run["id"],
+            run["status"],
+            run["thinkingLane"],
+            run["summary"],
+          ]),
+        )
+        .toList(growable: false);
+    final visibleReviews = reviews
+        .where(
+          (review) => _matchesSearch(searchQuery, [
+            review["summary"],
+            review["outcome"],
+            review["createdAt"],
+          ]),
+        )
+        .toList(growable: false);
+    final visibleActiveSteps = activeSteps
+        .where(
+          (step) => _matchesSearch(searchQuery, [
+            step["title"],
+            step["kind"],
+            step["summary"],
+            step["output"],
+          ]),
+        )
+        .toList(growable: false);
+    final searchHasResults =
+        searchQuery.isEmpty ||
+        taskMatches ||
+        visibleRuns.isNotEmpty ||
+        visibleReviews.isNotEmpty ||
+        visibleActiveSteps.isNotEmpty;
     final selectedTaskId = asString(
       task["id"],
       shell.defaultTaskFocus?.id ?? "",
     );
     return ListView(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Task / execution workboard",
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "The right side is the live execution surface: status, active steps, reviews, and checkpointed history.",
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-            if (selectedTaskId.isNotEmpty) ...[
-              OutlinedButton.icon(
-                onPressed: () => controller.retryTask(selectedTaskId),
-                icon: const Icon(Icons.replay),
-                label: const Text("Retry"),
-              ),
-              const SizedBox(width: 10),
-              OutlinedButton.icon(
-                onPressed: () => controller.cancelTask(selectedTaskId),
-                icon: const Icon(Icons.stop_circle_outlined),
-                label: const Text("Cancel"),
-              ),
-            ],
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final stackActions = constraints.maxWidth < 360;
+            final actions =
+                selectedTaskId.isEmpty
+                    ? const <Widget>[]
+                    : [
+                      OutlinedButton.icon(
+                        onPressed: () => controller.retryTask(selectedTaskId),
+                        icon: const Icon(Icons.replay),
+                        label: const Text("重试"),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => controller.cancelTask(selectedTaskId),
+                        icon: const Icon(Icons.stop_circle_outlined),
+                        label: const Text("取消任务"),
+                      ),
+                    ];
+            return stackActions
+                ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    if (actions.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(spacing: 10, runSpacing: 10, children: actions),
+                    ],
+                  ],
+                )
+                : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            subtitle,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (actions.isNotEmpty) ...[
+                      const SizedBox(width: 12),
+                      Wrap(spacing: 10, runSpacing: 10, children: actions),
+                    ],
+                  ],
+                );
+          },
         ),
         const SizedBox(height: 18),
-        if (task.isNotEmpty)
+        if (!searchHasResults)
           _SectionCard(
-            title: asString(task["title"], "Selected task"),
+            title: "没有匹配内容",
+            subtitle: "试试搜索任务标题、状态、步骤摘要或复盘结果。",
+            child: Text(
+              "当前搜索词没有命中这个任务工作板里的内容。",
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          )
+        else if (task.isNotEmpty && (searchQuery.isEmpty || taskMatches))
+          _SectionCard(
+            title: asString(task["title"], "当前任务"),
             subtitle:
-                "${asString(task["status"], "queued")} · ${asString(task["route"], "general")} · ${asString(task["worker"], "main")}",
+                "${_localizedStatusLabel(asString(task["status"], "queued"))} · ${_localizedOptionLabel(asString(task["route"], "general"))} · ${_localizedOptionLabel(asString(task["worker"], "main"))}",
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _FactGrid(
                   items: [
-                    ("Task ID", asString(task["id"])),
-                    ("Priority", asString(task["priority"], "normal")),
+                    ("任务 ID", asString(task["id"])),
                     (
-                      "Next action",
-                      asString(task["nextAction"], "None queued yet"),
+                      "优先级",
+                      _localizedOptionLabel(
+                        asString(task["priority"], "normal"),
+                      ),
                     ),
-                    ("Updated", _formatTimestamp(asInt(task["updatedAt"]))),
+                    ("下一步动作", asString(task["nextAction"], "暂未排入下一动作")),
+                    ("更新时间", _formatTimestamp(asInt(task["updatedAt"]))),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -1979,38 +3363,36 @@ class _TaskWorkboard extends ConsumerWidget {
           )
         else
           _SectionCard(
-            title: "No task selected",
-            subtitle:
-                "Choose a task from the left rail or queue a new objective from the center pane.",
+            title: "尚未选择任务",
+            subtitle: "从左侧任务列表选中一个任务，或在中栏提交一个新的目标。",
             child: Text(
-              "The workboard becomes the canonical execution view once a task is materialized.",
+              "任务一旦被运行时正式物化，这里就会成为它的标准执行视图。",
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Active execution steps",
-          subtitle:
-              "These are the steps still in the live context window after compaction.",
+          title: "活动执行步骤",
+          subtitle: "这些是当前仍保留在活动上下文窗口里的执行步骤。",
           child:
-              activeSteps.isEmpty
+              visibleActiveSteps.isEmpty
                   ? Text(
-                    "No active steps in the current run.",
+                    searchQuery.isEmpty ? "当前运行里还没有活动步骤。" : "没有匹配当前搜索词的活动步骤。",
                     style: Theme.of(context).textTheme.bodyMedium,
                   )
                   : Column(
-                    children: activeSteps
+                    children: visibleActiveSteps
                         .map(
                           (step) => Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: _TimelineTile(
                               title: asString(
                                 step["title"],
-                                asString(step["kind"], "step"),
+                                asString(step["kind"], "步骤"),
                               ),
                               subtitle: asString(
                                 step["summary"],
-                                asString(step["output"], "No output recorded"),
+                                asString(step["output"], "尚未记录输出"),
                               ),
                               trailing: _formatTimestamp(
                                 asInt(step["updatedAt"]),
@@ -2023,42 +3405,41 @@ class _TaskWorkboard extends ConsumerWidget {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Runs & reviews",
-          subtitle:
-              "The task loop keeps runs, reviews, and archive-backed steps visible instead of hiding them behind chat logs.",
+          title: "运行与评审",
+          subtitle: "任务循环会把运行、复盘和已归档步骤显式展开，而不是把它们埋进聊天记录。",
           child: Column(
             children: [
-              if (runs.isEmpty)
+              if (visibleRuns.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Text(
-                    "No runs recorded yet.",
+                    searchQuery.isEmpty ? "当前还没有记录到任务运行。" : "没有匹配当前搜索词的任务运行。",
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
-              ...runs
+              ...visibleRuns
                   .take(4)
                   .map(
                     (run) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _TimelineTile(
-                        title: asString(run["id"], "run"),
+                        title: asString(run["id"], "运行记录"),
                         subtitle:
-                            "${asString(run["status"], "queued")} · ${asString(run["thinkingLane"], "system1")}",
+                            "${_localizedStatusLabel(asString(run["status"], "queued"))} · ${_localizedOptionLabel(asString(run["thinkingLane"], "system1"))}",
                         trailing: _formatTimestamp(asInt(run["updatedAt"])),
                       ),
                     ),
                   ),
-              if (reviews.isNotEmpty) ...[
+              if (visibleReviews.isNotEmpty) ...[
                 const Divider(height: 28),
-                ...reviews
+                ...visibleReviews
                     .take(3)
                     .map(
                       (review) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: _TimelineTile(
-                          title: asString(review["summary"], "Review"),
-                          subtitle: asString(review["outcome"], "recorded"),
+                          title: asString(review["summary"], "复盘记录"),
+                          subtitle: asString(review["outcome"], "已记录"),
                           trailing: _formatTimestamp(
                             asInt(review["createdAt"]),
                           ),
@@ -2069,7 +3450,7 @@ class _TaskWorkboard extends ConsumerWidget {
               if (archivedSteps.isNotEmpty) ...[
                 const Divider(height: 28),
                 Text(
-                  "${archivedSteps.length} steps already compacted into the archive layer.",
+                  "已有 ${archivedSteps.length} 个步骤被压缩进归档层。",
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -2081,15 +3462,47 @@ class _TaskWorkboard extends ConsumerWidget {
   }
 }
 
+// ignore: unused_element
 class _MemoryWorkboard extends ConsumerWidget {
-  const _MemoryWorkboard({required this.shell});
+  const _MemoryWorkboard({required this.shell, required this.searchQuery});
 
   final DesktopShellState shell;
+  final String searchQuery;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(shellControllerProvider.notifier);
     final selectedTaskId = shell.selectedTaskSummary?.id;
+    final visibleMemories = shell.memories
+        .where(
+          (memory) => _matchesSearch(searchQuery, [
+            memory["summary"],
+            memory["detail"],
+            memory["memoryType"],
+            memory["route"],
+            memory["scope"],
+          ]),
+        )
+        .toList(growable: false);
+    final visibleStrategies = shell.strategies
+        .where(
+          (strategy) => _matchesSearch(searchQuery, [
+            strategy["summary"],
+            strategy["route"],
+            strategy["worker"],
+          ]),
+        )
+        .toList(growable: false);
+    final visibleIntelItems = shell.intelRecentItems
+        .where(
+          (item) => _matchesSearch(searchQuery, [
+            item["title"],
+            item["summary"],
+            item["kind"],
+            item["domain"],
+          ]),
+        )
+        .toList(growable: false);
     return ListView(
       children: [
         Row(
@@ -2099,12 +3512,12 @@ class _MemoryWorkboard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Memory / strategy workboard",
+                    "记忆与策略工作台",
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "ClawMark keeps formal memory and strategy visible, not buried under a single chat transcript.",
+                    "ClawMark 会把正式记忆和策略显式摊开，而不是埋在单一会话文本里。",
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -2116,22 +3529,21 @@ class _MemoryWorkboard extends ConsumerWidget {
                       ? null
                       : () => controller.reviewMemoryLifecycle(),
               icon: const Icon(Icons.history_toggle_off),
-              label: const Text("Run lifecycle review"),
+              label: const Text("执行生命周期复审"),
             ),
           ],
         ),
         const SizedBox(height: 18),
         _SectionCard(
-          title: "Memory posture",
-          subtitle:
-              "Formal memory is runtime-owned truth, but operator governance actions stay local and explicit.",
+          title: "记忆姿态",
+          subtitle: "正式记忆由 Runtime Core 持有，但治理动作仍然保持本地、显式和可审计。",
           child: _FactGrid(
             items: [
-              ("Formal memories", shell.memoryCount.toString()),
-              ("Strategies", shell.strategyCount.toString()),
+              ("正式记忆", visibleMemories.length.toString()),
+              ("策略数量", visibleStrategies.length.toString()),
               (
-                "Invalidated memories",
-                shell.memories
+                "失效记忆",
+                visibleMemories
                     .where(
                       (memory) =>
                           asStringList(memory["invalidatedBy"]).isNotEmpty,
@@ -2139,25 +3551,29 @@ class _MemoryWorkboard extends ConsumerWidget {
                     .length
                     .toString(),
               ),
-              ("Recent intel items", shell.intelRecentItems.length.toString()),
+              ("近期情报项", visibleIntelItems.length.toString()),
             ],
           ),
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Memory kernel",
+          title: "记忆内核",
           subtitle:
-              "${shell.memoryCount} formal memories · ${shell.strategyCount} strategies",
+              searchQuery.isEmpty
+                  ? "${shell.memoryCount} 条正式记忆 · ${shell.strategyCount} 条策略"
+                  : "已按当前搜索词筛选记忆内容",
           child: Column(
             children:
-                shell.memories.isEmpty
+                visibleMemories.isEmpty
                     ? [
                       Text(
-                        "No formal memories are visible right now.",
+                        searchQuery.isEmpty
+                            ? "当前还没有可见的正式记忆。"
+                            : "没有匹配当前搜索词的正式记忆。",
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ]
-                    : shell.memories
+                    : visibleMemories
                         .take(8)
                         .map((memory) {
                           final memoryId = asString(memory["id"]);
@@ -2168,12 +3584,12 @@ class _MemoryWorkboard extends ConsumerWidget {
                               invalidatedBy.isEmpty ? "" : invalidatedBy.last;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
+                            child: DesktopSurfaceCard(
                               padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                color: const Color(0xFFF9F5EF),
-                              ),
+                              tone:
+                                  invalidatedBy.isEmpty
+                                      ? DesktopSurfaceTone.muted
+                                      : DesktopSurfaceTone.danger,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -2181,7 +3597,7 @@ class _MemoryWorkboard extends ConsumerWidget {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          asString(memory["summary"], "Memory"),
+                                          asString(memory["summary"], "记忆项"),
                                           style:
                                               Theme.of(
                                                 context,
@@ -2202,13 +3618,13 @@ class _MemoryWorkboard extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    "${asString(memory["memoryType"], "knowledge")} · ${asString(memory["route"], "general")} · ${asString(memory["scope"], "runtime")}",
+                                    "${_localizedOptionLabel(asString(memory["memoryType"], "knowledge"))} · ${_localizedOptionLabel(asString(memory["route"], "general"))} · ${_localizedOptionLabel(asString(memory["scope"], "runtime"))}",
                                     style:
                                         Theme.of(context).textTheme.bodyMedium,
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    "confidence=${asString(memory["confidence"], "0")} · decay=${asString(memory["decayScore"], "0")} · updated=${_formatTimestamp(asInt(memory["updatedAt"]))}",
+                                    "置信度=${asString(memory["confidence"], "0")} · 衰减=${asString(memory["decayScore"], "0")} · 更新时间=${_formatTimestamp(asInt(memory["updatedAt"]))}",
                                     style:
                                         Theme.of(context).textTheme.bodyMedium,
                                   ),
@@ -2227,7 +3643,7 @@ class _MemoryWorkboard extends ConsumerWidget {
                                   if (latestInvalidation.isNotEmpty) ...[
                                     const SizedBox(height: 6),
                                     Text(
-                                      "Latest invalidation: $latestInvalidation",
+                                      "最近一次失效事件：$latestInvalidation",
                                       style:
                                           Theme.of(
                                             context,
@@ -2250,7 +3666,7 @@ class _MemoryWorkboard extends ConsumerWidget {
                                                       sourceTaskId:
                                                           selectedTaskId,
                                                     ),
-                                        child: const Text("Reinforce"),
+                                        child: const Text("强化"),
                                       ),
                                       OutlinedButton(
                                         onPressed:
@@ -2260,7 +3676,7 @@ class _MemoryWorkboard extends ConsumerWidget {
                                                 ? null
                                                 : () => controller
                                                     .invalidateMemory(memoryId),
-                                        child: const Text("Invalidate"),
+                                        child: const Text("失效化"),
                                       ),
                                       if (latestInvalidation.isNotEmpty)
                                         OutlinedButton(
@@ -2271,9 +3687,7 @@ class _MemoryWorkboard extends ConsumerWidget {
                                                       .rollbackMemoryInvalidation(
                                                         latestInvalidation,
                                                       ),
-                                          child: const Text(
-                                            "Rollback invalidation",
-                                          ),
+                                          child: const Text("回滚失效"),
                                         ),
                                     ],
                                   ),
@@ -2287,41 +3701,49 @@ class _MemoryWorkboard extends ConsumerWidget {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Strategy plane",
-          subtitle:
-              "Active route-level strategy remains inspectable from the desktop shell.",
+          title: "策略平面",
+          subtitle: "当前生效的路由级策略会继续在桌面控制台里保持可检视。",
           child: Column(
-            children: shell.strategies
-                .take(8)
-                .map((strategy) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _TimelineTile(
-                      title: asString(strategy["summary"], "Strategy"),
-                      subtitle:
-                          "${asString(strategy["route"], "general")} · ${asString(strategy["worker"], "main")}",
-                      trailing: _formatTimestamp(asInt(strategy["updatedAt"])),
-                    ),
-                  );
-                })
-                .toList(growable: false),
+            children:
+                visibleStrategies.isEmpty
+                    ? [
+                      Text(
+                        searchQuery.isEmpty ? "当前还没有可见策略。" : "没有匹配当前搜索词的策略。",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ]
+                    : visibleStrategies
+                        .take(8)
+                        .map((strategy) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _TimelineTile(
+                              title: asString(strategy["summary"], "策略项"),
+                              subtitle:
+                                  "${_localizedOptionLabel(asString(strategy["route"], "general"))} · ${_localizedOptionLabel(asString(strategy["worker"], "main"))}",
+                              trailing: _formatTimestamp(
+                                asInt(strategy["updatedAt"]),
+                              ),
+                            ),
+                          );
+                        })
+                        .toList(growable: false),
           ),
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Recent intel items",
-          subtitle:
-              "Intel stays a sidecar until you explicitly promote something into knowledge memory.",
+          title: "近期情报项",
+          subtitle: "情报保持为旁路模块，直到你明确把某条内容提升为正式知识记忆。",
           child: Column(
             children:
-                shell.intelRecentItems.isEmpty
+                visibleIntelItems.isEmpty
                     ? [
                       Text(
-                        "No recent intel items are visible right now.",
+                        searchQuery.isEmpty ? "当前没有近期情报项。" : "没有匹配当前搜索词的情报项。",
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ]
-                    : shell.intelRecentItems
+                    : visibleIntelItems
                         .take(8)
                         .map((item) {
                           final intelId = asString(item["id"]);
@@ -2341,12 +3763,9 @@ class _MemoryWorkboard extends ConsumerWidget {
                                   : "recent";
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
+                            child: DesktopSurfaceCard(
                               padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                color: const Color(0xFFF9F5EF),
-                              ),
+                              tone: DesktopSurfaceTone.muted,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -2354,7 +3773,7 @@ class _MemoryWorkboard extends ConsumerWidget {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          asString(item["title"], "Intel item"),
+                                          asString(item["title"], "情报项"),
                                           style:
                                               Theme.of(
                                                 context,
@@ -2366,7 +3785,7 @@ class _MemoryWorkboard extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    "${asString(item["kind"], "candidate")} · ${asString(item["domain"], "ai")} · score=${asString(item["score"], "0")}",
+                                    "${_localizedOptionLabel(asString(item["kind"], "candidate"))} · ${_localizedOptionLabel(asString(item["domain"], "ai"))} · 评分=${asString(item["score"], "0")}",
                                     style:
                                         Theme.of(context).textTheme.bodyMedium,
                                   ),
@@ -2391,11 +3810,7 @@ class _MemoryWorkboard extends ConsumerWidget {
                                                     .pinIntelToKnowledge(
                                                       intelId,
                                                     ),
-                                        child: Text(
-                                          pinned
-                                              ? "Already promoted"
-                                              : "Promote to knowledge",
-                                        ),
+                                        child: Text(pinned ? "已提升" : "提升为知识"),
                                       ),
                                     ],
                                   ),
@@ -2413,9 +3828,10 @@ class _MemoryWorkboard extends ConsumerWidget {
 }
 
 class _GovernanceWorkboard extends ConsumerStatefulWidget {
-  const _GovernanceWorkboard({required this.shell});
+  const _GovernanceWorkboard({required this.shell, required this.searchQuery});
 
   final DesktopShellState shell;
+  final String searchQuery;
 
   @override
   ConsumerState<_GovernanceWorkboard> createState() =>
@@ -2505,10 +3921,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
     super.dispose();
   }
 
-  Map<String, dynamic>? _rowById(
-    List<Map<String, dynamic>> rows,
-    String? id,
-  ) {
+  Map<String, dynamic>? _rowById(List<Map<String, dynamic>> rows, String? id) {
     if ((id ?? "").isEmpty) {
       return null;
     }
@@ -2546,16 +3959,21 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
     final record =
         _rowById(shell.agentRecords, agentId) ??
         (shell.agentRecords.isNotEmpty ? shell.agentRecords.first : null);
-    final overlay = shell.agentOverlays
-        .where((entry) => asString(entry["agentId"]) == asString(record?["id"]))
-        .cast<Map<String, dynamic>?>()
-        .firstOrNull;
+    final overlay =
+        shell.agentOverlays
+            .where(
+              (entry) => asString(entry["agentId"]) == asString(record?["id"]),
+            )
+            .cast<Map<String, dynamic>?>()
+            .firstOrNull;
     _editingAgentId = record == null ? null : asString(record["id"]);
     _agentNameController.text = asString(record?["name"]);
     _agentDescriptionController.text = asString(record?["description"]);
     _agentRoleBaseController.text = asString(record?["roleBase"]);
     _agentMemoryNamespaceController.text = asString(record?["memoryNamespace"]);
-    _agentSkillIdsController.text = asStringList(record?["skillIds"]).join(", ");
+    _agentSkillIdsController.text = asStringList(
+      record?["skillIds"],
+    ).join(", ");
     _agentCommunicationStyleController.text = asString(
       overlay?["communicationStyle"],
     );
@@ -2595,10 +4013,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
     _surfaceBusinessGoalController.text = asString(status?["businessGoal"]);
     _surfaceToneController.text = asString(status?["tone"]);
     _surfaceInitiative = asString(status?["initiative"], "medium");
-    _surfaceReportTarget = asString(
-      status?["reportTarget"],
-      "runtime-user",
-    );
+    _surfaceReportTarget = asString(status?["reportTarget"], "runtime-user");
     _surfaceAllowedTopicsController.text = asStringList(
       status?["allowedTopics"],
     ).join(", ");
@@ -2614,7 +4029,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
       localBusinessPolicy["escalationTarget"],
       "runtime-user",
     );
-    _surfaceRoleScopeController.text = asString(localBusinessPolicy["roleScope"]);
+    _surfaceRoleScopeController.text = asString(
+      localBusinessPolicy["roleScope"],
+    );
     if (_surfaceOwnerKind == "agent" &&
         _surfaceOwnerAgentId.isEmpty &&
         shell.agentRecords.isNotEmpty) {
@@ -2646,20 +4063,101 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
   Widget build(BuildContext context) {
     final controller = ref.read(shellControllerProvider.notifier);
     final capabilitySection = shell.capabilitySection;
+    final query = widget.searchQuery;
     final governanceStateCounts = asMap(
       capabilitySection["governanceStateCounts"],
     );
     final roleOptimizationActions = shell.actionQueue
         .where((entry) => entry.isRoleOptimization)
         .toList(growable: false);
+    final visibleAgents = shell.agents
+        .where((agent) {
+          final agentId = asString(agent["id"]);
+          final raw = _rowById(shell.agentRecords, agentId);
+          return _matchesSearch(query, [
+            agent["name"],
+            agent["roleBase"],
+            agent["reportPolicy"],
+            raw?["description"],
+            raw?["memoryNamespace"],
+            raw?["skillIds"],
+          ]);
+        })
+        .toList(growable: false);
+    final visibleSurfaces = shell.surfaces
+        .where(
+          (surface) => _matchesSearch(query, [
+            surface["label"],
+            surface["channel"],
+            surface["accountId"],
+            surface["ownerLabel"],
+            surface["role"],
+            surface["reportTarget"],
+            asMap(surface["localBusinessPolicy"])["taskCreation"],
+          ]),
+        )
+        .toList(growable: false);
+    final visibleEvolutionCandidates = shell.evolutionCandidates
+        .where(
+          (candidate) => _matchesSearch(query, [
+            candidate["summary"],
+            candidate["estimatedImpact"],
+            candidate["state"],
+          ]),
+        )
+        .toList(growable: false);
+    final visibleRoleOptimizationActions = roleOptimizationActions
+        .where(
+          (action) => _matchesSearch(query, [
+            action.title,
+            action.summary,
+            action.priority,
+            action.estimatedImpact,
+            action.candidateId,
+          ]),
+        )
+        .toList(growable: false);
+    final visibleGovernanceEntries = shell.governanceEntries
+        .where(
+          (entry) => _matchesSearch(query, [
+            entry["targetId"],
+            entry["registryType"],
+            entry["summary"],
+            entry["executionSummary"],
+            entry["state"],
+          ]),
+        )
+        .toList(growable: false);
+    final visibleMcpGrants = shell.capabilityMcpGrants
+        .where(
+          (grant) => _matchesSearch(query, [
+            grant["agentLabel"],
+            grant["agentId"],
+            grant["mcpServerId"],
+            grant["state"],
+            grant["summary"],
+          ]),
+        )
+        .toList(growable: false);
+    final visibleRecentActivity = shell.capabilityRecentActivity
+        .where(
+          (activity) => _matchesSearch(query, [
+            activity["title"],
+            activity["summary"],
+            activity["kind"],
+          ]),
+        )
+        .toList(growable: false);
     final selectedAgentStatus = _rowById(shell.agents, _editingAgentId);
     final selectedSurfaceStatus = _rowById(shell.surfaces, _editingSurfaceId);
-    final activeAgentCount = shell.agentRecords
-        .where((entry) => asBool(entry["active"], true))
-        .length;
-    final activeSurfaceCount = shell.surfaceRecords
-        .where((entry) => asBool(entry["active"], true))
-        .length;
+    final activeAgentCount =
+        shell.agentRecords
+            .where((entry) => asBool(entry["active"], true))
+            .length;
+    final activeSurfaceCount =
+        shell.surfaceRecords
+            .where((entry) => asBool(entry["active"], true))
+            .length;
     return ListView(
       children: [
         Row(
@@ -2669,12 +4167,12 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Governance workboard",
+                    "治理工作板",
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "Candidate, adopted, shadow, and blocked capability state remains operator-visible.",
+                    "候选、已采纳、影子和阻止等能力状态会持续保持对操作员可见。",
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -2686,38 +4184,63 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       ? null
                       : () => controller.syncCapabilities(),
               icon: const Icon(Icons.sync),
-              label: const Text("Sync registry"),
+              label: const Text("同步注册表"),
             ),
           ],
         ),
         const SizedBox(height: 18),
+        if (query.isNotEmpty) ...[
+          _SectionCard(
+            title: "搜索已生效",
+            subtitle: "治理列表已经按当前关键词筛选，表单编辑器仍保持可用。",
+            child: _FactGrid(
+              items: [
+                ("关键词", query),
+                ("智能体", visibleAgents.length.toString()),
+                ("表面", visibleSurfaces.length.toString()),
+                ("演化候选", visibleEvolutionCandidates.length.toString()),
+                ("角色优化", visibleRoleOptimizationActions.length.toString()),
+                ("注册表", visibleGovernanceEntries.length.toString()),
+                ("MCP 授权", visibleMcpGrants.length.toString()),
+                ("最近活动", visibleRecentActivity.length.toString()),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         _SectionCard(
-          title: "Governance posture",
-          subtitle:
-              "Runtime capability policy stays explicit, inspectable, and locally owned.",
+          title: "治理姿态",
+          subtitle: "运行时能力策略保持显式、可检查且本地拥有。",
           child: _FactGrid(
             items: [
-              ("Preset", asString(capabilitySection["preset"], "managed_high")),
-              ("Entries", shell.governanceEntries.length.toString()),
-              ("MCP grants", shell.capabilityMcpGrants.length.toString()),
-              ("Overlays", asString(capabilitySection["overlayCount"])),
-              ("Agents", shell.agentRecords.length.toString()),
-              ("Active agents", activeAgentCount.toString()),
-              ("Surfaces", shell.surfaceRecords.length.toString()),
-              ("Active surfaces", activeSurfaceCount.toString()),
-              ("Blocked", asString(governanceStateCounts["blocked"], "0")),
-              ("Shadow", asString(governanceStateCounts["shadow"], "0")),
-              ("Candidate", asString(governanceStateCounts["candidate"], "0")),
-              ("Adopted", asString(governanceStateCounts["adopted"], "0")),
-              ("Core", asString(governanceStateCounts["core"], "0")),
+              (
+                "预设",
+                _localizedOptionLabel(
+                  asString(capabilitySection["preset"], "managed_high"),
+                ),
+              ),
+              ("条目数", shell.governanceEntries.length.toString()),
+              ("MCP 授权", shell.capabilityMcpGrants.length.toString()),
+              ("覆层数", asString(capabilitySection["overlayCount"])),
+              ("智能体", shell.agentRecords.length.toString()),
+              ("已启用智能体", activeAgentCount.toString()),
+              ("表面数", shell.surfaceRecords.length.toString()),
+              ("已启用表面", activeSurfaceCount.toString()),
+              ("阻止", asString(governanceStateCounts["blocked"], "0")),
+              ("影子", asString(governanceStateCounts["shadow"], "0")),
+              ("候选", asString(governanceStateCounts["candidate"], "0")),
+              ("已采纳", asString(governanceStateCounts["adopted"], "0")),
+              ("核心", asString(governanceStateCounts["core"], "0")),
             ],
           ),
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Agent roster",
+          title: "智能体列表",
           subtitle:
-              "${shell.agentRecords.length} runtime agents with governed local ownership.",
+              query.isEmpty
+                  ? "${shell.agentRecords.length} 个受治理约束、拥有本地所有权的运行时智能体。"
+                  : "已按当前搜索词筛选智能体列表。",
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2731,7 +4254,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                             ? null
                             : () => setState(_clearAgentDraft),
                     icon: const Icon(Icons.person_add_alt_1_outlined),
-                    label: const Text("New agent"),
+                    label: const Text("新建智能体"),
                   ),
                   if ((_editingAgentId ?? "").isNotEmpty)
                     OutlinedButton.icon(
@@ -2739,139 +4262,156 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                           shell.isRefreshing
                               ? null
                               : () => setState(
-                                () => _resetAgentDraft(agentId: _editingAgentId),
+                                () =>
+                                    _resetAgentDraft(agentId: _editingAgentId),
                               ),
                       icon: const Icon(Icons.refresh),
-                      label: const Text("Reset draft"),
+                      label: const Text("重置草稿"),
                     ),
                 ],
               ),
               const SizedBox(height: 14),
-              if (shell.agents.isEmpty)
+              if (visibleAgents.isEmpty)
                 Text(
-                  "No runtime agents are defined yet.",
+                  query.isEmpty ? "当前还没有定义运行时智能体。" : "没有匹配当前搜索词的智能体。",
                   style: Theme.of(context).textTheme.bodyMedium,
                 )
               else
                 Column(
-                  children: shell.agents.take(8).map((agent) {
-                    final agentId = asString(agent["id"]);
-                    final raw = _rowById(shell.agentRecords, agentId);
-                    final selected = agentId == (_editingAgentId ?? "");
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
-                          color:
-                              selected
-                                  ? const Color(0xFFEFE4D6)
-                                  : const Color(0xFFF9F5EF),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                  children: visibleAgents
+                      .take(8)
+                      .map((agent) {
+                        final agentId = asString(agent["id"]);
+                        final raw = _rowById(shell.agentRecords, agentId);
+                        final selected = agentId == (_editingAgentId ?? "");
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: DesktopSurfaceCard(
+                            padding: const EdgeInsets.all(14),
+                            tone:
+                                selected
+                                    ? DesktopSurfaceTone.accent
+                                    : DesktopSurfaceTone.muted,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    asString(agent["name"], "Agent"),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        asString(agent["name"], "智能体"),
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.titleMedium,
+                                      ),
+                                    ),
+                                    _StatusBadge(
+                                      label:
+                                          asBool(agent["active"], true)
+                                              ? "active"
+                                              : "inactive",
+                                      tone:
+                                          asBool(agent["active"], true)
+                                              ? "adopted"
+                                              : "blocked",
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  "${asString(agent["roleBase"], "未设置角色基底")} · ${asString(raw?["memoryNamespace"], "自动分配记忆命名空间")}",
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  "技能=${asString(raw?["skillIds"] is List ? (raw?["skillIds"] as List).length : 0)} · 表面=${asString(agent["surfaceCount"], "0")} · 打开任务=${asString(agent["openTaskCount"], "0")} · 汇报=${_localizedOptionLabel(asString(agent["reportPolicy"], "default"))}",
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                if (asString(
+                                  raw?["description"],
+                                ).isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    asString(raw?["description"]),
                                     style:
-                                        Theme.of(context).textTheme.titleMedium,
+                                        Theme.of(context).textTheme.bodyMedium,
                                   ),
-                                ),
-                                _StatusBadge(
-                                  label:
-                                      asBool(agent["active"], true)
-                                          ? "active"
-                                          : "inactive",
-                                  tone:
-                                      asBool(agent["active"], true)
-                                          ? "adopted"
-                                          : "blocked",
+                                ],
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    OutlinedButton(
+                                      onPressed:
+                                          shell.isRefreshing
+                                              ? null
+                                              : () => setState(
+                                                () => _resetAgentDraft(
+                                                  agentId: agentId,
+                                                ),
+                                              ),
+                                      child: const Text("编辑"),
+                                    ),
+                                    if (asInt(agent["surfaceCount"]) > 0)
+                                      OutlinedButton(
+                                        onPressed:
+                                            shell.isRefreshing
+                                                ? null
+                                                : () {
+                                                  final ownedSurface =
+                                                      shell.surfaceRecords
+                                                          .where(
+                                                            (surface) =>
+                                                                asString(
+                                                                      surface["ownerKind"],
+                                                                    ) ==
+                                                                    "agent" &&
+                                                                asString(
+                                                                      surface["ownerId"],
+                                                                    ) ==
+                                                                    agentId,
+                                                          )
+                                                          .cast<
+                                                            Map<
+                                                              String,
+                                                              dynamic
+                                                            >?
+                                                          >()
+                                                          .firstOrNull;
+                                                  if (ownedSurface == null) {
+                                                    return;
+                                                  }
+                                                  setState(() {
+                                                    _resetSurfaceDraft(
+                                                      surfaceId: asString(
+                                                        ownedSurface["id"],
+                                                      ),
+                                                    );
+                                                  });
+                                                },
+                                        child: const Text("打开表面"),
+                                      ),
+                                  ],
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              "${asString(agent["roleBase"], "No role base")} · ${asString(raw?["memoryNamespace"], "memory namespace auto")}",
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              "skills=${asString(raw?["skillIds"] is List ? (raw?["skillIds"] as List).length : 0)} · surfaces=${asString(agent["surfaceCount"], "0")} · open tasks=${asString(agent["openTaskCount"], "0")} · report=${asString(agent["reportPolicy"], "default")}",
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            if (asString(raw?["description"]).isNotEmpty) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                asString(raw?["description"]),
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ],
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                OutlinedButton(
-                                  onPressed:
-                                      shell.isRefreshing
-                                          ? null
-                                          : () => setState(
-                                            () =>
-                                                _resetAgentDraft(agentId: agentId),
-                                          ),
-                                  child: const Text("Edit"),
-                                ),
-                                if (asInt(agent["surfaceCount"]) > 0)
-                                  OutlinedButton(
-                                    onPressed:
-                                        shell.isRefreshing
-                                            ? null
-                                            : () {
-                                              final ownedSurface = shell.surfaceRecords
-                                                  .where(
-                                                    (surface) =>
-                                                        asString(surface["ownerKind"]) ==
-                                                            "agent" &&
-                                                        asString(surface["ownerId"]) ==
-                                                            agentId,
-                                                  )
-                                                  .cast<Map<String, dynamic>?>()
-                                                  .firstOrNull;
-                                              if (ownedSurface == null) {
-                                                return;
-                                              }
-                                              setState(() {
-                                                _resetSurfaceDraft(
-                                                  surfaceId: asString(
-                                                    ownedSurface["id"],
-                                                  ),
-                                                );
-                                              });
-                                            },
-                                    child: const Text("Open surface"),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(growable: false),
+                          ),
+                        );
+                      })
+                      .toList(growable: false),
                 ),
             ],
           ),
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Agent editor",
+          title: "智能体编辑器",
           subtitle:
               (_editingAgentId ?? "").isEmpty
-                  ? "Create a new ecology agent without leaving the desktop operator surface."
-                  : "Update the selected runtime agent and keep governance local.",
+                  ? "无需离开桌面操作面，就可以创建新的生态智能体。"
+                  : "更新所选运行时智能体，同时让治理继续保持本地化。",
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2885,9 +4425,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       controller: _agentNameController,
                       enabled: !shell.isRefreshing,
                       decoration: const InputDecoration(
-                        labelText: "Agent name",
+                        labelText: "智能体名称",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -2897,9 +4437,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       controller: _agentRoleBaseController,
                       enabled: !shell.isRefreshing,
                       decoration: const InputDecoration(
-                        labelText: "Role base",
+                        labelText: "角色基底",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -2909,9 +4449,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       controller: _agentMemoryNamespaceController,
                       enabled: !shell.isRefreshing,
                       decoration: const InputDecoration(
-                        labelText: "Memory namespace",
+                        labelText: "记忆命名空间",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -2921,9 +4461,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       controller: _agentSkillIdsController,
                       enabled: !shell.isRefreshing,
                       decoration: const InputDecoration(
-                        labelText: "Skill IDs (comma separated)",
+                        labelText: "技能 ID（逗号分隔）",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -2933,9 +4473,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       controller: _agentCommunicationStyleController,
                       enabled: !shell.isRefreshing,
                       decoration: const InputDecoration(
-                        labelText: "Communication style",
+                        labelText: "沟通风格",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -2945,24 +4485,23 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       key: ValueKey("agent-report-policy-$_agentReportPolicy"),
                       initialValue: _agentReportPolicy,
                       decoration: const InputDecoration(
-                        labelText: "Report policy",
+                        labelText: "汇报策略",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
-                      items:
-                          const [
-                                "silent",
-                                "reply",
-                                "proactive",
-                                "reply_and_proactive",
-                              ]
-                              .map(
-                                (entry) => DropdownMenuItem<String>(
-                                  value: entry,
-                                  child: Text(entry),
-                                ),
-                              )
-                              .toList(growable: false),
+                      items: const [
+                            "silent",
+                            "reply",
+                            "proactive",
+                            "reply_and_proactive",
+                          ]
+                          .map(
+                            (entry) => DropdownMenuItem<String>(
+                              value: entry,
+                              child: Text(entry),
+                            ),
+                          )
+                          .toList(growable: false),
                       onChanged:
                           shell.isRefreshing
                               ? null
@@ -2983,9 +4522,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       enabled: !shell.isRefreshing,
                       maxLines: 2,
                       decoration: const InputDecoration(
-                        labelText: "Description",
+                        labelText: "描述",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -2996,9 +4535,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       enabled: !shell.isRefreshing,
                       maxLines: 2,
                       decoration: const InputDecoration(
-                        labelText: "Agent notes",
+                        labelText: "智能体备注",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -3016,7 +4555,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                             _agentActive = value;
                           }),
                   contentPadding: EdgeInsets.zero,
-                  title: const Text("Agent active"),
+                  title: const Text("启用智能体"),
                 ),
               ),
               if ((_editingAgentId ?? "").isNotEmpty &&
@@ -3025,25 +4564,25 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                 _FactGrid(
                   items: [
                     (
-                      "Open tasks",
+                      "打开任务",
                       asString(selectedAgentStatus["openTaskCount"], "0"),
                     ),
                     (
-                      "Waiting user",
+                      "等待用户",
                       asString(
                         selectedAgentStatus["waitingUserTaskCount"],
                         "0",
                       ),
                     ),
                     (
-                      "Recent completions",
+                      "近期完成",
                       asString(
                         selectedAgentStatus["recentCompletionReportCount"],
                         "0",
                       ),
                     ),
                     (
-                      "Recent intel",
+                      "近期情报",
                       asString(
                         selectedAgentStatus["recentIntelDeliveryCount"],
                         "0",
@@ -3079,9 +4618,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                               notes: _agentNotesController.text,
                             ),
                     child: Text(
-                      (_editingAgentId ?? "").isEmpty
-                          ? "Create agent"
-                          : "Save agent",
+                      (_editingAgentId ?? "").isEmpty ? "创建智能体" : "保存智能体",
                     ),
                   ),
                   OutlinedButton(
@@ -3091,17 +4628,15 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                             : () => setState(
                               () => _resetAgentDraft(agentId: _editingAgentId),
                             ),
-                    child: const Text("Reset"),
+                    child: const Text("重置"),
                   ),
                   if ((_editingAgentId ?? "").isNotEmpty)
                     OutlinedButton(
                       onPressed:
                           shell.isRefreshing
                               ? null
-                              : () => controller.deleteAgent(
-                                _editingAgentId!,
-                              ),
-                      child: const Text("Delete agent"),
+                              : () => controller.deleteAgent(_editingAgentId!),
+                      child: const Text("删除智能体"),
                     ),
                 ],
               ),
@@ -3110,9 +4645,11 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Surface roster",
+          title: "表面列表",
           subtitle:
-              "${shell.surfaceRecords.length} local operator and agent-bound surfaces under runtime policy.",
+              query.isEmpty
+                  ? "${shell.surfaceRecords.length} 个受运行时策略约束的本地操作员表面与智能体绑定表面。"
+                  : "已按当前搜索词筛选表面列表。",
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3126,7 +4663,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                             ? null
                             : () => setState(_clearSurfaceDraft),
                     icon: const Icon(Icons.add_link_outlined),
-                    label: const Text("New surface"),
+                    label: const Text("新建表面"),
                   ),
                   if ((_editingSurfaceId ?? "").isNotEmpty)
                     OutlinedButton.icon(
@@ -3139,105 +4676,107 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                 ),
                               ),
                       icon: const Icon(Icons.refresh),
-                      label: const Text("Reset draft"),
+                      label: const Text("重置草稿"),
                     ),
                 ],
               ),
               const SizedBox(height: 14),
-              if (shell.surfaces.isEmpty)
+              if (visibleSurfaces.isEmpty)
                 Text(
-                  "No surfaces are defined yet.",
+                  query.isEmpty ? "当前还没有定义表面。" : "没有匹配当前搜索词的表面。",
                   style: Theme.of(context).textTheme.bodyMedium,
                 )
               else
                 Column(
-                  children: shell.surfaces.take(10).map((surface) {
-                    final surfaceId = asString(surface["id"]);
-                    final selected = surfaceId == (_editingSurfaceId ?? "");
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
-                          color:
-                              selected
-                                  ? const Color(0xFFEFE4D6)
-                                  : const Color(0xFFF9F5EF),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                  children: visibleSurfaces
+                      .take(10)
+                      .map((surface) {
+                        final surfaceId = asString(surface["id"]);
+                        final selected = surfaceId == (_editingSurfaceId ?? "");
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: DesktopSurfaceCard(
+                            padding: const EdgeInsets.all(14),
+                            tone:
+                                selected
+                                    ? DesktopSurfaceTone.accent
+                                    : DesktopSurfaceTone.muted,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    asString(surface["label"], "Surface"),
-                                    style:
-                                        Theme.of(context).textTheme.titleMedium,
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        asString(surface["label"], "表面"),
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.titleMedium,
+                                      ),
+                                    ),
+                                    _StatusBadge(
+                                      label:
+                                          asBool(surface["active"], true)
+                                              ? "active"
+                                              : "inactive",
+                                      tone:
+                                          asBool(surface["active"], true)
+                                              ? "adopted"
+                                              : "blocked",
+                                    ),
+                                  ],
                                 ),
-                                _StatusBadge(
-                                  label:
-                                      asBool(surface["active"], true)
-                                          ? "active"
-                                          : "inactive",
-                                  tone:
-                                      asBool(surface["active"], true)
-                                          ? "adopted"
-                                          : "blocked",
+                                const SizedBox(height: 6),
+                                Text(
+                                  "${asString(surface["channel"], "渠道")} · ${asString(surface["accountId"], "账号")} · ${asString(surface["ownerLabel"], "运行时用户")}",
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  "${asString(surface["role"], "未设置角色覆层")} · 任务创建=${_localizedOptionLabel(asString(asMap(surface["localBusinessPolicy"])["taskCreation"], "recommend_only"))} · 升级目标=${_localizedOptionLabel(asString(surface["reportTarget"], "runtime-user"))}",
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  "打开任务=${asString(surface["openTaskCount"], "0")} · 等待用户=${asString(surface["waitingUserTaskCount"], "0")} · 协调待处理=${asString(surface["pendingCoordinatorSuggestionCount"], "0")}",
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    OutlinedButton(
+                                      onPressed:
+                                          shell.isRefreshing
+                                              ? null
+                                              : () => setState(
+                                                () => _resetSurfaceDraft(
+                                                  surfaceId: surfaceId,
+                                                ),
+                                              ),
+                                      child: const Text("编辑"),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              "${asString(surface["channel"], "channel")} · ${asString(surface["accountId"], "account")} · ${asString(surface["ownerLabel"], "runtime user")}",
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              "${asString(surface["role"], "No role overlay")} · task creation=${asString(asMap(surface["localBusinessPolicy"])["taskCreation"], "recommend_only")} · escalation=${asString(surface["reportTarget"], "runtime-user")}",
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              "open tasks=${asString(surface["openTaskCount"], "0")} · waiting-user=${asString(surface["waitingUserTaskCount"], "0")} · coordinator pending=${asString(surface["pendingCoordinatorSuggestionCount"], "0")}",
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                OutlinedButton(
-                                  onPressed:
-                                      shell.isRefreshing
-                                          ? null
-                                          : () => setState(
-                                            () => _resetSurfaceDraft(
-                                              surfaceId: surfaceId,
-                                            ),
-                                          ),
-                                  child: const Text("Edit"),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(growable: false),
+                          ),
+                        );
+                      })
+                      .toList(growable: false),
                 ),
             ],
           ),
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Surface editor",
+          title: "表面编辑器",
           subtitle:
               (_editingSurfaceId ?? "").isEmpty
-                  ? "Bind a new surface to the desktop console or a specific agent."
-                  : "Update ownership and routing metadata for the selected surface.",
+                  ? "把新的表面绑定到桌面控制台或某个指定智能体。"
+                  : "更新所选表面的归属信息与路由元数据。",
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3251,9 +4790,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       controller: _surfaceChannelController,
                       enabled: !shell.isRefreshing,
                       decoration: const InputDecoration(
-                        labelText: "Channel",
+                        labelText: "渠道",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -3263,9 +4802,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       controller: _surfaceAccountIdController,
                       enabled: !shell.isRefreshing,
                       decoration: const InputDecoration(
-                        labelText: "Account ID",
+                        labelText: "账号 ID",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -3275,9 +4814,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       controller: _surfaceLabelController,
                       enabled: !shell.isRefreshing,
                       decoration: const InputDecoration(
-                        labelText: "Surface label",
+                        labelText: "表面标签",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -3287,15 +4826,15 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       key: ValueKey("surface-owner-kind-$_surfaceOwnerKind"),
                       initialValue: _surfaceOwnerKind,
                       decoration: const InputDecoration(
-                        labelText: "Owner kind",
+                        labelText: "所属对象类型",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                       items: const ["user", "agent"]
                           .map(
                             (entry) => DropdownMenuItem<String>(
                               value: entry,
-                              child: Text(entry),
+                              child: Text(_localizedOptionLabel(entry)),
                             ),
                           )
                           .toList(growable: false),
@@ -3323,21 +4862,23 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                     SizedBox(
                       width: 260,
                       child: DropdownButtonFormField<String>(
-                        key: ValueKey("surface-owner-agent-$_surfaceOwnerAgentId"),
+                        key: ValueKey(
+                          "surface-owner-agent-$_surfaceOwnerAgentId",
+                        ),
                         initialValue:
                             _surfaceOwnerAgentId.isEmpty
                                 ? null
                                 : _surfaceOwnerAgentId,
                         decoration: const InputDecoration(
-                          labelText: "Owning agent",
+                          labelText: "所属智能体",
                           filled: true,
-                          fillColor: Color(0xFFF7F2EA),
+                          fillColor: DesktopTokens.surfaceMuted,
                         ),
                         items: shell.agentRecords
                             .map(
                               (agent) => DropdownMenuItem<String>(
                                 value: asString(agent["id"]),
-                                child: Text(asString(agent["name"], "Agent")),
+                                child: Text(asString(agent["name"], "智能体")),
                               ),
                             )
                             .toList(growable: false),
@@ -3365,7 +4906,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                             _surfaceActive = value;
                           }),
                   contentPadding: EdgeInsets.zero,
-                  title: const Text("Surface active"),
+                  title: const Text("启用表面"),
                 ),
               ),
               if ((_editingSurfaceId ?? "").isNotEmpty &&
@@ -3374,19 +4915,24 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                 _FactGrid(
                   items: [
                     (
-                      "Owner",
-                      asString(selectedSurfaceStatus["ownerLabel"], "runtime"),
+                      "所属对象",
+                      asString(selectedSurfaceStatus["ownerLabel"], "运行时"),
                     ),
                     (
-                      "Role source",
-                      asString(selectedSurfaceStatus["roleSource"], "derived"),
+                      "角色来源",
+                      _localizedOptionLabel(
+                        asString(
+                          selectedSurfaceStatus["roleSource"],
+                          "derived",
+                        ),
+                      ),
                     ),
                     (
-                      "Open tasks",
+                      "打开任务",
                       asString(selectedSurfaceStatus["openTaskCount"], "0"),
                     ),
                     (
-                      "Recent activity",
+                      "最近活动",
                       _formatTimestamp(
                         asInt(selectedSurfaceStatus["latestActivityAt"]),
                       ),
@@ -3403,7 +4949,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                     onPressed:
                         shell.isRefreshing ||
                                 _surfaceChannelController.text.trim().isEmpty ||
-                                _surfaceAccountIdController.text.trim().isEmpty ||
+                                _surfaceAccountIdController.text
+                                    .trim()
+                                    .isEmpty ||
                                 _surfaceLabelController.text.trim().isEmpty ||
                                 (_surfaceOwnerKind == "agent" &&
                                     _surfaceOwnerAgentId.isEmpty)
@@ -3422,9 +4970,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                               active: _surfaceActive,
                             ),
                     child: Text(
-                      (_editingSurfaceId ?? "").isEmpty
-                          ? "Create surface"
-                          : "Save surface",
+                      (_editingSurfaceId ?? "").isEmpty ? "创建表面" : "保存表面",
                     ),
                   ),
                   OutlinedButton(
@@ -3436,7 +4982,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                 surfaceId: _editingSurfaceId,
                               ),
                             ),
-                    child: const Text("Reset"),
+                    child: const Text("重置"),
                   ),
                 ],
               ),
@@ -3445,11 +4991,11 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Surface role overlay",
+          title: "表面角色覆层",
           subtitle:
               (_editingSurfaceId ?? "").isEmpty
-                  ? "Save a surface first, then promote a role overlay into local runtime truth."
-                  : "Role, tone, topic bounds, and local-business policy stay allowlisted and runtime-owned.",
+                  ? "请先保存表面，再把角色覆层提升为本地运行时真相。"
+                  : "角色、语气、话题边界与本地业务策略始终保持白名单化并由运行时持有。",
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3465,9 +5011,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                           !shell.isRefreshing &&
                           (_editingSurfaceId ?? "").isNotEmpty,
                       decoration: const InputDecoration(
-                        labelText: "Role",
+                        labelText: "角色",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -3479,9 +5025,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                           !shell.isRefreshing &&
                           (_editingSurfaceId ?? "").isNotEmpty,
                       decoration: const InputDecoration(
-                        labelText: "Business goal",
+                        labelText: "业务目标",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -3493,9 +5039,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                           !shell.isRefreshing &&
                           (_editingSurfaceId ?? "").isNotEmpty,
                       decoration: const InputDecoration(
-                        labelText: "Tone",
+                        labelText: "语气",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -3505,15 +5051,15 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       key: ValueKey("surface-initiative-$_surfaceInitiative"),
                       initialValue: _surfaceInitiative,
                       decoration: const InputDecoration(
-                        labelText: "Initiative",
+                        labelText: "主动性",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                       items: const ["low", "medium", "high"]
                           .map(
                             (entry) => DropdownMenuItem<String>(
                               value: entry,
-                              child: Text(entry),
+                              child: Text(_localizedOptionLabel(entry)),
                             ),
                           )
                           .toList(growable: false),
@@ -3539,15 +5085,15 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       ),
                       initialValue: _surfaceReportTarget,
                       decoration: const InputDecoration(
-                        labelText: "Report target",
+                        labelText: "汇报目标",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                       items: const ["runtime-user", "surface-owner"]
                           .map(
                             (entry) => DropdownMenuItem<String>(
                               value: entry,
-                              child: Text(entry),
+                              child: Text(_localizedOptionLabel(entry)),
                             ),
                           )
                           .toList(growable: false),
@@ -3568,18 +5114,20 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                   SizedBox(
                     width: 220,
                     child: DropdownButtonFormField<String>(
-                      key: ValueKey("surface-task-creation-$_surfaceTaskCreation"),
+                      key: ValueKey(
+                        "surface-task-creation-$_surfaceTaskCreation",
+                      ),
                       initialValue: _surfaceTaskCreation,
                       decoration: const InputDecoration(
-                        labelText: "Task creation",
+                        labelText: "任务创建",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                       items: const ["recommend_only", "disabled"]
                           .map(
                             (entry) => DropdownMenuItem<String>(
                               value: entry,
-                              child: Text(entry),
+                              child: Text(_localizedOptionLabel(entry)),
                             ),
                           )
                           .toList(growable: false),
@@ -3605,15 +5153,15 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                       ),
                       initialValue: _surfaceEscalationTarget,
                       decoration: const InputDecoration(
-                        labelText: "Escalation target",
+                        labelText: "升级目标",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                       items: const ["runtime-user", "surface-owner"]
                           .map(
                             (entry) => DropdownMenuItem<String>(
                               value: entry,
-                              child: Text(entry),
+                              child: Text(_localizedOptionLabel(entry)),
                             ),
                           )
                           .toList(growable: false),
@@ -3639,9 +5187,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                           !shell.isRefreshing &&
                           (_editingSurfaceId ?? "").isNotEmpty,
                       decoration: const InputDecoration(
-                        labelText: "Role scope",
+                        labelText: "角色范围",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -3653,9 +5201,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                           !shell.isRefreshing &&
                           (_editingSurfaceId ?? "").isNotEmpty,
                       decoration: const InputDecoration(
-                        labelText: "Allowed topics (comma separated)",
+                        labelText: "允许话题（逗号分隔）",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -3667,9 +5215,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                           !shell.isRefreshing &&
                           (_editingSurfaceId ?? "").isNotEmpty,
                       decoration: const InputDecoration(
-                        labelText: "Restricted topics (comma separated)",
+                        labelText: "限制话题（逗号分隔）",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -3703,7 +5251,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                               escalationTarget: _surfaceEscalationTarget,
                               roleScope: _surfaceRoleScopeController.text,
                             ),
-                    child: const Text("Save overlay"),
+                    child: const Text("保存覆层"),
                   ),
                   OutlinedButton(
                     onPressed:
@@ -3714,7 +5262,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                 surfaceId: _editingSurfaceId,
                               ),
                             ),
-                    child: const Text("Reset overlay"),
+                    child: const Text("重置覆层"),
                   ),
                 ],
               ),
@@ -3724,22 +5272,36 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                 _FactGrid(
                   items: [
                     (
-                      "Overlay present",
-                      asString(selectedSurfaceStatus["overlayPresent"]),
+                      "已存在覆层",
+                      _localizedOptionLabel(
+                        asString(selectedSurfaceStatus["overlayPresent"]),
+                      ),
                     ),
                     (
-                      "Role source",
-                      asString(selectedSurfaceStatus["roleSource"], "derived"),
+                      "角色来源",
+                      _localizedOptionLabel(
+                        asString(
+                          selectedSurfaceStatus["roleSource"],
+                          "derived",
+                        ),
+                      ),
                     ),
                     (
-                      "Tone source",
-                      asString(selectedSurfaceStatus["toneSource"], "derived"),
+                      "语气来源",
+                      _localizedOptionLabel(
+                        asString(
+                          selectedSurfaceStatus["toneSource"],
+                          "derived",
+                        ),
+                      ),
                     ),
                     (
-                      "Policy source",
-                      asString(
-                        selectedSurfaceStatus["localBusinessPolicySource"],
-                        "derived",
+                      "策略来源",
+                      _localizedOptionLabel(
+                        asString(
+                          selectedSurfaceStatus["localBusinessPolicySource"],
+                          "derived",
+                        ),
                       ),
                     ),
                   ],
@@ -3750,19 +5312,23 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Evolution candidates",
+          title: "演化候选项",
           subtitle:
-              "${shell.evolutionCandidates.length} candidates in the local queue",
+              query.isEmpty
+                  ? "${shell.evolutionCandidates.length} 个候选项正在本地队列中等待处理"
+                  : "已按当前搜索词筛选演化候选项。",
           child: Column(
             children:
-                shell.evolutionCandidates.isEmpty
+                visibleEvolutionCandidates.isEmpty
                     ? [
                       Text(
-                        "No evolution candidates are pending local review right now.",
+                        query.isEmpty
+                            ? "当前没有等待本地复审的演化候选项。"
+                            : "没有匹配当前搜索词的演化候选项。",
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ]
-                    : shell.evolutionCandidates
+                    : visibleEvolutionCandidates
                         .take(8)
                         .map((candidate) {
                           final id = asString(candidate["id"]);
@@ -3772,12 +5338,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                           );
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
+                            child: DesktopSurfaceCard(
                               padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                color: const Color(0xFFF9F5EF),
-                              ),
+                              tone: DesktopSurfaceTone.muted,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -3787,7 +5350,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                         child: Text(
                                           asString(
                                             candidate["summary"],
-                                            "Evolution candidate",
+                                            "演化候选项",
                                           ),
                                           style:
                                               Theme.of(
@@ -3802,7 +5365,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                   Text(
                                     asString(
                                       candidate["estimatedImpact"],
-                                      "Estimated impact not provided.",
+                                      "尚未提供预估影响。",
                                     ),
                                     style:
                                         Theme.of(context).textTheme.bodyMedium,
@@ -3818,7 +5381,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                                 ? null
                                                 : () => controller
                                                     .adoptEvolution(id),
-                                        child: const Text("Adopt"),
+                                        child: const Text("采纳"),
                                       ),
                                       OutlinedButton(
                                         onPressed:
@@ -3826,7 +5389,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                                 ? null
                                                 : () => controller
                                                     .rejectEvolution(id),
-                                        child: const Text("Reject"),
+                                        child: const Text("拒绝"),
                                       ),
                                       OutlinedButton(
                                         onPressed:
@@ -3834,7 +5397,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                                 ? null
                                                 : () => controller
                                                     .revertEvolution(id),
-                                        child: const Text("Revert"),
+                                        child: const Text("回退"),
                                       ),
                                     ],
                                   ),
@@ -3848,30 +5411,29 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Role optimization queue",
+          title: "角色优化队列",
           subtitle:
-              "${roleOptimizationActions.length} operator-visible surface-role recommendations are pending in the action queue.",
+              query.isEmpty
+                  ? "${roleOptimizationActions.length} 条操作员可见的表面角色建议仍在动作队列中等待处理。"
+                  : "已按当前搜索词筛选角色优化动作。",
           child: Column(
             children:
-                roleOptimizationActions.isEmpty
+                visibleRoleOptimizationActions.isEmpty
                     ? [
                       Text(
-                        "No role optimization actions are waiting right now.",
+                        query.isEmpty ? "当前没有等待中的角色优化动作。" : "没有匹配当前搜索词的角色优化动作。",
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ]
-                    : roleOptimizationActions
+                    : visibleRoleOptimizationActions
                         .take(6)
                         .map((action) {
                           final candidateId = action.candidateId ?? "";
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
+                            child: DesktopSurfaceCard(
                               padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                color: const Color(0xFFF9F5EF),
-                              ),
+                              tone: DesktopSurfaceTone.muted,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -3912,7 +5474,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                                     .adoptRoleOptimization(
                                                       candidateId,
                                                     ),
-                                        child: const Text("Adopt overlay"),
+                                        child: const Text("采纳覆层"),
                                       ),
                                       OutlinedButton(
                                         onPressed:
@@ -3923,7 +5485,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                                     .rejectRoleOptimization(
                                                       candidateId,
                                                     ),
-                                        child: const Text("Reject overlay"),
+                                        child: const Text("拒绝覆层"),
                                       ),
                                     ],
                                   ),
@@ -3937,19 +5499,23 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Capability registry",
+          title: "能力注册表",
           subtitle:
-              "${shell.governanceEntries.length} governed entries across skills, agents, and MCP.",
+              query.isEmpty
+                  ? "${shell.governanceEntries.length} 条受治理约束的技能、智能体和 MCP 注册项。"
+                  : "已按当前搜索词筛选治理注册表。",
           child: Column(
             children:
-                shell.governanceEntries.isEmpty
+                visibleGovernanceEntries.isEmpty
                     ? [
                       Text(
-                        "No governed capability entries are visible in the runtime snapshot.",
+                        query.isEmpty
+                            ? "当前运行时快照里没有可见的受治理能力条目。"
+                            : "没有匹配当前搜索词的治理能力条目。",
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ]
-                    : shell.governanceEntries
+                    : visibleGovernanceEntries
                         .take(10)
                         .map((entry) {
                           final entryId = asString(entry["id"]);
@@ -3968,12 +5534,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                           ];
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
+                            child: DesktopSurfaceCard(
                               padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                color: const Color(0xFFF9F5EF),
-                              ),
+                              tone: DesktopSurfaceTone.muted,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -3981,7 +5544,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          targetId.isEmpty ? "entry" : targetId,
+                                          targetId.isEmpty ? "条目" : targetId,
                                           style:
                                               Theme.of(
                                                 context,
@@ -3993,7 +5556,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    "$registryType · ${asString(entry["executionSummary"], asString(entry["summary"], "governed"))}",
+                                    "$registryType · ${asString(entry["executionSummary"], asString(entry["summary"], "受治理"))}",
                                     style:
                                         Theme.of(context).textTheme.bodyMedium,
                                   ),
@@ -4010,7 +5573,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                     children: candidateStates
                                         .map(
                                           (stateValue) => FilterChip(
-                                            label: Text(stateValue),
+                                            label: Text(
+                                              _localizedOptionLabel(stateValue),
+                                            ),
                                             selected: state == stateValue,
                                             onSelected:
                                                 shell.isRefreshing ||
@@ -4046,19 +5611,23 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "MCP grants",
+          title: "MCP 授权",
           subtitle:
-              "${shell.capabilityMcpGrants.length} host-owned agent-to-MCP grants are currently visible.",
+              query.isEmpty
+                  ? "${shell.capabilityMcpGrants.length} 条宿主持有的智能体到 MCP 授权当前可见。"
+                  : "已按当前搜索词筛选 MCP 授权列表。",
           child: Column(
             children:
-                shell.capabilityMcpGrants.isEmpty
+                visibleMcpGrants.isEmpty
                     ? [
                       Text(
-                        "No MCP grants are visible right now.",
+                        query.isEmpty
+                            ? "当前没有可见的 MCP 授权。"
+                            : "没有匹配当前搜索词的 MCP 授权。",
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ]
-                    : shell.capabilityMcpGrants
+                    : visibleMcpGrants
                         .take(10)
                         .map((grant) {
                           final grantId = asString(grant["id"]);
@@ -4067,12 +5636,9 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                           final state = asString(grant["state"], "denied");
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
+                            child: DesktopSurfaceCard(
                               padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                color: const Color(0xFFF9F5EF),
-                              ),
+                              tone: DesktopSurfaceTone.muted,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -4102,7 +5668,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                     runSpacing: 8,
                                     children: [
                                       FilterChip(
-                                        label: const Text("allowed"),
+                                        label: const Text("允许"),
                                         selected: state == "allowed",
                                         onSelected:
                                             shell.isRefreshing ||
@@ -4124,7 +5690,7 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
                                                 },
                                       ),
                                       FilterChip(
-                                        label: const Text("denied"),
+                                        label: const Text("拒绝"),
                                         selected: state == "denied",
                                         onSelected:
                                             shell.isRefreshing ||
@@ -4157,25 +5723,29 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Recent governance activity",
+          title: "最近治理活动",
           subtitle:
-              "Local governance changes and overlay effects stay visible instead of disappearing into logs.",
+              query.isEmpty
+                  ? "本地治理变更与覆层影响会持续保持可见，而不是消失在日志里。"
+                  : "已按当前搜索词筛选最近治理活动。",
           child: Column(
             children:
-                shell.capabilityRecentActivity.isEmpty
+                visibleRecentActivity.isEmpty
                     ? [
                       Text(
-                        "No recent governance activity was found in the runtime snapshot.",
+                        query.isEmpty
+                            ? "当前运行时快照里没有发现最近治理活动。"
+                            : "没有匹配当前搜索词的最近治理活动。",
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ]
-                    : shell.capabilityRecentActivity
+                    : visibleRecentActivity
                         .take(10)
                         .map((activity) {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: _TimelineTile(
-                              title: asString(activity["title"], "Activity"),
+                              title: asString(activity["title"], "活动"),
                               subtitle: asString(
                                 activity["summary"],
                                 asString(activity["kind"], "governance"),
@@ -4194,14 +5764,53 @@ class _GovernanceWorkboardState extends ConsumerState<_GovernanceWorkboard> {
   }
 }
 
+// ignore: unused_element
 class _FederationWorkboard extends ConsumerWidget {
-  const _FederationWorkboard({required this.shell});
+  const _FederationWorkboard({required this.shell, required this.searchQuery});
 
   final DesktopShellState shell;
+  final String searchQuery;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(shellControllerProvider.notifier);
+    final visiblePackages = shell.federationPackages
+        .where(
+          (pkg) => _matchesSearch(searchQuery, [
+            pkg["summary"],
+            pkg["packageType"],
+            pkg["sourceRuntimeId"],
+            pkg["state"],
+            pkg["reviewSummary"],
+            pkg["localLandingSummary"],
+          ]),
+        )
+        .toList(growable: false);
+    final visibleCoordinatorSuggestions = shell.federationCoordinatorSuggestions
+        .where(
+          (entry) => _matchesSearch(searchQuery, [
+            entry["title"],
+            entry["summary"],
+            entry["sourceRuntimeId"],
+            entry["localTaskId"],
+            entry["localTaskStatus"],
+            entry["rematerializeReason"],
+          ]),
+        )
+        .toList(growable: false);
+    final visibleAssignments = shell.federationAssignments
+        .where(
+          (entry) => _matchesSearch(searchQuery, [
+            entry["title"],
+            entry["summary"],
+            entry["sourceRuntimeId"],
+            entry["route"],
+            entry["worker"],
+            entry["state"],
+            entry["blockedReason"],
+          ]),
+        )
+        .toList(growable: false);
     return ListView(
       children: [
         Row(
@@ -4211,12 +5820,12 @@ class _FederationWorkboard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Federation workboard",
+                    "联邦工作板",
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "Sync is operator-governed and never bypasses local truth ownership.",
+                    "同步由操作员治理，绝不会绕过本地真相所有权。",
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -4225,31 +5834,27 @@ class _FederationWorkboard extends ConsumerWidget {
             FilledButton.icon(
               onPressed: () => controller.syncFederation(),
               icon: const Icon(Icons.sync),
-              label: const Text("Sync now"),
+              label: const Text("立即同步"),
             ),
           ],
         ),
         const SizedBox(height: 18),
         _SectionCard(
-          title: "Remote posture",
-          subtitle:
-              "Loopback-controlled desktop shell, outbound federation sync.",
+          title: "远端姿态",
+          subtitle: "桌面壳通过本地回环控制，联邦同步保持出站模式。",
           child: _FactGrid(
             items: [
+              ("已配置远端", asString(shell.federationSection["remoteConfigured"])),
+              ("待发出站", shell.outboxPendingCount.toString()),
               (
-                "Remote configured",
-                asString(shell.federationSection["remoteConfigured"]),
-              ),
-              ("Pending outbox", shell.outboxPendingCount.toString()),
-              (
-                "Pending assignments",
+                "待处理指派",
                 asString(shell.federationSection["pendingAssignments"]),
               ),
               (
-                "Acknowledged head",
+                "已确认头指针",
                 asString(
                   shell.federationSection["acknowledgedOutboxEventId"],
-                  "None",
+                  "无",
                 ),
               ),
             ],
@@ -4257,19 +5862,21 @@ class _FederationWorkboard extends ConsumerWidget {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Inbox packages",
+          title: "收件包",
           subtitle:
-              "${shell.federationPackages.length} package previews available from the runtime snapshot.",
+              searchQuery.isEmpty
+                  ? "${shell.federationPackages.length} 个包预览来自当前运行时快照。"
+                  : "已按当前搜索词筛选联邦收件包。",
           child: Column(
             children:
-                shell.federationPackages.isEmpty
+                visiblePackages.isEmpty
                     ? [
                       Text(
-                        "No inbox packages are visible right now.",
+                        searchQuery.isEmpty ? "当前没有可见的收件包。" : "没有匹配当前搜索词的收件包。",
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ]
-                    : shell.federationPackages
+                    : visiblePackages
                         .take(8)
                         .map((pkg) {
                           final packageId = asString(pkg["id"]);
@@ -4287,12 +5894,9 @@ class _FederationWorkboard extends ConsumerWidget {
                           final actionable = asBool(pkg["actionable"]);
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
+                            child: DesktopSurfaceCard(
                               padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                color: const Color(0xFFF9F5EF),
-                              ),
+                              tone: DesktopSurfaceTone.muted,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -4302,10 +5906,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                         child: Text(
                                           asString(
                                             pkg["summary"],
-                                            asString(
-                                              pkg["packageType"],
-                                              "package",
-                                            ),
+                                            asString(pkg["packageType"], "包"),
                                           ),
                                           style:
                                               Theme.of(
@@ -4318,7 +5919,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    "${asString(pkg["packageType"], "package")} · ${asString(pkg["sourceRuntimeId"], "unknown-runtime")}",
+                                    "${_localizedOptionLabel(asString(pkg["packageType"], "包"))} · ${asString(pkg["sourceRuntimeId"], "未知运行时")}",
                                     style:
                                         Theme.of(context).textTheme.bodyMedium,
                                   ),
@@ -4375,7 +5976,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                               style: Theme.of(
                                                 context,
                                               ).textTheme.bodyMedium?.copyWith(
-                                                color: const Color(0xFFA24634),
+                                                color: DesktopTokens.danger,
                                               ),
                                             ),
                                           ),
@@ -4397,7 +5998,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                                       .adoptFederationPackage(
                                                         packageId,
                                                       ),
-                                          child: const Text("Adopt package"),
+                                          child: const Text("采纳包"),
                                         ),
                                       if (state == "recommended" &&
                                           packageId.isNotEmpty)
@@ -4409,7 +6010,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                                       .rejectFederationPackage(
                                                         packageId,
                                                       ),
-                                          child: const Text("Reject package"),
+                                          child: const Text("拒绝包"),
                                         ),
                                       if (state == "adopted" &&
                                           packageId.isNotEmpty)
@@ -4421,7 +6022,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                                       .revertFederationPackage(
                                                         packageId,
                                                       ),
-                                          child: const Text("Revert package"),
+                                          child: const Text("回退包"),
                                         ),
                                       if (packageId.isNotEmpty)
                                         OutlinedButton(
@@ -4431,7 +6032,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                                   : () => controller.focusAction(
                                                     "federation-package:$packageId",
                                                   ),
-                                          child: const Text("Focus in queue"),
+                                          child: const Text("在队列中定位"),
                                         ),
                                     ],
                                   ),
@@ -4445,19 +6046,23 @@ class _FederationWorkboard extends ConsumerWidget {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Coordinator suggestions",
+          title: "协调建议",
           subtitle:
-              "${shell.federationCoordinatorSuggestions.length} local coordinator suggestions are currently visible.",
+              searchQuery.isEmpty
+                  ? "${shell.federationCoordinatorSuggestions.length} 条本地协调建议当前可见。"
+                  : "已按当前搜索词筛选协调建议。",
           child: Column(
             children:
-                shell.federationCoordinatorSuggestions.isEmpty
+                visibleCoordinatorSuggestions.isEmpty
                     ? [
                       Text(
-                        "No adopted coordinator suggestions are waiting in the local queue.",
+                        searchQuery.isEmpty
+                            ? "当前没有已采纳且仍在本地队列中等待的协调建议。"
+                            : "没有匹配当前搜索词的协调建议。",
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ]
-                    : shell.federationCoordinatorSuggestions
+                    : visibleCoordinatorSuggestions
                         .take(8)
                         .map((entry) {
                           final suggestionId = asString(entry["id"]);
@@ -4478,12 +6083,9 @@ class _FederationWorkboard extends ConsumerWidget {
                           );
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
+                            child: DesktopSurfaceCard(
                               padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                color: const Color(0xFFF9F5EF),
-                              ),
+                              tone: DesktopSurfaceTone.muted,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -4491,10 +6093,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          asString(
-                                            entry["title"],
-                                            "Coordinator suggestion",
-                                          ),
+                                          asString(entry["title"], "协调建议"),
                                           style:
                                               Theme.of(
                                                 context,
@@ -4515,7 +6114,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    "${asString(entry["sourceRuntimeId"], "unknown-runtime")} · localTask=${materializeTarget.isEmpty ? "none" : materializeTarget}",
+                                    "${asString(entry["sourceRuntimeId"], "未知运行时")} · 本地任务=${materializeTarget.isEmpty ? "无" : materializeTarget}",
                                     style:
                                         Theme.of(context).textTheme.bodyMedium,
                                   ),
@@ -4545,8 +6144,8 @@ class _FederationWorkboard extends ConsumerWidget {
                                                     ),
                                         child: Text(
                                           materializeTarget.isEmpty
-                                              ? "Materialize task"
-                                              : "Open or rematerialize",
+                                              ? "生成本地任务"
+                                              : "打开或重新生成",
                                         ),
                                       ),
                                       if (materializeTarget.isNotEmpty)
@@ -4559,10 +6158,10 @@ class _FederationWorkboard extends ConsumerWidget {
                                                       materializeTarget,
                                                     );
                                                     await controller.setPage(
-                                                      DesktopPage.tasks,
+                                                      DesktopPage.sessions,
                                                     );
                                                   },
-                                          child: const Text("Open task"),
+                                          child: const Text("打开任务"),
                                         ),
                                     ],
                                   ),
@@ -4576,19 +6175,23 @@ class _FederationWorkboard extends ConsumerWidget {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Assignment inbox",
+          title: "指派收件箱",
           subtitle:
-              "${shell.federationAssignments.length} assignment previews are visible from the local federation assignment inbox.",
+              searchQuery.isEmpty
+                  ? "${shell.federationAssignments.length} 个指派预览来自本地联邦指派收件箱。"
+                  : "已按当前搜索词筛选联邦指派。",
           child: Column(
             children:
-                shell.federationAssignments.isEmpty
+                visibleAssignments.isEmpty
                     ? [
                       Text(
-                        "No federation assignments are waiting right now.",
+                        searchQuery.isEmpty
+                            ? "当前没有等待中的联邦指派。"
+                            : "没有匹配当前搜索词的联邦指派。",
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ]
-                    : shell.federationAssignments
+                    : visibleAssignments
                         .take(8)
                         .map((entry) {
                           final assignmentId = asString(entry["id"]);
@@ -4602,12 +6205,9 @@ class _FederationWorkboard extends ConsumerWidget {
                           );
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: Container(
+                            child: DesktopSurfaceCard(
                               padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                color: const Color(0xFFF9F5EF),
-                              ),
+                              tone: DesktopSurfaceTone.muted,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -4615,10 +6215,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          asString(
-                                            entry["title"],
-                                            "Federation assignment",
-                                          ),
+                                          asString(entry["title"], "联邦指派"),
                                           style:
                                               Theme.of(
                                                 context,
@@ -4636,7 +6233,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    "${asString(entry["sourceRuntimeId"], "unknown-runtime")} · ${asString(entry["route"], "route-unset")} · ${asString(entry["worker"], "worker-unset")}",
+                                    "${asString(entry["sourceRuntimeId"], "未知运行时")} · ${_localizedOptionLabel(asString(entry["route"], "未设置路由"))} · ${_localizedOptionLabel(asString(entry["worker"], "未设置工作器"))}",
                                     style:
                                         Theme.of(context).textTheme.bodyMedium,
                                   ),
@@ -4647,7 +6244,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                       style: Theme.of(
                                         context,
                                       ).textTheme.bodyMedium?.copyWith(
-                                        color: const Color(0xFFA24634),
+                                        color: DesktopTokens.danger,
                                       ),
                                     ),
                                   ],
@@ -4668,7 +6265,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                                       .materializeFederationAssignment(
                                                         assignmentId,
                                                       ),
-                                          child: const Text("Materialize"),
+                                          child: const Text("生成"),
                                         ),
                                       if (availableActions.contains("block"))
                                         OutlinedButton(
@@ -4680,7 +6277,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                                       .blockFederationAssignment(
                                                         assignmentId,
                                                       ),
-                                          child: const Text("Block"),
+                                          child: const Text("阻止"),
                                         ),
                                       if (availableActions.contains("reset"))
                                         OutlinedButton(
@@ -4692,7 +6289,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                                       .resetFederationAssignment(
                                                         assignmentId,
                                                       ),
-                                          child: const Text("Reset"),
+                                          child: const Text("重置"),
                                         ),
                                       if (availableActions.contains(
                                         "mark_applied",
@@ -4706,7 +6303,7 @@ class _FederationWorkboard extends ConsumerWidget {
                                                       .markFederationAssignmentApplied(
                                                         assignmentId,
                                                       ),
-                                          child: const Text("Mark applied"),
+                                          child: const Text("标记为已应用"),
                                         ),
                                       if (localTaskId.isNotEmpty)
                                         OutlinedButton(
@@ -4718,10 +6315,10 @@ class _FederationWorkboard extends ConsumerWidget {
                                                       localTaskId,
                                                     );
                                                     await controller.setPage(
-                                                      DesktopPage.tasks,
+                                                      DesktopPage.sessions,
                                                     );
                                                   },
-                                          child: const Text("Open task"),
+                                          child: const Text("打开任务"),
                                         ),
                                     ],
                                   ),
@@ -4739,9 +6336,10 @@ class _FederationWorkboard extends ConsumerWidget {
 }
 
 class _SettingsWorkboard extends ConsumerStatefulWidget {
-  const _SettingsWorkboard({required this.shell});
+  const _SettingsWorkboard({required this.shell, required this.searchQuery});
 
   final DesktopShellState shell;
+  final String searchQuery;
 
   @override
   ConsumerState<_SettingsWorkboard> createState() => _SettingsWorkboardState();
@@ -4925,6 +6523,7 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
   Widget build(BuildContext context) {
     final shell = widget.shell;
     final controller = ref.read(shellControllerProvider.notifier);
+    final query = widget.searchQuery;
     final taskDefaults = asMap(shell.settings["taskDefaults"]);
     final capabilities = asMap(shell.settings["capabilities"]);
     final gateway = asMap(shell.settings["gateway"]);
@@ -4942,50 +6541,61 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
         primaryUserModelAction?.candidateId ?? "";
     final pendingImport = asBool(userModelMirror["pendingImport"]);
     final syncNeeded = asBool(userModelMirror["syncNeeded"]);
+    final visibleIntelDomainRows = intelDomainRows
+        .where(
+          (domain) => _matchesSearch(query, [
+            domain["id"],
+            domain["label"],
+            domain["summary"],
+          ]),
+        )
+        .toList(growable: false);
     return ListView(
       children: [
-        Text(
-          "Settings workboard",
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
+        Text("设置工作板", style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 8),
         Text(
-          "These are runtime-owned settings surfaced through the desktop console, not local UI truth.",
+          "这些设置由运行时持有，只是通过桌面控制台呈现出来，并不是本地 UI 自己的真相。",
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 18),
+        if (query.isNotEmpty) ...[
+          _SectionCard(
+            title: "搜索已生效",
+            subtitle: "设置页会保留表单可编辑性，同时帮助你定位相关配置分区。",
+            child: _FactGrid(
+              items: [
+                ("关键词", query),
+                (
+                  "用户模型建议",
+                  shell.recommendedUserModelOptimizationCount.toString(),
+                ),
+                ("角色建议", shell.recommendedRoleOptimizationCount.toString()),
+                ("情报领域命中", visibleIntelDomainRows.length.toString()),
+                ("待处理演化候选", shell.evolutionCandidates.length.toString()),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         _SectionCard(
-          title: "Runtime user model",
-          subtitle:
-              "Long-term operator preferences stay in Runtime Core and can be updated through reviewed proposals.",
+          title: "运行时用户模型",
+          subtitle: "长期操作偏好保留在 Runtime Core 中，并通过经过审查的提案来更新。",
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _FactGrid(
                 items: [
+                  ("显示名称", asString(userModel["displayName"], "未设置")),
+                  ("沟通风格", asString(userModel["communicationStyle"], "未设置")),
+                  ("打断阈值", asString(userModel["interruptionThreshold"], "未设置")),
+                  ("汇报详细度", asString(userModel["reportVerbosity"], "未设置")),
+                  ("确认边界", asString(userModel["confirmationBoundary"], "未设置")),
                   (
-                    "Display name",
-                    asString(userModel["displayName"], "Not set"),
-                  ),
-                  (
-                    "Communication style",
-                    asString(userModel["communicationStyle"], "Not set"),
-                  ),
-                  (
-                    "Interruption threshold",
-                    asString(userModel["interruptionThreshold"], "Not set"),
-                  ),
-                  (
-                    "Report verbosity",
-                    asString(userModel["reportVerbosity"], "Not set"),
-                  ),
-                  (
-                    "Confirmation boundary",
-                    asString(userModel["confirmationBoundary"], "Not set"),
-                  ),
-                  (
-                    "Report policy",
-                    asString(userModel["reportPolicy"], "Not set"),
+                    "汇报策略",
+                    _localizedOptionLabel(
+                      asString(userModel["reportPolicy"], "未设置"),
+                    ),
                   ),
                 ],
               ),
@@ -5000,9 +6610,9 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                       controller: _displayNameController,
                       enabled: !shell.isRefreshing,
                       decoration: const InputDecoration(
-                        labelText: "Display name",
+                        labelText: "显示名称",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -5012,9 +6622,9 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                       controller: _communicationStyleController,
                       enabled: !shell.isRefreshing,
                       decoration: const InputDecoration(
-                        labelText: "Communication style",
+                        labelText: "沟通风格",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                     ),
                   ),
@@ -5026,15 +6636,15 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                       ),
                       initialValue: _userInterruptionThreshold,
                       decoration: const InputDecoration(
-                        labelText: "Interruption threshold",
+                        labelText: "打断阈值",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                       items: const ["low", "medium", "high"]
                           .map(
                             (entry) => DropdownMenuItem<String>(
                               value: entry,
-                              child: Text(entry),
+                              child: Text(_localizedOptionLabel(entry)),
                             ),
                           )
                           .toList(growable: false),
@@ -5057,15 +6667,15 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                       key: ValueKey("user-verbosity-$_userReportVerbosity"),
                       initialValue: _userReportVerbosity,
                       decoration: const InputDecoration(
-                        labelText: "Report verbosity",
+                        labelText: "汇报详细度",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                       items: const ["brief", "balanced", "detailed"]
                           .map(
                             (entry) => DropdownMenuItem<String>(
                               value: entry,
-                              child: Text(entry),
+                              child: Text(_localizedOptionLabel(entry)),
                             ),
                           )
                           .toList(growable: false),
@@ -5090,15 +6700,15 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                       ),
                       initialValue: _userConfirmationBoundary,
                       decoration: const InputDecoration(
-                        labelText: "Confirmation boundary",
+                        labelText: "确认边界",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                       items: const ["strict", "balanced", "light"]
                           .map(
                             (entry) => DropdownMenuItem<String>(
                               value: entry,
-                              child: Text(entry),
+                              child: Text(_localizedOptionLabel(entry)),
                             ),
                           )
                           .toList(growable: false),
@@ -5121,9 +6731,9 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                       key: ValueKey("user-report-policy-$_userReportPolicy"),
                       initialValue: _userReportPolicy,
                       decoration: const InputDecoration(
-                        labelText: "Report policy",
+                        labelText: "汇报策略",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                       items: const [
                             "silent",
@@ -5134,7 +6744,7 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                           .map(
                             (entry) => DropdownMenuItem<String>(
                               value: entry,
-                              child: Text(entry),
+                              child: Text(_localizedOptionLabel(entry)),
                             ),
                           )
                           .toList(growable: false),
@@ -5167,7 +6777,7 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                               : () => controller.adoptUserModelOptimization(
                                 primaryUserModelCandidateId,
                               ),
-                      child: const Text("Adopt top recommendation"),
+                      child: const Text("采纳首个建议"),
                     ),
                     OutlinedButton(
                       onPressed:
@@ -5177,7 +6787,7 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                               : () => controller.rejectUserModelOptimization(
                                 primaryUserModelCandidateId,
                               ),
-                      child: const Text("Reject recommendation"),
+                      child: const Text("拒绝建议"),
                     ),
                   ],
                 ),
@@ -5200,14 +6810,14 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                               confirmationBoundary: _userConfirmationBoundary,
                               reportPolicy: _userReportPolicy,
                             ),
-                    child: const Text("Apply user model"),
+                    child: const Text("应用用户模型"),
                   ),
                   OutlinedButton(
                     onPressed:
                         shell.isRefreshing
                             ? null
                             : () => setState(_syncFromShell),
-                    child: const Text("Reset draft"),
+                    child: const Text("重置草稿"),
                   ),
                 ],
               ),
@@ -5217,37 +6827,34 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
         const SizedBox(height: 14),
         _SectionCard(
           title: "USER.md mirror",
-          subtitle:
-              "The human-editable mirror stays secondary to runtime truth and surfaces import pressure here instead of silently overwriting the core model.",
+          subtitle: "可人工编辑的镜像始终从属于运行时真相，并把导入压力显式展示在这里，而不是静默覆盖核心模型。",
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _FactGrid(
                 items: [
+                  ("镜像路径", asString(userModelMirror["path"], "不可用")),
                   (
-                    "Mirror path",
-                    asString(userModelMirror["path"], "Unavailable"),
+                    "待导入",
+                    _localizedOptionLabel(
+                      asString(userModelMirror["pendingImport"], "false"),
+                    ),
                   ),
                   (
-                    "Pending import",
-                    asString(userModelMirror["pendingImport"], "false"),
+                    "需要同步",
+                    _localizedOptionLabel(
+                      asString(userModelMirror["syncNeeded"], "false"),
+                    ),
                   ),
                   (
-                    "Sync needed",
-                    asString(userModelMirror["syncNeeded"], "false"),
-                  ),
-                  (
-                    "Last modified",
+                    "最后修改时间",
                     _formatTimestamp(asInt(userModelMirror["lastModifiedAt"])),
                   ),
                   (
-                    "Recommended user-model changes",
+                    "推荐用户模型变更",
                     shell.recommendedUserModelOptimizationCount.toString(),
                   ),
-                  (
-                    "Recommended role changes",
-                    shell.recommendedRoleOptimizationCount.toString(),
-                  ),
+                  ("推荐角色变更", shell.recommendedRoleOptimizationCount.toString()),
                 ],
               ),
               const SizedBox(height: 12),
@@ -5260,14 +6867,14 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                         shell.isRefreshing || !pendingImport
                             ? null
                             : () => controller.importUserModelMirror(),
-                    child: const Text("Import pending mirror"),
+                    child: const Text("导入待处理镜像"),
                   ),
                   OutlinedButton(
                     onPressed:
                         shell.isRefreshing || (!pendingImport && !syncNeeded)
                             ? null
                             : () => controller.discardPendingUserModelMirror(),
-                    child: const Text("Discard and resync"),
+                    child: const Text("丢弃并重新同步"),
                   ),
                 ],
               ),
@@ -5276,58 +6883,45 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Instance roots",
-          subtitle:
-              "All stores stay instance-rooted and desktop initialization should keep them invisible to the operator by default.",
+          title: "实例根目录",
+          subtitle: "所有存储都保持实例根目录隔离，桌面初始化应默认把这些细节隐藏在操作员身后。",
           child: _FactGrid(
             items: [
-              (
-                "Instance root",
-                asString(shell.instanceSection["instanceRoot"]),
-              ),
-              (
-                "Workspace root",
-                asString(shell.instanceSection["workspaceRoot"]),
-              ),
-              ("Log root", asString(shell.instanceSection["logRoot"])),
-              ("Gateway URL", asString(gateway["url"])),
+              ("实例根目录", asString(shell.instanceSection["instanceRoot"])),
+              ("工作区根目录", asString(shell.instanceSection["workspaceRoot"])),
+              ("日志根目录", asString(shell.instanceSection["logRoot"])),
+              ("网关地址", asString(gateway["url"])),
             ],
           ),
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Task loop defaults",
-          subtitle:
-              "Runtime control stays local even when the desktop app owns the outer shell.",
+          title: "任务循环默认值",
+          subtitle: "即便桌面应用承接了外层壳体，运行时控制也依然保持本地化。",
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _FactGrid(
                 items: [
                   (
-                    "Default budget",
-                    asString(taskDefaults["defaultBudgetMode"]),
+                    "默认预算",
+                    _localizedOptionLabel(
+                      asString(taskDefaults["defaultBudgetMode"]),
+                    ),
                   ),
                   (
-                    "Default retrieval",
-                    asString(taskDefaults["defaultRetrievalMode"]),
+                    "默认检索",
+                    _localizedOptionLabel(
+                      asString(taskDefaults["defaultRetrievalMode"]),
+                    ),
                   ),
                   (
-                    "Max input tokens",
+                    "最大输入 Token 数",
                     asString(taskDefaults["maxInputTokensPerTurn"]),
                   ),
-                  (
-                    "Max context chars",
-                    asString(taskDefaults["maxContextChars"]),
-                  ),
-                  (
-                    "Compaction watermark",
-                    asString(taskDefaults["compactionWatermark"]),
-                  ),
-                  (
-                    "Max remote calls",
-                    asString(taskDefaults["maxRemoteCallsPerTask"]),
-                  ),
+                  ("最大上下文字符数", asString(taskDefaults["maxContextChars"])),
+                  ("压缩水位线", asString(taskDefaults["compactionWatermark"])),
+                  ("最大远程调用次数", asString(taskDefaults["maxRemoteCallsPerTask"])),
                 ],
               ),
               const SizedBox(height: 12),
@@ -5341,15 +6935,15 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                       key: ValueKey("task-budget-$_taskBudgetMode"),
                       initialValue: _taskBudgetMode,
                       decoration: const InputDecoration(
-                        labelText: "Budget mode",
+                        labelText: "预算模式",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                       items: const ["strict", "balanced", "deep"]
                           .map(
                             (entry) => DropdownMenuItem<String>(
                               value: entry,
-                              child: Text(entry),
+                              child: Text(_localizedOptionLabel(entry)),
                             ),
                           )
                           .toList(growable: false),
@@ -5372,15 +6966,15 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                       key: ValueKey("task-retrieval-$_taskRetrievalMode"),
                       initialValue: _taskRetrievalMode,
                       decoration: const InputDecoration(
-                        labelText: "Retrieval mode",
+                        labelText: "检索模式",
                         filled: true,
-                        fillColor: Color(0xFFF7F2EA),
+                        fillColor: DesktopTokens.surfaceMuted,
                       ),
                       items: const ["off", "light", "deep"]
                           .map(
                             (entry) => DropdownMenuItem<String>(
                               value: entry,
-                              child: Text(entry),
+                              child: Text(_localizedOptionLabel(entry)),
                             ),
                           )
                           .toList(growable: false),
@@ -5399,22 +6993,22 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                   ),
                   _SettingsNumberField(
                     controller: _maxInputTokensController,
-                    label: "Max input tokens",
+                    label: "最大输入 Token 数",
                     enabled: !shell.isRefreshing,
                   ),
                   _SettingsNumberField(
                     controller: _maxContextCharsController,
-                    label: "Max context chars",
+                    label: "最大上下文字符数",
                     enabled: !shell.isRefreshing,
                   ),
                   _SettingsNumberField(
                     controller: _compactionWatermarkController,
-                    label: "Compaction watermark",
+                    label: "压缩水位线",
                     enabled: !shell.isRefreshing,
                   ),
                   _SettingsNumberField(
                     controller: _maxRemoteCallsController,
-                    label: "Max remote calls",
+                    label: "最大远程调用次数",
                     enabled: !shell.isRefreshing,
                   ),
                 ],
@@ -5452,14 +7046,14 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                                 min: 1,
                               ),
                             ),
-                    child: const Text("Apply task defaults"),
+                    child: const Text("应用任务默认值"),
                   ),
                   OutlinedButton(
                     onPressed:
                         shell.isRefreshing
                             ? null
                             : () => setState(_syncFromShell),
-                    child: const Text("Reset draft"),
+                    child: const Text("重置草稿"),
                   ),
                 ],
               ),
@@ -5468,31 +7062,18 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Evolution controls",
-          subtitle:
-              "Local review stays sovereign by default. Candidate promotion and canary posture remain operator-governed.",
+          title: "演化控制",
+          subtitle: "本地复审默认保持主权，候选项晋升与金丝雀姿态继续由操作员治理。",
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _FactGrid(
                 items: [
-                  ("Enabled", asString(evolution["enabled"])),
-                  (
-                    "Auto-apply low risk",
-                    asString(evolution["autoApplyLowRisk"]),
-                  ),
-                  (
-                    "Auto canary evolution",
-                    asString(evolution["autoCanaryEvolution"]),
-                  ),
-                  (
-                    "Review interval (hours)",
-                    asString(evolution["reviewIntervalHours"]),
-                  ),
-                  (
-                    "Pending candidates",
-                    shell.evolutionCandidates.length.toString(),
-                  ),
+                  ("已启用", asString(evolution["enabled"])),
+                  ("自动应用低风险", asString(evolution["autoApplyLowRisk"])),
+                  ("自动金丝雀演化", asString(evolution["autoCanaryEvolution"])),
+                  ("审查间隔（小时）", asString(evolution["reviewIntervalHours"])),
+                  ("待处理候选项", shell.evolutionCandidates.length.toString()),
                 ],
               ),
               const SizedBox(height: 12),
@@ -5501,8 +7082,8 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                 runSpacing: 12,
                 children: [
                   _SettingsToggleTile(
-                    label: "Evolution enabled",
-                    subtitle: "Keep the review/distill loop active locally.",
+                    label: "启用演化",
+                    subtitle: "让本地复审与蒸馏循环持续保持活跃。",
                     value: _evolutionEnabled,
                     enabled: !shell.isRefreshing,
                     onChanged:
@@ -5511,9 +7092,8 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                         }),
                   ),
                   _SettingsToggleTile(
-                    label: "Auto-apply low risk",
-                    subtitle:
-                        "Only low-risk paths can move without extra review.",
+                    label: "自动应用低风险",
+                    subtitle: "只有低风险路径才能在不追加复审的前提下前进。",
                     value: _autoApplyLowRisk,
                     enabled: !shell.isRefreshing,
                     onChanged:
@@ -5522,9 +7102,8 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                         }),
                   ),
                   _SettingsToggleTile(
-                    label: "Auto canary evolution",
-                    subtitle:
-                        "Allow shadow-then-canary promotion for unattended paths.",
+                    label: "自动金丝雀演化",
+                    subtitle: "允许无人值守路径走影子后再金丝雀晋升。",
                     value: _autoCanaryEvolution,
                     enabled: !shell.isRefreshing,
                     onChanged:
@@ -5534,7 +7113,7 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                   ),
                   _SettingsNumberField(
                     controller: _reviewIntervalHoursController,
-                    label: "Review interval (hours)",
+                    label: "审查间隔（小时）",
                     enabled: !shell.isRefreshing,
                   ),
                 ],
@@ -5559,14 +7138,14 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                                 max: 168,
                               ),
                             ),
-                    child: const Text("Apply evolution controls"),
+                    child: const Text("应用演化控制"),
                   ),
                   OutlinedButton(
                     onPressed:
                         shell.isRefreshing
                             ? null
                             : () => controller.runEvolutionReview(),
-                    child: const Text("Run review now"),
+                    child: const Text("立即执行复审"),
                   ),
                 ],
               ),
@@ -5575,27 +7154,26 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Intel controls",
-          subtitle:
-              "News/info remains a sidecar module. You can tune cadence and delivery without turning it into runtime truth.",
+          title: "情报控制",
+          subtitle: "新闻/信息仍然是侧车模块，你可以调整节奏与投递方式，而不必把它变成运行时真相。",
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _FactGrid(
                 items: [
-                  ("Enabled", asString(intel["enabled"])),
-                  ("Digest enabled", asString(intel["digestEnabled"])),
-                  ("Refresh minutes", asString(intel["refreshMinutes"])),
+                  ("已启用", asString(intel["enabled"])),
+                  ("已启用摘要", asString(intel["digestEnabled"])),
+                  ("刷新间隔（分钟）", asString(intel["refreshMinutes"])),
                   (
-                    "Daily push",
+                    "每日推送",
                     "${asString(intel["dailyPushEnabled"])} @ ${asString(intel["dailyPushHourLocal"]).padLeft(2, "0")}:${asString(intel["dailyPushMinuteLocal"]).padLeft(2, "0")}",
                   ),
                   (
-                    "Instant push",
+                    "即时推送",
                     "${asString(intel["instantPushEnabled"])} @ score ${asString(intel["instantPushMinScore"])}",
                   ),
                   (
-                    "Pending deliveries",
+                    "待发送项",
                     "${asString(intel["pendingDailyDigestCount"])} daily / ${asString(intel["pendingInstantAlertCount"])} instant",
                   ),
                 ],
@@ -5606,9 +7184,8 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                 runSpacing: 12,
                 children: [
                   _SettingsToggleTile(
-                    label: "Intel enabled",
-                    subtitle:
-                        "Allow the sidecar to fetch and rank operator intel.",
+                    label: "启用情报",
+                    subtitle: "允许侧车模块抓取并排序操作员情报。",
                     value: _intelEnabled,
                     enabled: !shell.isRefreshing,
                     onChanged:
@@ -5617,8 +7194,8 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                         }),
                   ),
                   _SettingsToggleTile(
-                    label: "Digest enabled",
-                    subtitle: "Permit digest assembly and scheduled dispatch.",
+                    label: "启用摘要",
+                    subtitle: "允许生成摘要并执行定时投递。",
                     value: _intelDigestEnabled,
                     enabled: !shell.isRefreshing,
                     onChanged:
@@ -5627,8 +7204,8 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                         }),
                   ),
                   _SettingsToggleTile(
-                    label: "Daily push",
-                    subtitle: "Send scheduled local digest deliveries.",
+                    label: "每日推送",
+                    subtitle: "按计划发送本地摘要投递。",
                     value: _dailyPushEnabled,
                     enabled: !shell.isRefreshing,
                     onChanged:
@@ -5637,8 +7214,8 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                         }),
                   ),
                   _SettingsToggleTile(
-                    label: "Instant push",
-                    subtitle: "Send urgent high-score bulletins immediately.",
+                    label: "即时推送",
+                    subtitle: "立即发送高分紧急简报。",
                     value: _instantPushEnabled,
                     enabled: !shell.isRefreshing,
                     onChanged:
@@ -5648,80 +7225,84 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                   ),
                   _SettingsNumberField(
                     controller: _refreshMinutesController,
-                    label: "Refresh minutes",
+                    label: "刷新间隔（分钟）",
                     enabled: !shell.isRefreshing,
                   ),
                   _SettingsNumberField(
                     controller: _dailyPushItemCountController,
-                    label: "Daily push item count",
+                    label: "每日推送条数",
                     enabled: !shell.isRefreshing,
                   ),
                   _SettingsNumberField(
                     controller: _dailyPushHourController,
-                    label: "Daily push hour",
+                    label: "每日推送小时",
                     enabled: !shell.isRefreshing,
                   ),
                   _SettingsNumberField(
                     controller: _dailyPushMinuteController,
-                    label: "Daily push minute",
+                    label: "每日推送分钟",
                     enabled: !shell.isRefreshing,
                   ),
                   _SettingsNumberField(
                     controller: _instantPushMinScoreController,
-                    label: "Instant push min score",
+                    label: "即时推送最低分",
                     enabled: !shell.isRefreshing,
                   ),
                 ],
               ),
               if (intelDomainRows.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                Text(
-                  "Enabled intel domains",
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+                Text("已启用情报领域", style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: intelDomainRows
-                      .map((domain) {
-                        final domainId = asString(domain["id"]);
-                        final selected = _enabledIntelDomainIds.contains(
-                          domainId,
-                        );
-                        return FilterChip(
-                          label: Text(asString(domain["label"], domainId)),
-                          selected: selected,
-                          onSelected:
-                              shell.isRefreshing || domainId.isEmpty
-                                  ? null
-                                  : (value) {
-                                    setState(() {
-                                      if (value) {
-                                        _enabledIntelDomainIds = <String>{
-                                          ..._enabledIntelDomainIds,
-                                          domainId,
-                                        };
-                                        return;
-                                      }
-                                      if (_enabledIntelDomainIds.length == 1 &&
-                                          _enabledIntelDomainIds.contains(
+                if (visibleIntelDomainRows.isEmpty && query.isNotEmpty)
+                  Text(
+                    "没有匹配当前搜索词的情报领域。",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  )
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: visibleIntelDomainRows
+                        .map((domain) {
+                          final domainId = asString(domain["id"]);
+                          final selected = _enabledIntelDomainIds.contains(
+                            domainId,
+                          );
+                          return FilterChip(
+                            label: Text(asString(domain["label"], domainId)),
+                            selected: selected,
+                            onSelected:
+                                shell.isRefreshing || domainId.isEmpty
+                                    ? null
+                                    : (value) {
+                                      setState(() {
+                                        if (value) {
+                                          _enabledIntelDomainIds = <String>{
+                                            ..._enabledIntelDomainIds,
                                             domainId,
-                                          )) {
-                                        return;
-                                      }
-                                      _enabledIntelDomainIds =
-                                          _enabledIntelDomainIds
-                                              .where(
-                                                (entry) => entry != domainId,
-                                              )
-                                              .toSet();
-                                    });
-                                  },
-                        );
-                      })
-                      .toList(growable: false),
-                ),
+                                          };
+                                          return;
+                                        }
+                                        if (_enabledIntelDomainIds.length ==
+                                                1 &&
+                                            _enabledIntelDomainIds.contains(
+                                              domainId,
+                                            )) {
+                                          return;
+                                        }
+                                        _enabledIntelDomainIds =
+                                            _enabledIntelDomainIds
+                                                .where(
+                                                  (entry) => entry != domainId,
+                                                )
+                                                .toSet();
+                                      });
+                                    },
+                          );
+                        })
+                        .toList(growable: false),
+                  ),
               ],
               const SizedBox(height: 12),
               Wrap(
@@ -5774,21 +7355,21 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
                                 max: 100,
                               ),
                             ),
-                    child: const Text("Apply intel controls"),
+                    child: const Text("应用情报控制"),
                   ),
                   OutlinedButton(
                     onPressed:
                         shell.isRefreshing
                             ? null
                             : () => controller.refreshIntel(),
-                    child: const Text("Refresh intel now"),
+                    child: const Text("立即刷新情报"),
                   ),
                   OutlinedButton(
                     onPressed:
                         shell.isRefreshing
                             ? null
                             : () => controller.dispatchIntelDeliveries(),
-                    child: const Text("Dispatch deliveries"),
+                    child: const Text("派发投递"),
                   ),
                 ],
               ),
@@ -5797,15 +7378,20 @@ class _SettingsWorkboardState extends ConsumerState<_SettingsWorkboard> {
         ),
         const SizedBox(height: 14),
         _SectionCard(
-          title: "Capability posture",
-          subtitle:
-              "The desktop shell reads governance posture from runtime-owned settings.",
+          title: "能力姿态",
+          subtitle: "桌面壳会从运行时自有设置中读取治理姿态。",
           child: _FactGrid(
             items: [
-              ("Preset", asString(capabilities["preset"])),
-              ("Sandbox mode", asString(capabilities["sandboxMode"])),
-              ("Browser enabled", asString(capabilities["browserEnabled"])),
-              ("Workspace root", asString(capabilities["workspaceRoot"])),
+              ("预设", _localizedOptionLabel(asString(capabilities["preset"]))),
+              (
+                "沙箱模式",
+                _localizedOptionLabel(asString(capabilities["sandboxMode"])),
+              ),
+              (
+                "已启用浏览器",
+                _localizedOptionLabel(asString(capabilities["browserEnabled"])),
+              ),
+              ("工作区根目录", asString(capabilities["workspaceRoot"])),
             ],
           ),
         ),
@@ -5833,11 +7419,7 @@ class _SettingsNumberField extends StatelessWidget {
         controller: controller,
         enabled: enabled,
         keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          labelText: label,
-          filled: true,
-          fillColor: const Color(0xFFF7F2EA),
-        ),
+        decoration: InputDecoration(labelText: label),
       ),
     );
   }
@@ -5862,12 +7444,9 @@ class _SettingsToggleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 260,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7F2EA),
-          borderRadius: BorderRadius.circular(16),
-        ),
+      child: DesktopSurfaceCard(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        tone: value ? DesktopSurfaceTone.accent : DesktopSurfaceTone.muted,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -5885,6 +7464,7 @@ class _SettingsToggleTile extends StatelessWidget {
             Switch.adaptive(
               value: value,
               onChanged: enabled ? onChanged : null,
+              activeTrackColor: DesktopTokens.accentStrong,
             ),
           ],
         ),
@@ -5893,6 +7473,7 @@ class _SettingsToggleTile extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _ReadinessRow extends StatelessWidget {
   const _ReadinessRow({
     required this.ready,
@@ -5914,14 +7495,14 @@ class _ReadinessRow extends StatelessWidget {
           Icon(
             ready ? Icons.check_circle_outline : Icons.error_outline,
             size: 20,
-            color: ready ? const Color(0xFF3A6E48) : const Color(0xFFA24634),
+            color: ready ? DesktopTokens.accent : DesktopTokens.warning,
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: Theme.of(context).textTheme.titleSmall),
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 2),
                 Text(summary, style: Theme.of(context).textTheme.bodyMedium),
               ],
@@ -5946,14 +7527,9 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
-      ),
+    return DesktopSurfaceCard(
+      padding: const EdgeInsets.all(18),
+      tone: DesktopSurfaceTone.base,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -5981,27 +7557,7 @@ class _MetricPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F2EA),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: Theme.of(context).textTheme.bodyMedium),
-              Text(value, style: Theme.of(context).textTheme.titleMedium),
-            ],
-          ),
-        ],
-      ),
-    );
+    return DesktopMetricChip(icon: icon, label: label, value: value);
   }
 }
 
@@ -6010,52 +7566,68 @@ class _NavButton extends StatelessWidget {
     required this.selected,
     required this.icon,
     required this.label,
-    required this.subtitle,
     required this.onTap,
   });
 
   final bool selected;
   final IconData icon;
   final String label;
-  final String subtitle;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          color: selected ? const Color(0xFF1E1D19) : const Color(0xFFF7F2EA),
+          borderRadius: BorderRadius.circular(14),
+          color:
+              selected
+                  ? DesktopTokens.accentSurface
+                  : DesktopTokens.sidebar.withValues(alpha: 0),
+          border: Border.all(
+            color:
+                selected
+                    ? DesktopTokens.borderStrong
+                    : DesktopTokens.sidebar.withValues(alpha: 0),
+          ),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: selected ? Colors.white : null),
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color:
+                    selected
+                        ? DesktopTokens.accent.withValues(alpha: 0.12)
+                        : DesktopTokens.surfaceMuted,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                icon,
+                size: 16,
+                color:
+                    selected
+                        ? DesktopTokens.accent
+                        : DesktopTokens.textSecondary,
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: selected ? Colors.white : null,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: selected ? Colors.white70 : null,
-                    ),
-                  ),
-                ],
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color:
+                      selected
+                          ? DesktopTokens.accent
+                          : DesktopTokens.textPrimary,
+                ),
               ),
             ),
           ],
@@ -6084,13 +7656,20 @@ class _ObjectTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(12),
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           color:
-              highlighted ? const Color(0xFFEAD8D1) : const Color(0xFFF9F5EF),
+              highlighted
+                  ? DesktopTokens.accentSurface
+                  : DesktopTokens.surfaceMuted,
+          border: Border.all(
+            color:
+                highlighted ? DesktopTokens.borderStrong : DesktopTokens.border,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -6114,7 +7693,12 @@ class _ObjectTile extends StatelessWidget {
               subtitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color:
+                    highlighted
+                        ? DesktopTokens.textSecondary
+                        : DesktopTokens.textMuted,
+              ),
             ),
           ],
         ),
@@ -6145,7 +7729,7 @@ class _TimelineTile extends StatelessWidget {
           margin: const EdgeInsets.only(top: 6),
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
-            color: Color(0xFFBB5A37),
+            color: DesktopTokens.accent,
           ),
         ),
         const SizedBox(width: 12),
@@ -6160,7 +7744,12 @@ class _TimelineTile extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Text(trailing, style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+          trailing,
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: DesktopTokens.textMuted),
+        ),
       ],
     );
   }
@@ -6177,32 +7766,7 @@ class _FactGrid extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: items
-          .map(
-            (item) => SizedBox(
-              width: 220,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF7F2EA),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.$1,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      item.$2.isEmpty ? "—" : item.$2,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          )
+          .map((item) => DesktopFactTile(label: item.$1, value: item.$2))
           .toList(growable: false),
     );
   }
@@ -6216,43 +7780,253 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = _toneToPalette(tone);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: palette.$1,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: palette.$2,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+    return DesktopStatusPill(
+      label: _localizedStatusLabel(label),
+      tone: _toneToSurfaceTone(tone),
     );
   }
 }
 
-(Color, Color) _toneToPalette(String tone) {
+String _localizedStatusLabel(String label) {
+  switch (label) {
+    case "active":
+      return "启用";
+    case "inactive":
+      return "停用";
+    case "invalidated":
+      return "已失效";
+    case "pinned":
+      return "已置顶";
+    case "selected":
+      return "已选中";
+    case "recent":
+      return "近期";
+    case "blocked":
+      return "阻止";
+    case "shadow":
+      return "影子";
+    case "candidate":
+      return "候选";
+    case "adopted":
+      return "已采纳";
+    case "core":
+      return "核心";
+    case "completed":
+      return "已完成";
+    case "cancelled":
+      return "已取消";
+    case "reverted":
+      return "已回退";
+    case "waiting_user":
+      return "等待用户";
+    case "waiting_external":
+      return "等待外部";
+    case "queued":
+      return "已排队";
+    case "planning":
+      return "规划中";
+    case "ready":
+      return "就绪";
+    case "running":
+      return "运行中";
+    case "allowed":
+      return "允许";
+    case "denied":
+      return "拒绝";
+    case "pending":
+      return "待处理";
+    case "applied":
+      return "已应用";
+    case "materialized":
+      return "已生成";
+    default:
+      return label;
+  }
+}
+
+bool _matchesSearch(String query, Iterable<Object?> fields) {
+  final normalizedQuery = query.trim().toLowerCase();
+  if (normalizedQuery.isEmpty) {
+    return true;
+  }
+  for (final field in fields) {
+    final value =
+        field is Iterable
+            ? field.map((entry) => asString(entry)).join(" ")
+            : asString(field);
+    final normalizedValue = value.trim().toLowerCase();
+    if (normalizedValue.isNotEmpty &&
+        normalizedValue.contains(normalizedQuery)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+String _localizedOptionLabel(String value) {
+  switch (value) {
+    case "true":
+      return "是";
+    case "false":
+      return "否";
+    case "user":
+      return "用户";
+    case "agent":
+      return "智能体";
+    case "general":
+      return "通用路由";
+    case "desktop-console":
+      return "桌面控制台";
+    case "coordinator_suggestion":
+      return "协调建议";
+    case "role_optimization":
+      return "角色优化";
+    case "coordinator-suggestion":
+      return "协调建议";
+    case "shared-strategy-package":
+      return "共享策略包";
+    case "team-knowledge-package":
+      return "团队知识包";
+    case "role-optimization-package":
+      return "角色优化包";
+    case "runtime-policy-overlay-package":
+      return "运行时策略覆层包";
+    case "invalid-package":
+      return "无效包";
+    case "package":
+      return "包";
+    case "main":
+      return "主工作器";
+    case "normal":
+      return "常规";
+    case "system1":
+      return "系统 1";
+    case "system2":
+      return "系统 2";
+    case "token":
+      return "令牌";
+    case "websocket-rpc":
+      return "WebSocket RPC";
+    case "knowledge":
+      return "知识";
+    case "execution":
+      return "执行";
+    case "avoidance":
+      return "规避";
+    case "efficiency":
+      return "效率";
+    case "completion":
+      return "完成";
+    case "resource":
+      return "资源";
+    case "communication":
+      return "沟通";
+    case "runtime":
+      return "运行时";
+    case "derived":
+      return "派生";
+    case "managed_high":
+      return "高治理";
+    case "managed_medium":
+      return "中治理";
+    case "managed_low":
+      return "低治理";
+    case "workspace-write":
+      return "工作区可写";
+    case "read-only":
+      return "只读";
+    case "danger-full-access":
+      return "完全访问";
+    case "ai":
+      return "AI";
+    case "technology":
+      return "科技";
+    case "business":
+      return "商业";
+    case "military":
+      return "军事";
+    case "research":
+      return "研究";
+    case "default":
+      return "默认";
+    case "installed":
+      return "已安装";
+    case "bundled":
+      return "内置";
+    case "missing":
+      return "缺失";
+    case "low":
+      return "低";
+    case "medium":
+      return "中";
+    case "high":
+      return "高";
+    case "brief":
+      return "简洁";
+    case "balanced":
+      return "平衡";
+    case "detailed":
+      return "详细";
+    case "strict":
+      return "严格";
+    case "light":
+      return "轻量";
+    case "deep":
+      return "深入";
+    case "off":
+      return "关闭";
+    case "silent":
+      return "静默";
+    case "reply":
+      return "仅回复";
+    case "proactive":
+      return "主动";
+    case "reply_and_proactive":
+      return "回复并主动";
+    case "runtime-user":
+      return "运行时用户";
+    case "surface-owner":
+      return "表面所有者";
+    case "recommend_only":
+      return "仅建议";
+    case "disabled":
+      return "禁用";
+    case "blocked":
+      return "阻止";
+    case "shadow":
+      return "影子";
+    case "candidate":
+      return "候选";
+    case "adopted":
+      return "已采纳";
+    case "core":
+      return "核心";
+    default:
+      return value;
+  }
+}
+
+DesktopSurfaceTone _toneToSurfaceTone(String tone) {
   switch (tone) {
     case "high":
     case "blocked":
     case "cancelled":
     case "reverted":
-      return (const Color(0xFFF8D9D0), const Color(0xFF9C3824));
+      return DesktopSurfaceTone.danger;
     case "medium":
     case "waiting_user":
     case "waiting_external":
     case "candidate":
-      return (const Color(0xFFF6E7C7), const Color(0xFF8E5A08));
+      return DesktopSurfaceTone.warning;
     case "low":
     case "completed":
     case "adopted":
     case "core":
-      return (const Color(0xFFD9EEDB), const Color(0xFF2D6A39));
+      return DesktopSurfaceTone.success;
+    case "shadow":
+      return DesktopSurfaceTone.base;
     default:
-      return (const Color(0xFFE7E3DA), const Color(0xFF5A564D));
+      return DesktopSurfaceTone.base;
   }
 }
 
@@ -6267,7 +8041,12 @@ String _formatBytes(int bytes) {
     value /= 1024;
     unitIndex += 1;
   }
-  final fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+  final fractionDigits =
+      value >= 100
+          ? 0
+          : value >= 10
+          ? 1
+          : 2;
   return "${value.toStringAsFixed(fractionDigits)} ${units[unitIndex]}";
 }
 

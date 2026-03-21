@@ -1,14 +1,14 @@
 ---
 summary: "Zalo personal account support via native zca-js (QR login), capabilities, and configuration"
 read_when:
-  - Setting up Zalo Personal for OpenClaw
+  - Setting up Zalo Personal for ClawMark
   - Debugging Zalo Personal login or message flow
 title: "Zalo Personal"
 ---
 
 # Zalo Personal (unofficial)
 
-Status: experimental. This integration automates a **personal Zalo account** via native `zca-js` inside OpenClaw.
+Status: experimental. This integration automates a **personal Zalo account** via native `zca-js` inside ClawMark.
 
 > **Warning:** This is an unofficial integration and may result in account suspension/ban. Use at your own risk.
 
@@ -90,7 +90,7 @@ Approve via:
   - `channels.zalouser.groupAllowFrom` (controls which senders in allowed groups can trigger the bot)
 - Block all groups: `channels.zalouser.groupPolicy = "disabled"`.
 - The configure wizard can prompt for group allowlists.
-- On startup, OpenClaw resolves group/user names in allowlists to IDs and logs the mapping.
+- On startup, ClawMark resolves group/user names in allowlists to IDs and logs the mapping.
 - Group allowlist matching is ID-only by default. Unresolved names are ignored for auth unless `channels.zalouser.dangerouslyAllowNameMatching: true` is enabled.
 - `channels.zalouser.dangerouslyAllowNameMatching: true` is a break-glass compatibility mode that re-enables mutable group-name matching.
 - If `groupAllowFrom` is unset, runtime falls back to `allowFrom` for group sender checks.
@@ -119,7 +119,7 @@ Example:
 - Resolution order: exact group id/name -> normalized group slug -> `*` -> default (`true`).
 - This applies both to allowlisted groups and open group mode.
 - Authorized control commands (for example `/new`) can bypass mention gating.
-- When a group message is skipped because mention is required, OpenClaw stores it as pending group history and includes it on the next processed group message.
+- When a group message is skipped because mention is required, ClawMark stores it as pending group history and includes it on the next processed group message.
 - Group history limit defaults to `messages.groupChat.historyLimit` (fallback `50`). You can override per account with `channels.zalouser.historyLimit`.
 
 Example:
@@ -140,7 +140,7 @@ Example:
 
 ## Multi-account
 
-Accounts map to `zalouser` profiles in OpenClaw state. Example:
+Accounts map to `zalouser` profiles in ClawMark state. Example:
 
 ```json5
 {
@@ -158,11 +158,11 @@ Accounts map to `zalouser` profiles in OpenClaw state. Example:
 
 ## Typing, reactions, and delivery acknowledgements
 
-- OpenClaw sends a typing event before dispatching a reply (best-effort).
+- ClawMark sends a typing event before dispatching a reply (best-effort).
 - Message reaction action `react` is supported for `zalouser` in channel actions.
   - Use `remove: true` to remove a specific reaction emoji from a message.
   - Reaction semantics: [Reactions](/tools/reactions)
-- For inbound messages that include event metadata, OpenClaw sends delivered + seen acknowledgements (best-effort).
+- For inbound messages that include event metadata, ClawMark sends delivered + seen acknowledgements (best-effort).
 
 ## Troubleshooting
 
@@ -178,4 +178,4 @@ Accounts map to `zalouser` profiles in OpenClaw state. Example:
 **Upgraded from old CLI-based setup:**
 
 - Remove any old external `zca` process assumptions.
-- The channel now runs fully in OpenClaw without external CLI binaries.
+- The channel now runs fully in ClawMark without external CLI binaries.

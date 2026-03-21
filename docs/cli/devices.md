@@ -42,7 +42,7 @@ openclaw devices clear --yes --pending --json
 
 ### `openclaw devices approve [requestId] [--latest]`
 
-Approve a pending device pairing request. If `requestId` is omitted, OpenClaw
+Approve a pending device pairing request. If `requestId` is omitted, ClawMark
 automatically approves the most recent pending request.
 
 ```
@@ -95,7 +95,7 @@ Pass `--token` or `--password` explicitly. Missing explicit credentials is an er
 
 ## Token drift recovery checklist
 
-Use this when Control UI or other clients keep failing with `AUTH_TOKEN_MISMATCH` or `AUTH_DEVICE_TOKEN_MISMATCH`.
+Use this when User Console or other clients keep failing with `AUTH_TOKEN_MISMATCH` or `AUTH_DEVICE_TOKEN_MISMATCH`.
 
 1. Confirm current gateway token source:
 

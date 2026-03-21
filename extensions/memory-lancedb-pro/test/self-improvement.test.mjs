@@ -1,8 +1,8 @@
-import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import { fileURLToPath } from "node:url";
 import jitiFactory from "jiti";
 
@@ -14,10 +14,8 @@ const jiti = jitiFactory(import.meta.url, {
     "openclaw/plugin-sdk": pluginSdkStubPath,
   },
 });
-const {
-  registerSelfImprovementLogTool,
-  registerSelfImprovementExtractSkillTool,
-} = jiti("../src/tools.ts");
+const { registerSelfImprovementLogTool, registerSelfImprovementExtractSkillTool } =
+  jiti("../src/tools.ts");
 const { appendSelfImprovementEntry } = jiti("../src/self-improvement-files.ts");
 const {
   extractReflectionLearningGovernanceCandidates,
@@ -156,7 +154,8 @@ describe("self-improvement", () => {
           area: "docs",
           summary: "Require file evidence before saying a skill was updated.",
           details: "Conversation claims about implementation state outran file verification.",
-          suggestedAction: "Attach concrete file paths and line references in the first completion report.",
+          suggestedAction:
+            "Attach concrete file paths and line references in the first completion report.",
         },
         {
           priority: "medium",
@@ -242,7 +241,7 @@ describe("self-improvement", () => {
       const absSkillPath = path.resolve(workspaceDir, skillPath);
       assert.ok(
         absSkillPath.startsWith(path.resolve(workspaceDir) + path.sep),
-        `skill file escaped workspace: ${absSkillPath}`
+        `skill file escaped workspace: ${absSkillPath}`,
       );
 
       const skillContent = readFileSync(absSkillPath, "utf-8");

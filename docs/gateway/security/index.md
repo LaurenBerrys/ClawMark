@@ -9,12 +9,12 @@ title: "Security"
 
 > [!WARNING]
 > **Personal assistant trust model:** this guidance assumes one trusted operator boundary per gateway (single-user/personal assistant model).
-> OpenClaw is **not** a hostile multi-tenant security boundary for multiple adversarial users sharing one agent/gateway.
+> ClawMark is **not** a hostile multi-tenant security boundary for multiple adversarial users sharing one agent/gateway.
 > If you need mixed-trust or adversarial-user operation, split trust boundaries (separate gateway + credentials, ideally separate OS users/hosts).
 
 ## Scope first: personal assistant security model
 
-OpenClaw security guidance assumes a **personal assistant** deployment: one trusted operator boundary, potentially many agents.
+ClawMark security guidance assumes a **personal assistant** deployment: one trusted operator boundary, potentially many agents.
 
 - Supported security posture: one user/trust boundary per gateway (prefer one OS user/host/VPS per boundary).
 - Not a supported security boundary: one shared gateway/agent used by mutually untrusted or adversarial users.
@@ -38,7 +38,7 @@ openclaw security audit --json
 
 It flags common footguns (Gateway auth exposure, browser control exposure, elevated allowlists, filesystem permissions).
 
-OpenClaw is both a product and an experiment: you’re wiring frontier-model behavior into real messaging surfaces and real tools. **There is no “perfectly secure” setup.** The goal is to be deliberate about:
+ClawMark is both a product and an experiment: you’re wiring frontier-model behavior into real messaging surfaces and real tools. **There is no “perfectly secure” setup.** The goal is to be deliberate about:
 
 - who can talk to your bot
 - where the bot is allowed to act
@@ -48,14 +48,14 @@ Start with the smallest access that still works, then widen it as you gain confi
 
 ## Deployment assumption (important)
 
-OpenClaw assumes the host and config boundary are trusted:
+ClawMark assumes the host and config boundary are trusted:
 
 - If someone can modify Gateway host state/config (`~/.openclaw`, including `openclaw.json`), treat them as a trusted operator.
 - Running one Gateway for multiple mutually untrusted/adversarial operators is **not a recommended setup**.
 - For mixed-trust teams, split trust boundaries with separate gateways (or at minimum separate OS users/hosts).
-- OpenClaw can run multiple gateway instances on one machine, but recommended operations favor clean trust-boundary separation.
+- ClawMark can run multiple gateway instances on one machine, but recommended operations favor clean trust-boundary separation.
 - Recommended default: one user per machine/host (or VPS), one gateway for that user, and one or more agents in that gateway.
-- If multiple users want OpenClaw, use one VPS/host per user.
+- If multiple users want ClawMark, use one VPS/host per user.
 
 ### Practical consequence (operator trust boundary)
 
@@ -69,7 +69,7 @@ Inside one Gateway instance, authenticated operator access is a trusted control-
 
 ## Personal assistant model (not a multi-tenant bus)
 
-OpenClaw is designed as a personal assistant security model: one trusted operator boundary, potentially many agents.
+ClawMark is designed as a personal assistant security model: one trusted operator boundary, potentially many agents.
 
 - If several people can message one tool-enabled agent, each of them can steer that same permission set.
 - Per-user session/memory isolation helps privacy, but does not convert a shared agent into per-user host authorization.
@@ -193,7 +193,7 @@ If more than one person can DM your bot:
 - **Runtime expectation drift** (for example `tools.exec.host="sandbox"` while sandbox mode is off, which runs directly on the gateway host).
 - **Model hygiene** (warn when configured models look legacy; not a hard block).
 
-If you run `--deep`, OpenClaw also attempts a best-effort live Gateway probe.
+If you run `--deep`, ClawMark also attempts a best-effort live Gateway probe.
 
 ## Credential storage map
 
@@ -227,7 +227,7 @@ High-signal `checkId` values you will most likely see in real deployments (not e
 
 | `checkId`                                          | Severity      | Why it matters                                                                       | Primary fix key/path                                                                              | Auto-fix |
 | -------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | -------- |
-| `fs.state_dir.perms_world_writable`                | critical      | Other users/processes can modify full OpenClaw state                                 | filesystem perms on `~/.openclaw`                                                                 | yes      |
+| `fs.state_dir.perms_world_writable`                | critical      | Other users/processes can modify full ClawMark state                                 | filesystem perms on `~/.openclaw`                                                                 | yes      |
 | `fs.config.perms_writable`                         | critical      | Others can change auth/tool policy/config                                            | filesystem perms on `~/.openclaw/openclaw.json`                                                   | yes      |
 | `fs.config.perms_world_readable`                   | critical      | Config can expose tokens/settings                                                    | filesystem perms on config file                                                                   | yes      |
 | `gateway.bind_no_auth`                             | critical      | Remote bind without shared secret                                                    | `gateway.bind`, `gateway.auth.*`                                                                  | no       |
@@ -236,7 +236,7 @@ High-signal `checkId` values you will most likely see in real deployments (not e
 | `gateway.tools_invoke_http.dangerous_allow`        | warn/critical | Re-enables dangerous tools over HTTP API                                             | `gateway.tools.allow`                                                                             | no       |
 | `gateway.nodes.allow_commands_dangerous`           | warn/critical | Enables high-impact node commands (camera/screen/contacts/calendar/SMS)              | `gateway.nodes.allowCommands`                                                                     | no       |
 | `gateway.tailscale_funnel`                         | critical      | Public internet exposure                                                             | `gateway.tailscale.mode`                                                                          | no       |
-| `gateway.control_ui.allowed_origins_required`      | critical      | Non-loopback Control UI without explicit browser-origin allowlist                    | `gateway.controlUi.allowedOrigins`                                                                | no       |
+| `gateway.control_ui.allowed_origins_required`      | critical      | Non-loopback User Console without explicit browser-origin allowlist                  | `gateway.controlUi.allowedOrigins`                                                                | no       |
 | `gateway.control_ui.host_header_origin_fallback`   | warn/critical | Enables Host-header origin fallback (DNS rebinding hardening downgrade)              | `gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback`                                      | no       |
 | `gateway.control_ui.insecure_auth`                 | warn          | Insecure-auth compatibility toggle enabled                                           | `gateway.controlUi.allowInsecureAuth`                                                             | no       |
 | `gateway.control_ui.device_auth_disabled`          | critical      | Disables device identity check                                                       | `gateway.controlUi.dangerouslyDisableDeviceAuth`                                                  | no       |
@@ -260,12 +260,12 @@ High-signal `checkId` values you will most likely see in real deployments (not e
 | `plugins.tools_reachable_permissive_policy`        | warn          | Extension tools reachable in permissive contexts                                     | `tools.profile` + tool allow/deny                                                                 | no       |
 | `models.small_params`                              | critical/info | Small models + unsafe tool surfaces raise injection risk                             | model choice + sandbox/tool policy                                                                | no       |
 
-## Control UI over HTTP
+## User Console over HTTP
 
-The Control UI needs a **secure context** (HTTPS or localhost) to generate device
+The User Console needs a **secure context** (HTTPS or localhost) to generate device
 identity. `gateway.controlUi.allowInsecureAuth` is a local compatibility toggle:
 
-- On localhost, it allows Control UI auth without device identity when the page
+- On localhost, it allows User Console auth without device identity when the page
   is loaded over non-secure HTTP.
 - It does not bypass pairing checks.
 - It does not relax remote (non-localhost) device identity requirements.
@@ -291,7 +291,7 @@ aggregates:
 - `hooks.mappings[<index>].allowUnsafeExternalContent=true`
 - `tools.exec.applyPatch.workspaceOnly=false`
 
-Complete `dangerous*` / `dangerously*` config keys defined in OpenClaw config
+Complete `dangerous*` / `dangerously*` config keys defined in ClawMark config
 schema:
 
 - `gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback`
@@ -351,16 +351,16 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
 ## HSTS and origin notes
 
-- OpenClaw gateway is local/loopback first. If you terminate TLS at a reverse proxy, set HSTS on the proxy-facing HTTPS domain there.
-- If the gateway itself terminates HTTPS, you can set `gateway.http.securityHeaders.strictTransportSecurity` to emit the HSTS header from OpenClaw responses.
+- ClawMark gateway is local/loopback first. If you terminate TLS at a reverse proxy, set HSTS on the proxy-facing HTTPS domain there.
+- If the gateway itself terminates HTTPS, you can set `gateway.http.securityHeaders.strictTransportSecurity` to emit the HSTS header from ClawMark responses.
 - Detailed deployment guidance is in [Trusted Proxy Auth](/gateway/trusted-proxy-auth#tls-termination-and-hsts).
-- For non-loopback Control UI deployments, `gateway.controlUi.allowedOrigins` is required by default.
+- For non-loopback User Console deployments, `gateway.controlUi.allowedOrigins` is required by default.
 - `gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true` enables Host-header origin fallback mode; treat it as a dangerous operator-selected policy.
 - Treat DNS rebinding and proxy-host header behavior as deployment hardening concerns; keep `trustedProxies` tight and avoid exposing the gateway directly to the public internet.
 
 ## Local session logs live on disk
 
-OpenClaw stores session transcripts on disk under `~/.openclaw/agents/<agentId>/sessions/*.jsonl`.
+ClawMark stores session transcripts on disk under `~/.openclaw/agents/<agentId>/sessions/*.jsonl`.
 This is required for session continuity and (optionally) session memory indexing, but it also means
 **any process/user with filesystem access can read those logs**. Treat disk access as the trust
 boundary and lock down permissions on `~/.openclaw` (see the audit section below). If you need
@@ -372,12 +372,12 @@ If a macOS node is paired, the Gateway can invoke `system.run` on that node. Thi
 
 - Requires node pairing (approval + token).
 - Controlled on the Mac via **Settings → Exec approvals** (security + ask + allowlist).
-- Approval mode binds exact request context and, when possible, one concrete local script/file operand. If OpenClaw cannot identify exactly one direct local file for an interpreter/runtime command, approval-backed execution is denied rather than promising full semantic coverage.
+- Approval mode binds exact request context and, when possible, one concrete local script/file operand. If ClawMark cannot identify exactly one direct local file for an interpreter/runtime command, approval-backed execution is denied rather than promising full semantic coverage.
 - If you don’t want remote execution, set security to **deny** and remove node pairing for that Mac.
 
 ## Dynamic skills (watcher / remote nodes)
 
-OpenClaw can refresh the skills list mid-session:
+ClawMark can refresh the skills list mid-session:
 
 - **Skills watcher**: changes to `SKILL.md` can update the skills snapshot on the next agent turn.
 - **Remote nodes**: connecting a macOS node can make macOS-only skills eligible (based on bin probing).
@@ -403,7 +403,7 @@ People who message you can:
 
 Most failures here are not fancy exploits — they’re “someone messaged the bot and the bot did what they asked.”
 
-OpenClaw’s stance:
+ClawMark’s stance:
 
 - **Identity first:** decide who can talk to the bot (DM pairing / allowlists / explicit “open”).
 - **Scope next:** decide where the bot is allowed to act (group allowlists + mention gating, tools, sandboxing, device permissions).
@@ -448,7 +448,7 @@ Plugins run **in-process** with the Gateway. Treat them as trusted code:
 - Restart the Gateway after plugin changes.
 - If you install plugins from npm (`openclaw plugins install <npm-spec>`), treat it like running untrusted code:
   - The install path is `~/.openclaw/extensions/<pluginId>/` (or `$OPENCLAW_STATE_DIR/extensions/<pluginId>/`).
-  - OpenClaw uses `npm pack` and then runs `npm install --omit=dev` in that directory (npm lifecycle scripts can execute code during install).
+  - ClawMark uses `npm pack` and then runs `npm install --omit=dev` in that directory (npm lifecycle scripts can execute code during install).
   - Prefer pinned, exact versions (`@scope/pkg@1.2.3`), and inspect the unpacked code on disk before enabling.
 
 Details: [Plugins](/tools/plugin)
@@ -473,7 +473,7 @@ Details + files on disk: [Pairing](/channels/pairing)
 
 ## DM session isolation (multi-user mode)
 
-By default, OpenClaw routes **all DMs into the main session** so your assistant has continuity across devices and channels. If **multiple people** can DM the bot (open DMs or a multi-person allowlist), consider isolating DM sessions:
+By default, ClawMark routes **all DMs into the main session** so your assistant has continuity across devices and channels. If **multiple people** can DM the bot (open DMs or a multi-person allowlist), consider isolating DM sessions:
 
 ```json5
 {
@@ -497,7 +497,7 @@ If you run multiple accounts on the same channel, use `per-account-channel-peer`
 
 ## Allowlists (DM + groups) — terminology
 
-OpenClaw has two separate “who can trigger me?” layers:
+ClawMark has two separate “who can trigger me?” layers:
 
 - **DM allowlist** (`allowFrom` / `channels.discord.allowFrom` / `channels.slack.allowFrom`; legacy: `channels.discord.dm.allowFrom`, `channels.slack.dm.allowFrom`): who is allowed to talk to the bot in direct messages.
   - When `dmPolicy="pairing"`, approvals are written to the account-scoped pairing allowlist store under `~/.openclaw/credentials/` (`<channel>-allowFrom.json` for default account, `<channel>-<accountId>-allowFrom.json` for non-default accounts), merged with config allowlists.
@@ -535,7 +535,7 @@ Red flags to treat as untrusted:
 
 ## Unsafe external content bypass flags
 
-OpenClaw includes explicit bypass flags that disable external-content safety wrapping:
+ClawMark includes explicit bypass flags that disable external-content safety wrapping:
 
 - `hooks.mappings[].allowUnsafeExternalContent`
 - `hooks.gmail.allowUnsafeExternalContent`
@@ -617,9 +617,9 @@ The Gateway multiplexes **WebSocket + HTTP** on a single port:
 - Default: `18789`
 - Config/flags/env: `gateway.port`, `--port`, `OPENCLAW_GATEWAY_PORT`
 
-This HTTP surface includes the Control UI and the canvas host:
+This HTTP surface includes the User Console and the canvas host:
 
-- Control UI (SPA assets) (default base path `/`)
+- User Console (SPA assets) (default base path `/`)
 - Canvas host: `/__openclaw__/canvas/` and `/__openclaw__/a2ui/` (arbitrary HTML/JS; treat as untrusted content)
 
 If you load canvas content in a normal browser, treat it like any other untrusted web page:
@@ -640,7 +640,7 @@ Rules of thumb:
 
 ### 0.4.1) Docker port publishing + UFW (`DOCKER-USER`)
 
-If you run OpenClaw with Docker on a VPS, remember that published container ports
+If you run ClawMark with Docker on a VPS, remember that published container ports
 (`-p HOST:CONTAINER` or Compose `ports:`) are routed through Docker's forwarding
 chains, not only host `INPUT` rules.
 
@@ -785,9 +785,9 @@ Rotation checklist (token/password):
 
 ### 0.6) Tailscale Serve identity headers
 
-When `gateway.auth.allowTailscale` is `true` (default for Serve), OpenClaw
-accepts Tailscale Serve identity headers (`tailscale-user-login`) for Control
-UI/WebSocket authentication. OpenClaw verifies the identity by resolving the
+When `gateway.auth.allowTailscale` is `true` (default for Serve), ClawMark
+accepts Tailscale Serve identity headers (`tailscale-user-login`) for User
+Console/WebSocket authentication. ClawMark verifies the identity by resolving the
 `x-forwarded-for` address through the local Tailscale daemon (`tailscale whois`)
 and matching it to the header. This only triggers for requests that hit loopback
 and include `x-forwarded-for`, `x-forwarded-proto`, and `x-forwarded-host` as
@@ -813,7 +813,7 @@ you terminate TLS or proxy in front of the gateway, disable
 Trusted proxies:
 
 - If you terminate TLS in front of the Gateway, set `gateway.trustedProxies` to your proxy IPs.
-- OpenClaw will trust `x-forwarded-for` (or `x-real-ip`) from those IPs to determine the client IP for local pairing checks and HTTP auth/local checks.
+- ClawMark will trust `x-forwarded-for` (or `x-real-ip`) from those IPs to determine the client IP for local pairing checks and HTTP auth/local checks.
 - Ensure your proxy **overwrites** `x-forwarded-for` and blocks direct access to the Gateway port.
 
 See [Tailscale](/gateway/tailscale) and [Web overview](/web).
@@ -991,13 +991,13 @@ access those accounts and data. Treat browser profiles as **sensitive state**:
 - Disable browser sync/password managers in the agent profile if possible (reduces blast radius).
 - For remote gateways, assume “browser control” is equivalent to “operator access” to whatever that profile can reach.
 - Keep the Gateway and node hosts tailnet-only; avoid exposing relay/control ports to LAN or public Internet.
-- The Chrome extension relay’s CDP endpoint is auth-gated; only OpenClaw clients can connect.
+- The Chrome extension relay’s CDP endpoint is auth-gated; only ClawMark clients can connect.
 - Disable browser proxy routing when you don’t need it (`gateway.nodes.browser.mode="off"`).
 - Chrome extension relay mode is **not** “safer”; it can take over your existing Chrome tabs. Assume it can act as you in whatever that tab/profile can reach.
 
 ### Browser SSRF policy (trusted-network default)
 
-OpenClaw’s browser network policy defaults to the trusted-operator model: private/internal destinations are allowed unless you explicitly disable them.
+ClawMark’s browser network policy defaults to the trusted-operator model: private/internal destinations are allowed unless you explicitly disable them.
 
 - Default: `browser.ssrfPolicy.dangerouslyAllowPrivateNetwork: true` (implicit when unset).
 - Legacy alias: `browser.ssrfPolicy.allowPrivateNetwork` is still accepted for compatibility.
@@ -1086,7 +1086,7 @@ Common use cases:
           scope: "agent",
           workspaceAccess: "none",
         },
-        // Session tools can reveal sensitive data from transcripts. By default OpenClaw limits these tools
+        // Session tools can reveal sensitive data from transcripts. By default ClawMark limits these tools
         // to the current session + spawned subagent sessions, but you can clamp further if needed.
         // See `tools.sessions.visibility` in the configuration reference.
         tools: {
@@ -1161,7 +1161,7 @@ If your AI does something bad:
 
 ### Collect for a report
 
-- Timestamp, gateway host OS + OpenClaw version
+- Timestamp, gateway host OS + ClawMark version
 - The session transcript(s) + a short log tail (after redacting)
 - What the attacker sent + what the agent did
 - Whether the Gateway was exposed beyond loopback (LAN/Tailscale Funnel/Serve)
@@ -1201,7 +1201,7 @@ Commit the updated `.secrets.baseline` once it reflects the intended state.
 
 ## Reporting Security Issues
 
-Found a vulnerability in OpenClaw? Please report responsibly:
+Found a vulnerability in ClawMark? Please report responsibly:
 
 1. Email: [security@openclaw.ai](mailto:security@openclaw.ai)
 2. Don't post publicly until fixed

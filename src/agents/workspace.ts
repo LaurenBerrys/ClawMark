@@ -15,7 +15,9 @@ function hasExplicitWorkspaceRoot(env: NodeJS.ProcessEnv): boolean {
 
 export function appendWorkspaceSuffix(workspaceDir: string, suffix?: string): string {
   const trimmed = suffix?.trim();
-  if (!trimmed) return workspaceDir;
+  if (!trimmed) {
+    return workspaceDir;
+  }
   return path.join(path.dirname(workspaceDir), `${path.basename(workspaceDir)}-${trimmed}`);
 }
 

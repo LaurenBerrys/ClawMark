@@ -7,11 +7,7 @@ import {
   listRuntimeFederationAssignments,
   persistRuntimeFederationAssignments,
 } from "./federation-assignments.js";
-import {
-  appendRuntimeEvent,
-  loadRuntimeTaskStore,
-  type RuntimeStoreOptions,
-} from "./store.js";
+import { appendRuntimeEvent, loadRuntimeTaskStore, type RuntimeStoreOptions } from "./store.js";
 
 export type FederationAssignmentTaskLifecycleSyncResult = {
   changed: number;
@@ -134,7 +130,8 @@ export function syncRuntimeFederationAssignmentTaskLifecycle(
         previousState: assignment.state,
         nextState: next.state,
         localTaskId: next.localTaskId,
-        localTaskStatus: taskStore.tasks.find((task) => task.id === next.localTaskId)?.status ?? "missing",
+        localTaskStatus:
+          taskStore.tasks.find((task) => task.id === next.localTaskId)?.status ?? "missing",
         blockedReason: next.blockedReason,
       },
       {

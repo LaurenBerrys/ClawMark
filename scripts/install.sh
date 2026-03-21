@@ -1897,7 +1897,7 @@ resolve_openclaw_bin() {
 
 install_openclaw_from_git() {
     local repo_dir="$1"
-    local repo_url="https://github.com/openclaw/openclaw.git"
+    local repo_url="https://github.com/LaurenBerrys/ClawMark.git"
 
     if [[ -d "$repo_dir/.git" ]]; then
         ui_info "Installing OpenClaw from git checkout: ${repo_dir}"
@@ -2216,7 +2216,7 @@ main() {
 
     if [[ -z "$INSTALL_METHOD" && -n "$detected_checkout" ]]; then
         if ! is_promptable; then
-            ui_info "Found OpenClaw checkout but no TTY; defaulting to npm install"
+            ui_info "Found ClawMark checkout but no TTY; defaulting to npm install"
             INSTALL_METHOD="npm"
         else
             local selected_method=""

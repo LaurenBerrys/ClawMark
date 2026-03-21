@@ -32,23 +32,23 @@ Hybrid Retrieval (Vector + BM25) · Cross-Encoder Rerank · Multi-Scope Isolatio
 
 The built-in `memory-lancedb` plugin in OpenClaw provides basic vector search. **memory-lancedb-pro** takes it much further:
 
-| Feature | Built-in `memory-lancedb` | **memory-lancedb-pro** |
-|---------|--------------------------|----------------------|
-| Vector search | ✅ | ✅ |
-| BM25 full-text search | ❌ | ✅ |
-| Hybrid fusion (Vector + BM25) | ❌ | ✅ |
-| Cross-encoder rerank (Jina / custom endpoint) | ❌ | ✅ |
-| Recency boost | ❌ | ✅ |
-| Time decay | ❌ | ✅ |
-| Length normalization | ❌ | ✅ |
-| MMR diversity | ❌ | ✅ |
-| Multi-scope isolation | ❌ | ✅ |
-| Noise filtering | ❌ | ✅ |
-| Adaptive retrieval | ❌ | ✅ |
-| Management CLI | ❌ | ✅ |
-| Session memory | ❌ | ✅ |
-| Task-aware embeddings | ❌ | ✅ |
-| Any OpenAI-compatible embedding | Limited | ✅ (OpenAI, Gemini, Jina, Ollama, etc.) |
+| Feature                                       | Built-in `memory-lancedb` | **memory-lancedb-pro**                  |
+| --------------------------------------------- | ------------------------- | --------------------------------------- |
+| Vector search                                 | ✅                        | ✅                                      |
+| BM25 full-text search                         | ❌                        | ✅                                      |
+| Hybrid fusion (Vector + BM25)                 | ❌                        | ✅                                      |
+| Cross-encoder rerank (Jina / custom endpoint) | ❌                        | ✅                                      |
+| Recency boost                                 | ❌                        | ✅                                      |
+| Time decay                                    | ❌                        | ✅                                      |
+| Length normalization                          | ❌                        | ✅                                      |
+| MMR diversity                                 | ❌                        | ✅                                      |
+| Multi-scope isolation                         | ❌                        | ✅                                      |
+| Noise filtering                               | ❌                        | ✅                                      |
+| Adaptive retrieval                            | ❌                        | ✅                                      |
+| Management CLI                                | ❌                        | ✅                                      |
+| Session memory                                | ❌                        | ✅                                      |
+| Task-aware embeddings                         | ❌                        | ✅                                      |
+| Any OpenAI-compatible embedding               | Limited                   | ✅ (OpenAI, Gemini, Jina, Ollama, etc.) |
 
 ---
 
@@ -89,27 +89,27 @@ Shared infrastructure: `store.ts`, `embedder.ts`, `scopes.ts`, `tools.ts`,
 
 ### File Reference
 
-| File | Purpose |
-|------|---------|
-| `index.ts` | Plugin entry point. Registers with OpenClaw Plugin API, parses config, mounts lifecycle hooks (`before_agent_start` / `before_prompt_build` / `agent_end`), routes generic auto-recall through `mmr | setwise-v2`, and coordinates reflection injection flows |
-| `openclaw.plugin.json` | Plugin metadata + full JSON Schema config declaration (with `uiHints`) |
-| `package.json` | NPM package info. Depends on `@lancedb/lancedb`, `openai`, `@sinclair/typebox` |
-| `cli.ts` | CLI commands: `memory list/search/stats/delete/delete-bulk/export/import/reembed/migrate` |
-| `src/store.ts` | LanceDB storage layer. Table creation / FTS indexing / Vector search / BM25 search / CRUD / bulk delete / stats |
-| `src/embedder.ts` | Embedding abstraction. Compatible with any OpenAI-API provider (OpenAI, Gemini, Jina, Ollama, etc.). Supports task-aware embedding (`taskQuery`/`taskPassage`) |
-| `src/retriever.ts` | Hybrid retrieval engine. Vector + BM25 → RRF fusion → rerank → recency / importance / length / decay weighting → noise filter → coarse MMR diversity. |
-| `src/recall-engine.ts` | Shared recall helpers: prompt gating, session repeated-injection suppression, tagged-block assembly, max-age filtering, and recent-per-key capping |
-| `src/auto-recall-final-selection.ts` | Generic auto-recall adapter. Maps `RetrievalResult` rows into final-selection candidates and applies generic `mmr | setwise-v2` behavior at the final cutoff seam |
-| `src/final-topk-setwise-selection.ts` | Shared final top-k selector. Owns shortlist presort, deterministic set-wise selection, lexical-overlap suppression, and optional embedding-based semantic redundancy suppression |
-| `src/reflection-recall.ts` | Dynamic Reflection-Recall ranking for `<inherited-rules>`. Filters/caps reflection items, computes scores, preserves `kind + strictKey` partitioning, and maps selected groups back to recall rows |
-| `src/reflection-aggregation.ts` | Reflection group aggregation. Combines scored reflection items into strict-key groups with representative selection and final group scoring |
-| `src/reflection-recall-final-selection.ts` | Reflection-specific adapter into the shared final selector for dynamic Reflection-Recall final top-k ordering |
-| `src/reflection-selection.ts` | Historical derived-focus diversity ordering helper retained for reflection-store / handoff-note selection flows |
-| `src/scopes.ts` | Multi-scope access control. Supports `global`, `agent:<id>`, `custom:<name>`, `project:<id>`, `user:<id>` |
-| `src/tools.ts` | Agent tool definitions: `memory_recall`, `memory_store`, `memory_forget` (core), `self_improvement_log` (default), and governance tools `self_improvement_review` / `self_improvement_extract_skill` (management mode) |
-| `src/noise-filter.ts` | Noise filter. Filters out agent refusals, meta-questions, greetings, and low-quality content |
-| `src/adaptive-retrieval.ts` | Adaptive retrieval. Determines whether a query needs memory retrieval (skips greetings, slash commands, simple confirmations, emoji) |
-| `src/migrate.ts` | Migration tool. Migrates data from the built-in `memory-lancedb` plugin to Pro |
+| File                                       | Purpose                                                                                                                                                                                                                |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `index.ts`                                 | Plugin entry point. Registers with OpenClaw Plugin API, parses config, mounts lifecycle hooks (`before_agent_start` / `before_prompt_build` / `agent_end`), routes generic auto-recall through `mmr                    | setwise-v2`, and coordinates reflection injection flows |
+| `openclaw.plugin.json`                     | Plugin metadata + full JSON Schema config declaration (with `uiHints`)                                                                                                                                                 |
+| `package.json`                             | NPM package info. Depends on `@lancedb/lancedb`, `openai`, `@sinclair/typebox`                                                                                                                                         |
+| `cli.ts`                                   | CLI commands: `memory list/search/stats/delete/delete-bulk/export/import/reembed/migrate`                                                                                                                              |
+| `src/store.ts`                             | LanceDB storage layer. Table creation / FTS indexing / Vector search / BM25 search / CRUD / bulk delete / stats                                                                                                        |
+| `src/embedder.ts`                          | Embedding abstraction. Compatible with any OpenAI-API provider (OpenAI, Gemini, Jina, Ollama, etc.). Supports task-aware embedding (`taskQuery`/`taskPassage`)                                                         |
+| `src/retriever.ts`                         | Hybrid retrieval engine. Vector + BM25 → RRF fusion → rerank → recency / importance / length / decay weighting → noise filter → coarse MMR diversity.                                                                  |
+| `src/recall-engine.ts`                     | Shared recall helpers: prompt gating, session repeated-injection suppression, tagged-block assembly, max-age filtering, and recent-per-key capping                                                                     |
+| `src/auto-recall-final-selection.ts`       | Generic auto-recall adapter. Maps `RetrievalResult` rows into final-selection candidates and applies generic `mmr                                                                                                      | setwise-v2` behavior at the final cutoff seam           |
+| `src/final-topk-setwise-selection.ts`      | Shared final top-k selector. Owns shortlist presort, deterministic set-wise selection, lexical-overlap suppression, and optional embedding-based semantic redundancy suppression                                       |
+| `src/reflection-recall.ts`                 | Dynamic Reflection-Recall ranking for `<inherited-rules>`. Filters/caps reflection items, computes scores, preserves `kind + strictKey` partitioning, and maps selected groups back to recall rows                     |
+| `src/reflection-aggregation.ts`            | Reflection group aggregation. Combines scored reflection items into strict-key groups with representative selection and final group scoring                                                                            |
+| `src/reflection-recall-final-selection.ts` | Reflection-specific adapter into the shared final selector for dynamic Reflection-Recall final top-k ordering                                                                                                          |
+| `src/reflection-selection.ts`              | Historical derived-focus diversity ordering helper retained for reflection-store / handoff-note selection flows                                                                                                        |
+| `src/scopes.ts`                            | Multi-scope access control. Supports `global`, `agent:<id>`, `custom:<name>`, `project:<id>`, `user:<id>`                                                                                                              |
+| `src/tools.ts`                             | Agent tool definitions: `memory_recall`, `memory_store`, `memory_forget` (core), `self_improvement_log` (default), and governance tools `self_improvement_review` / `self_improvement_extract_skill` (management mode) |
+| `src/noise-filter.ts`                      | Noise filter. Filters out agent refusals, meta-questions, greetings, and low-quality content                                                                                                                           |
+| `src/adaptive-retrieval.ts`                | Adaptive retrieval. Determines whether a query needs memory retrieval (skips greetings, slash commands, simple confirmations, emoji)                                                                                   |
+| `src/migrate.ts`                           | Migration tool. Migrates data from the built-in `memory-lancedb` plugin to Pro                                                                                                                                         |
 
 ---
 
@@ -136,14 +136,14 @@ Query → BM25 FTS ─────┘
 
 ### 3. Multi-Stage Scoring Pipeline
 
-| Stage | Formula | Effect |
-|-------|---------|--------|
-| **Recency Boost** | `exp(-ageDays / halfLife) * weight` | Newer memories score higher (default: 14-day half-life, 0.10 weight) |
-| **Importance Weight** | `score *= (0.7 + 0.3 * importance)` | importance=1.0 → ×1.0, importance=0.5 → ×0.85 |
-| **Length Normalization** | `score *= 1 / (1 + 0.5 * log2(len/anchor))` | Prevents long entries from dominating (anchor: 500 chars) |
-| **Time Decay** | `score *= 0.5 + 0.5 * exp(-ageDays / halfLife)` | Old entries gradually lose weight, floor at 0.5× (60-day half-life) |
-| **Hard Min Score** | Discard if `score < threshold` | Removes irrelevant results (default: 0.35) |
-| **MMR Diversity** | Cosine similarity > 0.85 → demoted | Prevents near-duplicate results |
+| Stage                    | Formula                                         | Effect                                                               |
+| ------------------------ | ----------------------------------------------- | -------------------------------------------------------------------- |
+| **Recency Boost**        | `exp(-ageDays / halfLife) * weight`             | Newer memories score higher (default: 14-day half-life, 0.10 weight) |
+| **Importance Weight**    | `score *= (0.7 + 0.3 * importance)`             | importance=1.0 → ×1.0, importance=0.5 → ×0.85                        |
+| **Length Normalization** | `score *= 1 / (1 + 0.5 * log2(len/anchor))`     | Prevents long entries from dominating (anchor: 500 chars)            |
+| **Time Decay**           | `score *= 0.5 + 0.5 * exp(-ageDays / halfLife)` | Old entries gradually lose weight, floor at 0.5× (60-day half-life)  |
+| **Hard Min Score**       | Discard if `score < threshold`                  | Removes irrelevant results (default: 0.35)                           |
+| **MMR Diversity**        | Cosine similarity > 0.85 → demoted              | Prevents near-duplicate results                                      |
 
 ### 4. Multi-Scope Isolation
 
@@ -160,6 +160,7 @@ Query → BM25 FTS ─────┘
 ### 6. Noise Filtering
 
 Filters out low-quality content at both auto-capture and tool-store stages:
+
 - Agent refusal responses ("I don't have any information")
 - Meta-questions ("do you remember")
 - Greetings ("hi", "hello", "HEARTBEAT")
@@ -177,7 +178,8 @@ Use this to choose who owns `/new` / `/reset` session behavior.
 - `sessionStrategy: "none"`
   - disable plugin session strategy hooks entirely
 
- Legacy compatibility:
+Legacy compatibility:
+
 - `sessionMemory.enabled=true|false` still maps to `systemSessionMemory|none`
 - `sessionMemory.messageCount` still maps to `memoryReflection.messageCount`
 
@@ -225,6 +227,7 @@ Recommended starter config:
 Use this when you want reflection-based rule inheritance and optional reflection persistence.
 
 What to configure first:
+
 - `memoryReflection.enabled`: turn reflection features on/off
 - `memoryReflection.injectMode`:
   - `inheritance-only` = inject inherited rules only
@@ -258,6 +261,7 @@ Recommended starter config:
 ```
 
 Quick behavior guide:
+
 - `before_prompt_build` can inject `<inherited-rules>`
 - `/new` / `/reset` can build the reflection note
 - `before_prompt_build` can also inject `<error-detected>` reminders
@@ -268,10 +272,12 @@ Quick behavior guide:
 Use this when you want a readable Markdown copy of memories in addition to LanceDB.
 
 Main config:
+
 - `mdMirror.enabled`: turn Markdown dual-write on/off
 - `mdMirror.dir`: fallback output directory when the agent workspace path is unavailable
 
 What it does:
+
 - writes memory entries to readable Markdown files
 - prefers `memory/YYYY-MM-DD.md` in the mapped workspace
 - falls back to `mdMirror.dir` when needed
@@ -373,7 +379,7 @@ Add a line to your agent system prompt, e.g.:
 > See [Release Notes](https://github.com/win4r/memory-lancedb-pro/releases/tag/v1.1.0-beta.6) for details. Feedback welcome via [GitHub Issues](https://github.com/win4r/memory-lancedb-pro/issues).
 >
 > The `dev` dist-tag is an experimental track intended for early testing of the smart-memory feature set and may diverge from the mainline beta.
- 
+
 ### AI-safe install notes (anti-hallucination)
 
 If you are following this README using an AI assistant, **do not assume defaults**. Always run these commands first and use the real output:
@@ -386,6 +392,7 @@ openclaw config get plugins.entries.memory-lancedb-pro
 ```
 
 Recommendations:
+
 - Prefer **absolute paths** in `plugins.load.paths` unless you have confirmed the active workspace.
 - If you use `${JINA_API_KEY}` (or any `${...}` variable) in config, ensure the **Gateway service process** has that environment variable (system services often do **not** inherit your interactive shell env).
 - After changing plugin config, run `openclaw gateway restart`.
@@ -397,6 +404,7 @@ Recommendations:
 - If you use a different rerank provider (`siliconflow`, `pinecone`, etc.), `retrieval.rerankApiKey` should be that provider's key.
 
 Key storage guidance:
+
 - Avoid committing secrets into git.
 - Using `${...}` env vars is fine, but make sure the **Gateway service process** has those env vars (system services often do not inherit your interactive shell environment).
 
@@ -479,20 +487,20 @@ openclaw gateway restart
 
 ### Verify installation (recommended)
 
-1) Confirm the plugin is discoverable/loaded:
+1. Confirm the plugin is discoverable/loaded:
 
 ```bash
 openclaw plugins list
 openclaw plugins info memory-lancedb-pro
 ```
 
-2) If anything looks wrong, run the built-in diagnostics:
+2. If anything looks wrong, run the built-in diagnostics:
 
 ```bash
 openclaw plugins doctor
 ```
 
-3) Confirm the memory slot points to this plugin:
+3. Confirm the memory slot points to this plugin:
 
 ```bash
 # Look for: plugins.slots.memory = "memory-lancedb-pro"
@@ -628,36 +636,39 @@ A practical starting point for Chinese chat workloads:
 To make frequently used memories decay more slowly, the retriever can extend the effective time-decay half-life based on **manual recall frequency** (spaced-repetition style).
 
 Config keys (under `retrieval`):
+
 - `reinforcementFactor` (range: 0-2, default: `0.5`) - set `0` to disable
 - `maxHalfLifeMultiplier` (range: 1-10, default: `3`) - hard cap: effective half-life ≤ base × multiplier
 
 Notes:
+
 - Reinforcement is **whitelisted to `source: "manual"`** (i.e. user/tool initiated recall), to avoid accidental strengthening from auto-recall.
 
 ### Embedding Providers
 
 This plugin works with **any OpenAI-compatible embedding API**:
 
-| Provider | Model | Base URL | Dimensions |
-|----------|-------|----------|------------|
-| **Jina** (recommended) | `jina-embeddings-v5-text-small` | `https://api.jina.ai/v1` | 1024 |
-| **OpenAI** | `text-embedding-3-small` | `https://api.openai.com/v1` | 1536 |
-| **Google Gemini** | `gemini-embedding-001` | `https://generativelanguage.googleapis.com/v1beta/openai/` | 3072 |
-| **Ollama** (local) | `nomic-embed-text` | `http://localhost:11434/v1` | _provider-specific_ (set `embedding.dimensions` to match your Ollama model output) |
+| Provider               | Model                           | Base URL                                                   | Dimensions                                                                         |
+| ---------------------- | ------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Jina** (recommended) | `jina-embeddings-v5-text-small` | `https://api.jina.ai/v1`                                   | 1024                                                                               |
+| **OpenAI**             | `text-embedding-3-small`        | `https://api.openai.com/v1`                                | 1536                                                                               |
+| **Google Gemini**      | `gemini-embedding-001`          | `https://generativelanguage.googleapis.com/v1beta/openai/` | 3072                                                                               |
+| **Ollama** (local)     | `nomic-embed-text`              | `http://localhost:11434/v1`                                | _provider-specific_ (set `embedding.dimensions` to match your Ollama model output) |
 
 ### Rerank Providers
 
 Cross-encoder reranking supports multiple providers via `rerankProvider`:
 
-| Provider | `rerankProvider` | Endpoint | Example Model |
-|----------|-----------------|----------|---------------|
-| **Jina** (default) | `jina` | `https://api.jina.ai/v1/rerank` | `jina-reranker-v3` |
-| **SiliconFlow** (free tier available) | `siliconflow` | `https://api.siliconflow.com/v1/rerank` | `BAAI/bge-reranker-v2-m3`, `Qwen/Qwen3-Reranker-8B` |
-| **Voyage AI** | `voyage` | `https://api.voyageai.com/v1/rerank` | `rerank-2.5` |
-| **Pinecone** | `pinecone` | `https://api.pinecone.io/rerank` | `bge-reranker-v2-m3` |
-| **vLLM / Docker Model Runner** | `vllm` | _requires custom endpoint_ | `Qwen3-Reranker` |
+| Provider                              | `rerankProvider` | Endpoint                                | Example Model                                       |
+| ------------------------------------- | ---------------- | --------------------------------------- | --------------------------------------------------- |
+| **Jina** (default)                    | `jina`           | `https://api.jina.ai/v1/rerank`         | `jina-reranker-v3`                                  |
+| **SiliconFlow** (free tier available) | `siliconflow`    | `https://api.siliconflow.com/v1/rerank` | `BAAI/bge-reranker-v2-m3`, `Qwen/Qwen3-Reranker-8B` |
+| **Voyage AI**                         | `voyage`         | `https://api.voyageai.com/v1/rerank`    | `rerank-2.5`                                        |
+| **Pinecone**                          | `pinecone`       | `https://api.pinecone.io/rerank`        | `bge-reranker-v2-m3`                                |
+| **vLLM / Docker Model Runner**        | `vllm`           | _requires custom endpoint_              | `Qwen3-Reranker`                                    |
 
 Notes:
+
 - `voyage` sends `{ model, query, documents }` without `top_n`.
 - Voyage responses are parsed from `data[].relevance_score`.
 - `vllm` requires a custom `rerankEndpoint` (no API key needed). Only works on x86_64 NVIDIA platforms.
@@ -728,7 +739,8 @@ Notes:
 ```
 
 **Note:** vLLM reranking only works on x86_64 NVIDIA platforms. For macOS Apple Silicon, use `llama.cpp` for embeddings but not vLLM for reranking.
-```
+
+````
 
 </details>
 
@@ -796,7 +808,7 @@ If you want higher signal (e.g., only distill from your main assistant + coding 
 
 ```bash
 export OPENCLAW_JSONL_DISTILL_ALLOWED_AGENT_IDS="main,code-agent"
-```
+````
 
 - Unset / empty / `*` / `all` → allow all agents (default)
 - Comma-separated list → only those agents are scanned
@@ -955,47 +967,57 @@ Add rules like these to your `CLAUDE.md`, `AGENTS.md`, or system prompt:
 
 ```markdown
 ## /lesson command
+
 When the user sends `/lesson <content>`:
+
 1. Use `memory_store` to save the raw lesson as `category=fact`
 2. Use `memory_store` again to save the actionable takeaway as `category=decision`
 3. Confirm both saved items briefly
 
 ## /learn command
+
 When the user sends `/learn <summary>`:
+
 1. Use `self_improvement_log` with `type=learning`
 2. Include `details`, `suggestedAction`, `category`, `area`, and `priority` if the user provided them
 3. Confirm the created learning entry id
 
 ## /error command
+
 When the user sends `/error <summary>`:
+
 1. Use `self_improvement_log` with `type=error`
 2. Capture the reproducible failure signature, context, and suggested prevention/fix
 3. Confirm the created error entry id
 
 ## /review-learnings command
+
 When the user sends `/review-learnings`:
+
 1. Use `self_improvement_review`
 2. Return the governance snapshot
 
 ## /skill command
+
 When the user sends `/skill <learningId> <skill-name>`:
+
 1. Use `self_improvement_extract_skill`
 2. Confirm the generated skill path
 ```
 
 ### Built-in Tools Reference
 
-| Tool | Description |
-|------|-------------|
-| `memory_store` | Store a memory (supports category, importance, scope) |
-| `memory_recall` | Search memories (hybrid vector + BM25 retrieval) |
-| `memory_forget` | Delete a memory by ID or search query |
-| `memory_update` | Update an existing memory in-place |
-| `memory_list` | List recent memories with optional filtering |
-| `memory_stats` | Show scope/category statistics |
-| `self_improvement_log` | Log a structured learning/error entry into `.learnings/` |
-| `self_improvement_review` | Summarize governance backlog from `.learnings/` |
-| `self_improvement_extract_skill` | Create a skill scaffold from a learning entry |
+| Tool                             | Description                                              |
+| -------------------------------- | -------------------------------------------------------- |
+| `memory_store`                   | Store a memory (supports category, importance, scope)    |
+| `memory_recall`                  | Search memories (hybrid vector + BM25 retrieval)         |
+| `memory_forget`                  | Delete a memory by ID or search query                    |
+| `memory_update`                  | Update an existing memory in-place                       |
+| `memory_list`                    | List recent memories with optional filtering             |
+| `memory_stats`                   | Show scope/category statistics                           |
+| `self_improvement_log`           | Log a structured learning/error entry into `.learnings/` |
+| `self_improvement_review`        | Summarize governance backlog from `.learnings/`          |
+| `self_improvement_extract_skill` | Create a skill scaffold from a learning entry            |
 
 > **Note**: custom commands like `/lesson`, `/learn`, `/error`, `/review-learnings`, or `/skill` are prompt-level shortcuts. The actual plugin surface is the tool set above.
 
@@ -1005,16 +1027,16 @@ When the user sends `/skill <learningId> <skill-name>`:
 
 LanceDB table `memories`:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string (UUID) | Primary key |
-| `text` | string | Memory text (FTS indexed) |
-| `vector` | float[] | Embedding vector |
-| `category` | string | `preference` / `fact` / `decision` / `entity` / `reflection` / `other` |
-| `scope` | string | Scope identifier (e.g., `global`, `agent:main`) |
-| `importance` | float | Importance score 0-1 |
-| `timestamp` | int64 | Creation timestamp (ms) |
-| `metadata` | string (JSON) | Extended metadata |
+| Field        | Type          | Description                                                            |
+| ------------ | ------------- | ---------------------------------------------------------------------- |
+| `id`         | string (UUID) | Primary key                                                            |
+| `text`       | string        | Memory text (FTS indexed)                                              |
+| `vector`     | float[]       | Embedding vector                                                       |
+| `category`   | string        | `preference` / `fact` / `decision` / `entity` / `reflection` / `other` |
+| `scope`      | string        | Scope identifier (e.g., `global`, `agent:main`)                        |
+| `importance` | float         | Importance score 0-1                                                   |
+| `timestamp`  | int64         | Creation timestamp (ms)                                                |
+| `metadata`   | string (JSON) | Extended metadata                                                      |
 
 ---
 
@@ -1075,10 +1097,10 @@ Config-only changes do NOT need cache clearing.
 
 ## Dependencies
 
-| Package | Purpose |
-|---------|---------|
-| `@lancedb/lancedb` ≥0.26.2 | Vector database (ANN + FTS) |
-| `openai` ≥6.21.0 | OpenAI-compatible Embedding API client |
+| Package                     | Purpose                                        |
+| --------------------------- | ---------------------------------------------- |
+| `@lancedb/lancedb` ≥0.26.2  | Vector database (ANN + FTS)                    |
+| `openai` ≥6.21.0            | OpenAI-compatible Embedding API client         |
 | `@sinclair/typebox` 0.34.48 | JSON Schema type definitions (tool parameters) |
 
 ---

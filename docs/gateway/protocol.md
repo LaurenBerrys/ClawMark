@@ -10,7 +10,7 @@ title: "Gateway Protocol"
 # Gateway protocol (WebSocket)
 
 The Gateway WS protocol is the **single control plane + node transport** for
-OpenClaw. All clients (CLI, web UI, macOS app, iOS/Android nodes, headless
+ClawMark. All clients (CLI, web UI, macOS app, iOS/Android nodes, headless
 nodes) connect over WebSocket and declare their **role** + **scope** at
 handshake time.
 
@@ -223,7 +223,7 @@ The Gateway treats these as **claims** and enforces server-side allowlists.
 - **Local** connects include loopback and the gateway host’s own tailnet address
   (so same‑host tailnet binds can still auto‑approve).
 - All WS clients must include `device` identity during `connect` (operator + node).
-  Control UI can omit it only in these modes:
+  User Console can omit it only in these modes:
   - `gateway.controlUi.allowInsecureAuth=true` for localhost-only insecure HTTP compatibility.
   - `gateway.controlUi.dangerouslyDisableDeviceAuth=true` (break-glass, severe security downgrade).
 - All connections must sign the server-provided `connect.challenge` nonce.
