@@ -1,3 +1,4 @@
+import { GATEWAY_CLIENT_IDS, GATEWAY_CLIENT_MODES } from "../../protocol/client-info.js";
 import type { ConnectParams } from "../../protocol/index.js";
 import type { GatewayRole } from "../../role-policy.js";
 import { roleCanSkipDeviceIdentity } from "../../role-policy.js";
@@ -56,6 +57,35 @@ export function isTrustedProxyControlUiOperatorAuth(params: {
     params.authMode === "trusted-proxy" &&
     params.authOk &&
     params.authMethod === "trusted-proxy"
+  );
+}
+
+export function isDesktopConsoleLocalOperatorAuth(params: {
+  clientId: string;
+  clientMode: string;
+  role: GatewayRole;
+  authOk: boolean;
+  authMethod: string | undefined;
+  isLocalClient: boolean;
+  desktopRuntimeHostEnabled?: boolean;
+}): boolean {
+  const desktopRuntimeHostEnabled =
+    params.desktopRuntimeHostEnabled ?? process.env.CLAWMARK_DESKTOP_RUNTIME_HOST === "1";
+  if (!desktopRuntimeHostEnabled || !params.isLocalClient || !params.authOk) {
+    return false;
+  }
+  if (params.role !== "operator") {
+    return false;
+  }
+  if (params.authMethod !== "token" && params.authMethod !== "password") {
+    return false;
+  }
+  if (params.clientMode !== GATEWAY_CLIENT_MODES.UI) {
+    return false;
+  }
+  return (
+    params.clientId === GATEWAY_CLIENT_IDS.MACOS_APP ||
+    params.clientId === GATEWAY_CLIENT_IDS.GATEWAY_CLIENT
   );
 }
 

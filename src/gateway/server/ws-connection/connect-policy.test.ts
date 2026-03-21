@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   evaluateMissingDeviceIdentity,
+  isDesktopConsoleLocalOperatorAuth,
   isTrustedProxyControlUiOperatorAuth,
   resolveControlUiAuthPolicy,
   shouldSkipControlUiPairing,
@@ -186,6 +187,68 @@ describe("ws connect policy", () => {
     expect(shouldSkipControlUiPairing(bypass, false, false)).toBe(false);
     expect(shouldSkipControlUiPairing(strict, true, false)).toBe(false);
     expect(shouldSkipControlUiPairing(strict, false, true)).toBe(true);
+  });
+
+  test("recognizes bundled desktop console local operator auth", () => {
+    expect(
+      isDesktopConsoleLocalOperatorAuth({
+        clientId: "openclaw-macos",
+        clientMode: "ui",
+        role: "operator",
+        authOk: true,
+        authMethod: "token",
+        isLocalClient: true,
+        desktopRuntimeHostEnabled: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      isDesktopConsoleLocalOperatorAuth({
+        clientId: "gateway-client",
+        clientMode: "ui",
+        role: "operator",
+        authOk: true,
+        authMethod: "password",
+        isLocalClient: true,
+        desktopRuntimeHostEnabled: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      isDesktopConsoleLocalOperatorAuth({
+        clientId: "openclaw-macos",
+        clientMode: "ui",
+        role: "operator",
+        authOk: true,
+        authMethod: "token",
+        isLocalClient: true,
+        desktopRuntimeHostEnabled: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      isDesktopConsoleLocalOperatorAuth({
+        clientId: "openclaw-macos",
+        clientMode: "ui",
+        role: "operator",
+        authOk: true,
+        authMethod: "token",
+        isLocalClient: false,
+        desktopRuntimeHostEnabled: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      isDesktopConsoleLocalOperatorAuth({
+        clientId: "openclaw-macos",
+        clientMode: "backend",
+        role: "operator",
+        authOk: true,
+        authMethod: "token",
+        isLocalClient: true,
+        desktopRuntimeHostEnabled: true,
+      }),
+    ).toBe(false);
   });
 
   test("trusted-proxy control-ui bypass only applies to operator + trusted-proxy auth", () => {

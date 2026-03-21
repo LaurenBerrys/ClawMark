@@ -81,6 +81,7 @@ import { resolveConnectAuthDecision, resolveConnectAuthState } from "./auth-cont
 import { formatGatewayAuthFailureMessage } from "./auth-messages.js";
 import {
   evaluateMissingDeviceIdentity,
+  isDesktopConsoleLocalOperatorAuth,
   isTrustedProxyControlUiOperatorAuth,
   resolveControlUiAuthPolicy,
   shouldSkipControlUiPairing,
@@ -515,6 +516,14 @@ export function attachGatewayWsMessageHandler(params: {
             authOk,
             authMethod,
           });
+          const desktopConsoleAuthOk = isDesktopConsoleLocalOperatorAuth({
+            clientId: connectParams.client.id,
+            clientMode: connectParams.client.mode,
+            role,
+            authOk,
+            authMethod,
+            isLocalClient,
+          });
           const decision = evaluateMissingDeviceIdentity({
             hasDeviceIdentity: Boolean(device),
             role,
@@ -527,9 +536,12 @@ export function attachGatewayWsMessageHandler(params: {
             isLocalClient,
           });
           // Shared token/password auth can bypass pairing for trusted operators, but
-          // device-less backend clients must not self-declare scopes. Control UI
-          // keeps its explicitly allowed device-less scopes on the allow path.
-          if (!device && (!isControlUi || decision.kind !== "allow")) {
+          // device-less backend clients must not self-declare scopes. Control UI and
+          // bundled desktop-console sessions keep their explicitly allowed scopes on
+          // the local operator path.
+          const preserveUnboundScopes =
+            Boolean(device) || (isControlUi && decision.kind === "allow") || desktopConsoleAuthOk;
+          if (!preserveUnboundScopes) {
             clearUnboundScopes();
           }
           if (decision.kind === "allow") {

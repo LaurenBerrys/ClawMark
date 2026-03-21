@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { withEnvAsync } from "../test-utils/env.js";
+import { GATEWAY_CLIENT_IDS, GATEWAY_CLIENT_MODES } from "./protocol/client-info.js";
 import {
   connectReq,
   CONTROL_UI_CLIENT,
@@ -79,6 +81,40 @@ describe("gateway auth compatibility baseline", () => {
       } finally {
         ws.close();
       }
+    });
+
+    test("preserves scopes for bundled desktop console local operator sessions", async () => {
+      await withEnvAsync({ CLAWMARK_DESKTOP_RUNTIME_HOST: "1" }, async () => {
+        const ws = await openWs(port);
+        try {
+          const res = await connectReq(ws, {
+            token: "secret",
+            device: null,
+            client: {
+              id: GATEWAY_CLIENT_IDS.MACOS_APP,
+              version: "clawmark-desktop-v1",
+              platform: "macos",
+              mode: GATEWAY_CLIENT_MODES.UI,
+            },
+            scopes: [
+              "operator.read",
+              "operator.write",
+              "operator.admin",
+              "operator.approvals",
+              "operator.pairing",
+            ],
+          });
+          expect(res.ok).toBe(true);
+
+          const statusRes = await rpcReq(ws, "status");
+          expect(statusRes.ok).toBe(true);
+
+          const adminRes = await rpcReq(ws, "set-heartbeats", { enabled: false });
+          expect(adminRes.ok).toBe(true);
+        } finally {
+          ws.close();
+        }
+      });
     });
 
     test("returns stable token-missing details for control ui without token", async () => {

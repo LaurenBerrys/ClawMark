@@ -372,6 +372,8 @@ Map<String, Object?> buildConnectParams({
     },
     "role": "operator",
     "scopes": const <String>[
+      "operator.read",
+      "operator.write",
       "operator.admin",
       "operator.approvals",
       "operator.pairing",
