@@ -443,100 +443,124 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
     if (current == null) {
       return;
     }
-    final release = current.latestRelease ?? await _fetchLatestRelease(current);
-    final downloadsRoot = current.downloadsRoot;
-    if (downloadsRoot.isEmpty) {
-      throw StateError("桌面宿主没有上报下载目录。");
-    }
-    final downloadDirectory = Directory(downloadsRoot);
-    await downloadDirectory.create(recursive: true);
-    final partialPath = path.join(downloadDirectory.path, "${release.assetName}.part");
-    final finalPath = path.join(downloadDirectory.path, release.assetName);
-    final partialFile = File(partialPath);
-    final finalFile = File(finalPath);
-    if (await partialFile.exists()) {
-      await partialFile.delete();
-    }
+    File? partialFile;
+    File? finalFile;
+    ClawMarkCoreRelease? release;
+    try {
+      state = AsyncData(
+        current.copyWith(
+          phase: "downloading",
+          progress: 0.0,
+          errorMessage: null,
+          statusMessage: "正在准备下载 ClawMarkCore...",
+        ),
+      );
+      release = current.latestRelease ?? await _fetchLatestRelease(current);
+      final downloadsRoot = current.downloadsRoot;
+      if (downloadsRoot.isEmpty) {
+        throw StateError("桌面宿主没有上报下载目录。");
+      }
+      final downloadDirectory = Directory(downloadsRoot);
+      await downloadDirectory.create(recursive: true);
+      final partialPath = path.join(downloadDirectory.path, "${release.assetName}.part");
+      final finalPath = path.join(downloadDirectory.path, release.assetName);
+      partialFile = File(partialPath);
+      finalFile = File(finalPath);
+      if (await partialFile.exists()) {
+        await partialFile.delete();
+      }
 
-    state = AsyncData(
-      current.copyWith(
-        phase: "downloading",
-        progress: 0,
-        errorMessage: null,
-        statusMessage: "正在下载 ClawMarkCore ${release.version}...",
-      ),
-    );
-    await _downloadReleaseAsset(
-      release,
-      partialFile,
-      onProgress: (fraction) {
-        final latestState = state.valueOrNull;
-        if (latestState == null) {
-          return;
-        }
-        state = AsyncData(latestState.copyWith(progress: fraction));
-      },
-    );
-    if (await finalFile.exists()) {
-      await finalFile.delete();
-    }
-    await partialFile.rename(finalFile.path);
+      state = AsyncData(
+        state.requireValue.copyWith(
+          latestRelease: release,
+          phase: "downloading",
+          progress: 0.0,
+          errorMessage: null,
+          statusMessage: "正在下载 ClawMarkCore ${release.version}...",
+        ),
+      );
+      await _downloadReleaseAsset(
+        release,
+        partialFile,
+        onProgress: (fraction) {
+          final latestState = state.valueOrNull;
+          if (latestState == null) {
+            return;
+          }
+          state = AsyncData(latestState.copyWith(progress: fraction));
+        },
+      );
+      if (await finalFile.exists()) {
+        await finalFile.delete();
+      }
+      await partialFile.rename(finalFile.path);
 
-    state = AsyncData(
-      state.requireValue.copyWith(
-        phase: "verifying",
-        progress: null,
-        statusMessage: "正在校验已下载的 ClawMarkCore 包...",
-      ),
-    );
-    final digest = await _sha256OfFile(finalFile);
-    if (digest != release.sha256.toLowerCase()) {
-      throw StateError(
-        "${release.assetName} 的 SHA-256 校验不匹配。期望 ${release.sha256}，实际 $digest。",
+      state = AsyncData(
+        state.requireValue.copyWith(
+          phase: "verifying",
+          progress: null,
+          statusMessage: "正在校验已下载的 ClawMarkCore 包...",
+        ),
+      );
+      final digest = await _sha256OfFile(finalFile);
+      if (digest != release.sha256.toLowerCase()) {
+        throw StateError(
+          "${release.assetName} 的 SHA-256 校验不匹配。期望 ${release.sha256}，实际 $digest。",
+        );
+      }
+
+      final downloadedRelease = release.copyWith(
+        localArchivePath: finalFile.path,
+        downloadedAt: DateTime.now().millisecondsSinceEpoch,
+      );
+      await _writeCachedReleaseState(
+        state.requireValue,
+        CachedReleaseState(
+          lastCheckedAt: DateTime.now().millisecondsSinceEpoch,
+          releaseStatus: "available",
+          releaseStatusMessage: "已找到可安装的 ClawMarkCore 版本。",
+          release: downloadedRelease,
+        ),
+      );
+
+      state = AsyncData(
+        state.requireValue.copyWith(
+          phase: "installing",
+          latestRelease: downloadedRelease,
+          statusMessage: "正在把 ClawMarkCore 安装到桌面运行时槽位...",
+        ),
+      );
+      final installedStatus = await _bridge.installCoreArchive(finalFile.path);
+
+      state = AsyncData(
+        _compose(
+          installedStatus,
+          latestRelease: downloadedRelease,
+          phase: "starting_runtime",
+          statusMessage: "正在启动刚安装好的 ClawMarkCore 运行时...",
+        ),
+      );
+      final readyStatus = await _waitForReady(downloadedRelease);
+      state = AsyncData(
+        _compose(
+          readyStatus,
+          latestRelease: downloadedRelease,
+          statusMessage:
+              "ClawMarkCore ${downloadedRelease.version} 已安装完成，运行时已经就绪。",
+          errorMessage: null,
+        ),
+      );
+    } catch (error) {
+      if (partialFile != null && await partialFile.exists()) {
+        await partialFile.delete();
+      }
+      await _setBootstrapFailureState(
+        baseline: current,
+        latestRelease: release,
+        statusMessage: "ClawMarkCore 下载或安装失败，请查看错误后重试。",
+        error: error,
       );
     }
-
-    final downloadedRelease = release.copyWith(
-      localArchivePath: finalFile.path,
-      downloadedAt: DateTime.now().millisecondsSinceEpoch,
-    );
-    await _writeCachedReleaseState(
-      state.requireValue,
-      CachedReleaseState(
-        lastCheckedAt: DateTime.now().millisecondsSinceEpoch,
-        releaseStatus: "available",
-        releaseStatusMessage: "已找到可安装的 ClawMarkCore 版本。",
-        release: downloadedRelease,
-      ),
-    );
-
-    state = AsyncData(
-      state.requireValue.copyWith(
-        phase: "installing",
-        latestRelease: downloadedRelease,
-        statusMessage: "正在把 ClawMarkCore 安装到桌面运行时槽位...",
-      ),
-    );
-    final installedStatus = await _bridge.installCoreArchive(finalFile.path);
-
-    state = AsyncData(
-      _compose(
-        installedStatus,
-        latestRelease: downloadedRelease,
-        phase: "starting_runtime",
-        statusMessage: "正在启动刚安装好的 ClawMarkCore 运行时...",
-      ),
-    );
-    final readyStatus = await _waitForReady(downloadedRelease);
-    state = AsyncData(
-      _compose(
-        readyStatus,
-        latestRelease: downloadedRelease,
-        statusMessage:
-            "ClawMarkCore ${downloadedRelease.version} 已安装完成，运行时已经就绪。",
-        errorMessage: null,
-      ),
-    );
   }
 
   Future<void> restartRuntime() async {
@@ -544,38 +568,82 @@ class DesktopBootstrapController extends AsyncNotifier<DesktopBootstrapViewState
     if (current == null) {
       return;
     }
-    state = AsyncData(
-      current.copyWith(
-        phase: "starting_runtime",
-        progress: null,
-        errorMessage: null,
-        statusMessage: "正在启动本地 ClawMark 运行时...",
-      ),
-    );
-    await _bridge.restartRuntime();
-    final readyStatus = await _waitForReady(current.latestRelease);
-    state = AsyncData(
-        _compose(
-          readyStatus,
-          latestRelease: current.latestRelease,
-          statusMessage: "本地运行时已经就绪。",
+    try {
+      state = AsyncData(
+        current.copyWith(
+          phase: "starting_runtime",
+          progress: null,
           errorMessage: null,
+          statusMessage: "正在启动本地 ClawMark 运行时...",
         ),
       );
+      await _bridge.restartRuntime();
+      final readyStatus = await _waitForReady(current.latestRelease);
+      state = AsyncData(
+          _compose(
+            readyStatus,
+            latestRelease: current.latestRelease,
+            statusMessage: "本地运行时已经就绪。",
+            errorMessage: null,
+          ),
+        );
+    } catch (error) {
+      await _setBootstrapFailureState(
+        baseline: current,
+        latestRelease: current.latestRelease,
+        statusMessage: "本地运行时启动失败，请查看错误后重试。",
+        error: error,
+      );
+    }
   }
 
   Future<void> openLogs() async {
-    final result = await _bridge.openLogs();
     final current = state.valueOrNull;
     if (current == null) {
       return;
     }
+    try {
+      final result = await _bridge.openLogs();
+      state = AsyncData(
+        current.copyWith(
+          statusMessage:
+              asBool(result["opened"])
+                  ? "已打开日志目录：${asString(result["logRoot"], current.logRoot)}。"
+                  : "日志目录可在这里查看：${asString(result["logRoot"], current.logRoot)}。",
+          errorMessage: null,
+        ),
+      );
+    } catch (error) {
+      await _setBootstrapFailureState(
+        baseline: current,
+        latestRelease: current.latestRelease,
+        statusMessage: "打开日志目录失败。",
+        error: error,
+      );
+    }
+  }
+
+  Future<void> _setBootstrapFailureState({
+    required DesktopBootstrapViewState baseline,
+    required String statusMessage,
+    required Object error,
+    ClawMarkCoreRelease? latestRelease,
+  }) async {
+    Map<String, dynamic> hostStatus = baseline.hostStatus;
+    try {
+      hostStatus = await _bridge.getBootstrapStatus();
+    } catch (_) {}
+    final resolvedRelease = latestRelease ?? baseline.latestRelease;
     state = AsyncData(
-      current.copyWith(
-        statusMessage:
-            asBool(result["opened"])
-                ? "已打开日志目录：${asString(result["logRoot"], current.logRoot)}。"
-                : "日志目录可在这里查看：${asString(result["logRoot"], current.logRoot)}。",
+      _compose(
+        hostStatus,
+        latestRelease: resolvedRelease,
+        releaseStatus: baseline.releaseStatus,
+        lastCheckedAt: baseline.lastCheckedAt,
+        releaseStatusMessage: baseline.releaseStatusMessage,
+        phase: _failurePhaseForState(baseline, resolvedRelease),
+        statusMessage: statusMessage,
+        errorMessage: _describeBootstrapActionError(error),
       ),
     );
   }
@@ -944,6 +1012,38 @@ String _describeReleaseFetchError(Object error) {
     return "当前网络不可用，无法连接 GitHub Releases。";
   }
   return error.toString();
+}
+
+String _describeBootstrapActionError(Object error) {
+  if (error is HttpException) {
+    return "网络请求失败：${error.message}。";
+  }
+  if (error is SocketException) {
+    return "网络连接失败，请检查网络后重试。";
+  }
+  if (error is FileSystemException) {
+    return "本地文件操作失败：${error.message}${error.path == null ? "" : " (${error.path})"}。";
+  }
+  if (error is TimeoutException) {
+    return "操作超时，请稍后重试。";
+  }
+  return error.toString();
+}
+
+String _failurePhaseForState(
+  DesktopBootstrapViewState baseline,
+  ClawMarkCoreRelease? latestRelease,
+) {
+  if (!baseline.hasInstalledCore) {
+    if (latestRelease != null) {
+      return "download_available";
+    }
+    if (baseline.releaseStatus == "missing" || baseline.releaseStatus == "incompatible") {
+      return "release_missing";
+    }
+    return "core_missing";
+  }
+  return "failed";
 }
 
 String _expectedAssetName({
